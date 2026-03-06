@@ -36,14 +36,26 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100)
       emit_info 100 "Root Page" "ENG"
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200)
       emit_info 200 "Child Page" "ENG"
       ;;
-    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300)
+    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300|rediscovered_after_visit:300)
       emit_info 300 "Linked Page" "ENG"
+      ;;
+    shared_find_cache_across_pages:201)
+      emit_info 201 "Second Child" "ENG"
+      ;;
+    shared_find_cache_across_pages:970)
+      emit_info 970 "Shared Cache Page" "ENG"
+      ;;
+    find_partial_candidate_info_failure:961)
+      emit_info 961 "Exact Match Page" "ENG"
+      ;;
+    single_quote_multiline_page_link:980)
+      emit_info 980 "Single Quote Page" "ENG"
       ;;
     linked_no_descendants:400)
       emit_info 400 "Linked Descendant" "ENG"
@@ -81,6 +93,12 @@ scenario_info() {
     unicode_entity_title:930)
       emit_info 930 "R&D Привет" "ENG"
       ;;
+    root_repeated_in_children:200)
+      emit_info 200 "Child Page" "ENG"
+      ;;
+    edit_fail_fast:900|info_fail_fast:900)
+      emit_info 900 "Later Page" "ENG"
+      ;;
     *)
       exit 1
       ;;
@@ -107,9 +125,40 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
       ;;
+    edit_fail_fast:100|info_fail_fast:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
+JSON
+      ;;
     self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100)
       cat <<'JSON'
 {"results":[]}
+JSON
+      ;;
+    children_command_fails:100)
+      exit 1
+      ;;
+    children_malformed_json:100)
+      printf '{this is not valid json\n'
+      ;;
+    find_partial_candidate_info_failure:100|single_quote_multiline_page_link:100|broken_storage_xml:100)
+      cat <<'JSON'
+{"results":[]}
+JSON
+      ;;
+    shared_find_cache_across_pages:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]},{"id":"201","title":"Second Child","children":[]}]}
+JSON
+      ;;
+    rediscovered_after_visit:100)
+      cat <<'JSON'
+{"results":[{"id":"300","title":"Linked Page","children":[]},{"id":"200","title":"Child Page","children":[]}]}
+JSON
+      ;;
+    root_repeated_in_children:100)
+      cat <<'JSON'
+{"results":[{"id":"100","title":"Root Page","children":[]},{"id":"200","title":"Child Page","children":[]}]}
 JSON
       ;;
     non_page_child_ids:100)
@@ -149,6 +198,66 @@ scenario_edit() {
     basic:100|linked_no_descendants:100|cycle_links:100|non_page_child_ids:100)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
+XML
+      ;;
+    children_command_fails:100|children_malformed_json:100|root_repeated_in_children:100)
+      cat > "$output" <<'XML'
+<p>root only export</p>
+XML
+      ;;
+    find_partial_candidate_info_failure:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Exact Match Page" /></ac:link>
+XML
+      ;;
+    shared_find_cache_across_pages:100)
+      cat > "$output" <<'XML'
+<p>root page</p>
+XML
+      ;;
+    shared_find_cache_across_pages:200|shared_find_cache_across_pages:201)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Shared Cache Page" /></ac:link>
+XML
+      ;;
+    shared_find_cache_across_pages:970)
+      cat > "$output" <<'XML'
+<p>shared cache target</p>
+XML
+      ;;
+    rediscovered_after_visit:100|root_repeated_in_children:200)
+      cat > "$output" <<'XML'
+<p>tree page</p>
+XML
+      ;;
+    rediscovered_after_visit:200)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
+XML
+      ;;
+    rediscovered_after_visit:300)
+      cat > "$output" <<'XML'
+<p>already visited page</p>
+XML
+      ;;
+    single_quote_multiline_page_link:100)
+      cat > "$output" <<'XML'
+<ac:link>
+  <ri:page
+    ri:space-key='ENG'
+    ri:content-title='Single Quote Page'
+  />
+</ac:link>
+XML
+      ;;
+    single_quote_multiline_page_link:980)
+      cat > "$output" <<'XML'
+<p>single quote target</p>
+XML
+      ;;
+    broken_storage_xml:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Unclosed Link"
 XML
       ;;
     duplicate_child_entries:100|inaccessible_tree_page:100)
@@ -277,6 +386,11 @@ XML
 <p>popular page</p>
 XML
       ;;
+    find_partial_candidate_info_failure:961)
+      cat > "$output" <<'XML'
+<p>exact match page</p>
+XML
+      ;;
     same_page_four_forms:100)
       cat > "$output" <<'XML'
 <ri:content-entity ri:content-id="300" />
@@ -331,10 +445,18 @@ XML
 <p>unicode and entities page</p>
 XML
       ;;
+    edit_fail_fast:100|edit_fail_fast:900|info_fail_fast:100|info_fail_fast:900)
+      cat > "$output" <<'XML'
+<p>export test</p>
+XML
+      ;;
     fail_fast:200|no_fail_fast:200)
       cat > "$output" <<'XML'
 <p>will fail on export</p>
 XML
+      ;;
+    edit_fail_fast:200)
+      exit 1
       ;;
     *)
       exit 1
@@ -391,6 +513,15 @@ scenario_find() {
       ;;
     repeated_title_links:Repeated\ Page:ENG)
       printf 'ID: 910\n'
+      ;;
+    find_partial_candidate_info_failure:Exact\ Match\ Page:ENG)
+      printf 'ID: 960\nID: 961\n'
+      ;;
+    shared_find_cache_across_pages:Shared\ Cache\ Page:ENG)
+      printf 'ID: 970\n'
+      ;;
+    single_quote_multiline_page_link:Single\ Quote\ Page:ENG)
+      printf 'ID: 980\n'
       ;;
     unicode_entity_title:R\&D\ Привет:ENG)
       printf 'ID: 930\n'
@@ -777,6 +908,28 @@ test_pageid_text_inside_code_blocks_is_ignored() {
   assert_equal "0" "$(mock_call_count "$log_file" '^export\t88[789]($|\t)')" "code-block-pageid unexpected export count"
 }
 
+test_children_command_failure_falls_back_to_root_only() {
+  local out_dir="$WORK_DIR/children-command-fails"
+  local log_file="$TEST_ROOT/children-command-fails.log"
+  run_cmd "$log_file" children_command_fails "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-command-fails processed_pages"
+  assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "children-command-fails manifest rows"
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_contains 'failed to collect children for root page 100; continuing with root page only' "$log_file"
+}
+
+test_children_malformed_json_falls_back_to_root_only() {
+  local out_dir="$WORK_DIR/children-malformed-json"
+  local log_file="$TEST_ROOT/children-malformed-json.log"
+  run_cmd "$log_file" children_malformed_json "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-malformed-json processed_pages"
+  assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "children-malformed-json manifest rows"
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_contains 'failed to parse children list for root page 100; continuing with root page only' "$log_file"
+}
+
 test_find_output_without_explicit_ids_is_skipped() {
   local out_dir="$WORK_DIR/find-output-without-ids"
   local log_file="$TEST_ROOT/find-output-without-ids.log"
@@ -795,6 +948,18 @@ test_find_candidate_limit_skips_wide_matches() {
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "find-candidate-limit unresolved_links"
   assert_path_missing "$out_dir/pages/ENG/Popular_Page__860"
   assert_contains 'returned 4 candidates; limit is 3, skipping' "$log_file"
+  assert_equal "0" "$(mock_call_count "$log_file" '^info\t86[0-3]($|\t)')" "find-candidate-limit candidate info count"
+}
+
+test_find_resolution_survives_partial_candidate_info_failure() {
+  local out_dir="$WORK_DIR/find-partial-candidate-info-failure"
+  local log_file="$TEST_ROOT/find-partial-candidate-info-failure.log"
+  run_cmd "$log_file" find_partial_candidate_info_failure "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "find-partial-candidate-info-failure resolved_links"
+  assert_file_exists "$out_dir/pages/ENG/Exact_Match_Page__961/page.html"
+  assert_equal "1" "$(mock_call_count "$log_file" '^info\t960($|\t)')" "find-partial-candidate-info-failure bad candidate info count"
+  assert_equal "2" "$(mock_call_count "$log_file" '^info\t961($|\t)')" "find-partial-candidate-info-failure good candidate info count"
 }
 
 test_repeated_title_links_use_single_find_resolution() {
@@ -806,6 +971,18 @@ test_repeated_title_links_use_single_find_resolution() {
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "repeated-title-links resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^find\tRepeated Page\t--space\tENG$')" "repeated-title-links find count"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t910($|\t)')" "repeated-title-links export count"
+}
+
+test_find_cache_is_reused_across_pages() {
+  local out_dir="$WORK_DIR/shared-find-cache"
+  local log_file="$TEST_ROOT/shared-find-cache.log"
+  run_cmd "$log_file" shared_find_cache_across_pages "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "4" "$(summary_value "$out_dir/summary.txt" processed_pages)" "shared-find-cache processed_pages"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "shared-find-cache resolved_links"
+  assert_equal "1" "$(mock_call_count "$log_file" '^find\tShared Cache Page\t--space\tENG$')" "shared-find-cache find count"
+  assert_equal "2" "$(mock_call_count "$log_file" '^info\t970($|\t)')" "shared-find-cache target info count"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t970($|\t)')" "shared-find-cache export count"
 }
 
 test_content_id_only_page_link_is_downloaded() {
@@ -828,6 +1005,25 @@ test_unicode_and_entities_titles_resolve_correctly() {
   assert_file_exists "$out_dir/pages/ENG/R&D_Привет__930/page.html"
 }
 
+test_single_quoted_multiline_page_link_resolves() {
+  local out_dir="$WORK_DIR/single-quote-multiline-page-link"
+  local log_file="$TEST_ROOT/single-quote-multiline-page-link.log"
+  run_cmd "$log_file" single_quote_multiline_page_link "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "single-quote-multiline-page-link resolved_links"
+  assert_file_exists "$out_dir/pages/ENG/Single_Quote_Page__980/page.html"
+}
+
+test_broken_storage_xml_does_not_abort_run() {
+  local out_dir="$WORK_DIR/broken-storage-xml"
+  local log_file="$TEST_ROOT/broken-storage-xml.log"
+  run_cmd "$log_file" broken_storage_xml "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "broken-storage-xml processed_pages"
+  assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "broken-storage-xml resolved_links"
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+}
+
 test_mixed_link_forms_are_detected() {
   local out_dir="$WORK_DIR/link-forms"
   local log_file="$TEST_ROOT/link-forms.log"
@@ -847,6 +1043,26 @@ test_external_pageid_like_href_does_not_trigger_download() {
 
   assert_equal "0" "$(mock_call_count "$log_file" '^info\t999($|\t)')" "external-pageid-href info count"
   assert_equal "0" "$(mock_call_count "$log_file" '^export\t999($|\t)')" "external-pageid-href export count"
+}
+
+test_rediscovered_already_visited_page_is_not_reexported() {
+  local out_dir="$WORK_DIR/rediscovered-after-visit"
+  local log_file="$TEST_ROOT/rediscovered-after-visit.log"
+  run_cmd "$log_file" rediscovered_after_visit "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "rediscovered-after-visit processed_pages"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "rediscovered-after-visit export count"
+  assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "rediscovered-after-visit manifest page 300 count"
+}
+
+test_root_page_repeated_in_children_is_ignored() {
+  local out_dir="$WORK_DIR/root-repeated-in-children"
+  local log_file="$TEST_ROOT/root-repeated-in-children.log"
+  run_cmd "$log_file" root_repeated_in_children "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "root-repeated-in-children processed_pages"
+  assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root-repeated-in-children root manifest count"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t100($|\t)')" "root-repeated-in-children root export count"
 }
 
 test_dry_run_minimal_artifacts() {
@@ -893,6 +1109,34 @@ test_fail_fast_stops_after_first_page_failure() {
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
 }
 
+test_fail_fast_stops_after_edit_failure() {
+  local out_dir="$WORK_DIR/edit-fail-fast"
+  local log_file="$TEST_ROOT/edit-fail-fast.log"
+  if run_cmd "$log_file" edit_fail_fast "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+    printf 'ASSERT FAILED: edit-fail-fast scenario should return non-zero\n' >&2
+    exit 1
+  fi
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "edit-fail-fast incomplete"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "edit-fail-fast processed_pages"
+  assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
+  assert_contains $'200\tedit' "$out_dir/failed-pages.tsv"
+}
+
+test_fail_fast_stops_after_info_failure() {
+  local out_dir="$WORK_DIR/info-fail-fast"
+  local log_file="$TEST_ROOT/info-fail-fast.log"
+  if run_cmd "$log_file" info_fail_fast "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+    printf 'ASSERT FAILED: info-fail-fast scenario should return non-zero\n' >&2
+    exit 1
+  fi
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "info-fail-fast incomplete"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "info-fail-fast processed_pages"
+  assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
+  assert_contains $'200\tinfo' "$out_dir/failed-pages.tsv"
+}
+
 test_no_fail_fast_continues_after_failure() {
   local out_dir="$WORK_DIR/no-fail-fast"
   local log_file="$TEST_ROOT/no-fail-fast.log"
@@ -932,17 +1176,27 @@ test_page_param_with_colon_space_stays_same_space_title
 test_duplicate_child_entries_do_not_duplicate_queueing
 test_same_page_found_through_four_forms_exports_once
 test_pageid_text_inside_code_blocks_is_ignored
+test_children_command_failure_falls_back_to_root_only
+test_children_malformed_json_falls_back_to_root_only
 test_find_output_without_explicit_ids_is_skipped
 test_find_candidate_limit_skips_wide_matches
+test_find_resolution_survives_partial_candidate_info_failure
 test_repeated_title_links_use_single_find_resolution
+test_find_cache_is_reused_across_pages
 test_content_id_only_page_link_is_downloaded
 test_unicode_and_entities_titles_resolve_correctly
+test_single_quoted_multiline_page_link_resolves
+test_broken_storage_xml_does_not_abort_run
 test_mixed_link_forms_are_detected
 test_external_pageid_like_href_does_not_trigger_download
+test_rediscovered_already_visited_page_is_not_reexported
+test_root_page_repeated_in_children_is_ignored
 test_dry_run_minimal_artifacts
 test_dry_run_keep_metadata
 test_log_file_opt_in
 test_fail_fast_stops_after_first_page_failure
+test_fail_fast_stops_after_edit_failure
+test_fail_fast_stops_after_info_failure
 test_no_fail_fast_continues_after_failure
 test_no_fail_fast_continues_after_inaccessible_tree_page
 

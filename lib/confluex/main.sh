@@ -34,6 +34,7 @@ declare -A FIND_CACHE=()
 declare -A DISCOVERED_BY=()
 declare -A TITLE_BY_ID=()
 declare -A SPACE_BY_ID=()
+CONFLUEX_LAST_RESOLVED_ID=""
 
 confluex_reset_state() {
   QUEUE=()
@@ -43,6 +44,7 @@ confluex_reset_state() {
   DISCOVERED_BY=()
   TITLE_BY_ID=()
   SPACE_BY_ID=()
+  CONFLUEX_LAST_RESOLVED_ID=""
   downloaded_metadata_bytes=0
   downloaded_content_bytes=0
   downloaded_total_bytes=0
@@ -275,10 +277,14 @@ confluex_resolve_by_title() {
   local title="$1"
   local space_key="$2"
   local cache_key="${space_key}|${title}"
+  CONFLUEX_LAST_RESOLVED_ID=""
 
   if [[ -n "${FIND_CACHE[$cache_key]+x}" ]]; then
-    [[ -n "${FIND_CACHE[$cache_key]}" ]] && printf '%s\n' "${FIND_CACHE[$cache_key]}"
-    return 0
+    if [[ -n "${FIND_CACHE[$cache_key]}" ]]; then
+      CONFLUEX_LAST_RESOLVED_ID="${FIND_CACHE[$cache_key]}"
+      return 0
+    fi
+    return 1
   fi
 
   local out_file="$TMP_DIR/find_${RANDOM}_${RANDOM}.txt"
@@ -355,7 +361,7 @@ confluex_resolve_by_title() {
 
   if [[ -n "$resolved_id" ]]; then
     FIND_CACHE["$cache_key"]="$resolved_id"
-    printf '%s\n' "$resolved_id"
+    CONFLUEX_LAST_RESOLVED_ID="$resolved_id"
     return 0
   fi
 
@@ -396,7 +402,8 @@ confluex_process_links_for_page() {
       local resolved_id=""
       log_info "  found internal link by title: [${ref_a:-same-space}] $ref_b"
 
-      if resolved_id="$(confluex_resolve_by_title "$ref_b" "$ref_a")"; then
+      if confluex_resolve_by_title "$ref_b" "$ref_a"; then
+        resolved_id="$CONFLUEX_LAST_RESOLVED_ID"
         log_info "    resolved link -> pageId $resolved_id"
         printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
           "$page_id" \
