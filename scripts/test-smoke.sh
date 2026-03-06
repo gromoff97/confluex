@@ -36,7 +36,7 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100|dry_run_attachments_failure:100|linked_page_info_failure_after_resolution:100|child_without_title_in_children:100)
       emit_info 100 "Root Page" "ENG"
       ;;
     preflight_failure:100)
@@ -48,7 +48,7 @@ scenario_info() {
       printf 'Space Key: \n'
       printf 'URL: https://example.invalid/pages/100\n'
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200|child_without_title_in_children:200)
       emit_info 200 "Child Page" "ENG"
       ;;
     basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300|rediscovered_after_visit:300|title_link_to_tree_page:300|mixed_valid_broken_ambiguous_links:300|invalid_content_id_valid_title:300|shared_linked_page_two_sources:300)
@@ -59,6 +59,9 @@ scenario_info() {
       ;;
     linked_page_edit_failure_after_resolution:998)
       emit_info 998 "Locked Page" "ENG"
+      ;;
+    linked_page_info_failure_after_resolution:999)
+      exit 1
       ;;
     children_title_mismatch:200)
       emit_info 200 "Actual Child Page" "ENG"
@@ -199,9 +202,14 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
       ;;
-    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|case_sensitive_title_match:100|whitespace_variant_title:100|empty_current_space_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|space_from_url_only:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|broken_links_with_invalid_id:100)
+    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|case_sensitive_title_match:100|whitespace_variant_title:100|empty_current_space_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|space_from_url_only:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|broken_links_with_invalid_id:100|dry_run_attachments_failure:100|linked_page_info_failure_after_resolution:100)
       cat <<'JSON'
 {"results":[]}
+JSON
+      ;;
+    child_without_title_in_children:100)
+      cat <<'JSON'
+{"results":[{"id":"200","children":[]}]}
 JSON
       ;;
     children_title_mismatch:100)
@@ -289,7 +297,7 @@ scenario_edit() {
   local output="$3"
 
   case "$scenario:$page_id" in
-    basic:100|linked_no_descendants:100|cycle_links:100|non_page_child_ids:100)
+    basic:100|linked_no_descendants:100|cycle_links:100|non_page_child_ids:100|dry_run_attachments_failure:100)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
 XML
@@ -319,6 +327,11 @@ XML
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Locked Page" /></ac:link>
 XML
       ;;
+    linked_page_info_failure_after_resolution:100)
+      cat > "$output" <<'XML'
+<ri:content-entity ri:content-id="999" />
+XML
+      ;;
     children_title_mismatch:100)
       cat > "$output" <<'XML'
 <p>root page</p>
@@ -337,6 +350,11 @@ XML
     shared_linked_page_two_sources:201)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
+XML
+      ;;
+    child_without_title_in_children:100)
+      cat > "$output" <<'XML'
+<p>root page</p>
 XML
       ;;
     broken_links_with_invalid_id:100)
@@ -591,7 +609,7 @@ XML
 <p>exact match page</p>
 XML
       ;;
-    candidate_info_title_mismatch:993|case_sensitive_title_match:990|whitespace_variant_title:991|empty_current_space_title:995|empty_current_space_title:996|mixed_valid_and_broken_links:300|mixed_valid_broken_ambiguous_links:300|conflicting_content_id_and_title:300|empty_title_info:992|space_from_url_only:994|children_title_mismatch:200|shared_linked_page_two_sources:300)
+    candidate_info_title_mismatch:993|case_sensitive_title_match:990|whitespace_variant_title:991|empty_current_space_title:995|empty_current_space_title:996|mixed_valid_and_broken_links:300|mixed_valid_broken_ambiguous_links:300|conflicting_content_id_and_title:300|empty_title_info:992|space_from_url_only:994|children_title_mismatch:200|shared_linked_page_two_sources:300|child_without_title_in_children:200)
       cat > "$output" <<'XML'
 <p>target page</p>
 XML
@@ -679,6 +697,9 @@ scenario_attachments() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
+    dry_run_attachments_failure:100)
+      exit 1
+      ;;
     self_link:700)
       printf 'self.txt\n'
       ;;
@@ -729,6 +750,9 @@ scenario_find() {
       ;;
     candidate_info_title_mismatch:Expected\ Page:ENG)
       printf 'ID: 993\n'
+      ;;
+    linked_page_info_failure_after_resolution:Info\ Missing\ Page:ENG)
+      printf 'ID: 999\n'
       ;;
     linked_page_edit_failure_after_resolution:Locked\ Page:ENG)
       printf 'ID: 998\n'
@@ -1121,6 +1145,36 @@ test_empty_log_file_rejected() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
+test_missing_page_id_is_rejected() {
+  local log_file="$TEST_ROOT/missing-page-id.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN"; then
+    printf 'ASSERT FAILED: missing-page-id scenario should fail\n' >&2
+    exit 1
+  fi
+  assert_contains 'ERROR: --page-id is required' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_invalid_page_id_is_rejected() {
+  local log_file="$TEST_ROOT/invalid-page-id.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id nope; then
+    printf 'ASSERT FAILED: invalid-page-id scenario should fail\n' >&2
+    exit 1
+  fi
+  assert_contains 'ERROR: --page-id must be numeric, got: nope' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_invalid_max_find_candidates_is_rejected() {
+  local log_file="$TEST_ROOT/invalid-max-find.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --max-find-candidates 0; then
+    printf 'ASSERT FAILED: invalid-max-find scenario should fail\n' >&2
+    exit 1
+  fi
+  assert_contains 'ERROR: --max-find-candidates must be a positive integer' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
 test_help_does_not_create_output_dirs() {
   local log_file="$TEST_ROOT/help.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --help
@@ -1157,6 +1211,18 @@ test_basic_export_downloads_tree_and_linked_page() {
   assert_contains 'downloaded_total_bytes=' "$out_dir/summary.txt"
   assert_contains 'downloaded_content_bytes=' "$out_dir/summary.txt"
   assert_contains 'downloaded_metadata_bytes=' "$out_dir/summary.txt"
+}
+
+test_page_id_equals_syntax_works() {
+  local out_dir="$WORK_DIR/page-id-equals"
+  local log_file="$TEST_ROOT/page-id-equals.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id=100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
 }
 
 test_linked_page_does_not_pull_its_descendants() {
@@ -1701,6 +1767,17 @@ test_children_title_is_ignored_in_favor_of_info_title() {
   assert_path_missing "$out_dir/pages/ENG/Stale_Child_Title__200"
 }
 
+test_child_without_title_in_children_is_still_exported() {
+  local out_dir="$WORK_DIR/child-without-title"
+  local log_file="$TEST_ROOT/child-without-title.log"
+  run_cmd "$log_file" child_without_title_in_children "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+}
+
 test_empty_title_in_info_uses_fallback_folder_name() {
   local out_dir="$WORK_DIR/empty-title-info"
   local log_file="$TEST_ROOT/empty-title-info.log"
@@ -1767,6 +1844,17 @@ test_dry_run_keep_metadata() {
   assert_file_exists "$out_dir/pages/ENG/Root_Page__100/_attachments_preview.txt"
 }
 
+test_dry_run_attachment_listing_failure_does_not_abort_plan() {
+  local out_dir="$WORK_DIR/dry-run-attachments-fail"
+  local log_file="$TEST_ROOT/dry-run-attachments-fail.log"
+  run_cmd "$log_file" dry_run_attachments_failure "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_path_missing "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_contains 'could not list attachments for dry-run preview' "$log_file"
+}
+
 test_log_file_opt_in() {
   local out_dir="$WORK_DIR/export-with-log"
   local explicit_log="$WORK_DIR/custom.log"
@@ -1781,6 +1869,18 @@ test_log_file_opt_in() {
   assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_file_exists "$explicit_log"
   assert_contains 'starting' "$explicit_log"
+}
+
+test_export_downloads_attachments() {
+  local out_dir="$WORK_DIR/export-attachments"
+  local log_file="$TEST_ROOT/export-attachments.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/attachments/readme.txt"
+  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/attachments/readme.txt"
+  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/attachments/readme.txt"
 }
 
 test_export_keep_metadata_persists_metadata_files() {
@@ -1928,13 +2028,31 @@ test_no_fail_fast_continues_after_inaccessible_tree_page() {
   assert_path_missing "$out_dir/pages/NO_SPACE/Forbidden_Page__940"
 }
 
+test_no_fail_fast_continues_after_linked_page_info_failure() {
+  local out_dir="$WORK_DIR/linked-page-info-failure"
+  local log_file="$TEST_ROOT/linked-page-info-failure.log"
+  run_cmd "$log_file" linked_page_info_failure_after_resolution "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "linked-page-info-failure processed_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "linked-page-info-failure resolved_links"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "linked-page-info-failure failed_operations"
+  assert_page_missing "$out_dir" NO_SPACE page_999 999
+}
+
 test_unknown_option_suggestion
 test_install_conflict_rejected
 test_install_dir_requires_install
 test_empty_log_file_rejected
+test_missing_page_id_is_rejected
+test_invalid_page_id_is_rejected
+test_invalid_max_find_candidates_is_rejected
 test_help_does_not_create_output_dirs
 test_install_writes_executable_to_requested_dir
 test_basic_export_downloads_tree_and_linked_page
+test_page_id_equals_syntax_works
 test_linked_page_does_not_pull_its_descendants
 test_duplicate_paths_do_not_duplicate_exports
 test_cycle_links_do_not_loop
@@ -1974,12 +2092,15 @@ test_external_pageid_like_href_does_not_trigger_download
 test_rediscovered_already_visited_page_is_not_reexported
 test_root_page_repeated_in_children_is_ignored
 test_children_title_is_ignored_in_favor_of_info_title
+test_child_without_title_in_children_is_still_exported
 test_empty_title_in_info_uses_fallback_folder_name
 test_space_key_is_recovered_from_url_when_missing_in_info
 test_multiple_broken_links_including_invalid_id_are_handled_independently
 test_dry_run_minimal_artifacts
 test_dry_run_keep_metadata
+test_dry_run_attachment_listing_failure_does_not_abort_plan
 test_log_file_opt_in
+test_export_downloads_attachments
 test_export_keep_metadata_persists_metadata_files
 test_dry_run_with_log_file_writes_log_without_html
 test_default_output_dir_is_generated_for_export
@@ -1990,5 +2111,6 @@ test_fail_fast_stops_after_edit_failure
 test_fail_fast_stops_after_info_failure
 test_no_fail_fast_continues_after_failure
 test_no_fail_fast_continues_after_inaccessible_tree_page
+test_no_fail_fast_continues_after_linked_page_info_failure
 
 printf 'Smoke tests passed.\n'
