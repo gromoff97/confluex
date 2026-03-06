@@ -70,22 +70,30 @@ Run a full export:
 confluex export --page-id 12345 --out ./dump
 ```
 
-Run an encrypted export for a GPG recipient:
+Save a default encryption key once:
 
 ```bash
-confluex export --page-id 12345 --out ./dump --encrypt-for you@example.com
+confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 ```
+
+Run an encrypted export for your own GPG key:
+
+```bash
+confluex export --page-id 12345 --out ./dump --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+```
+
+You can also encrypt a plan result:
+
+```bash
+confluex plan --page-id 12345 --out ./plan --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+```
+
+If a default encryption key is already saved, export and plan will encrypt automatically even without `--encryption-key`.
 
 Run a more conservative export:
 
 ```bash
 confluex export --page-id 12345 --out ./dump --safe
-```
-
-Legacy syntax is still supported:
-
-```bash
-confluex --page-id 12345 --out ./dump
 ```
 
 ## Main Commands
@@ -136,6 +144,18 @@ confluex doctor
 confluex doctor --page-id 12345
 ```
 
+### `config`
+
+Manages the saved default encryption key.
+
+Examples:
+
+```bash
+confluex config
+confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+confluex config --clear-encryption-key
+```
+
 ### `install`
 
 Copies the script and libraries into an install directory.
@@ -143,7 +163,6 @@ Copies the script and libraries into an install directory.
 Options:
 
 - `--install-dir DIR`: target directory for the installed `confluex` binary
-- `--install`: direct flag alias for `install`
 
 ### `uninstall`
 
@@ -152,7 +171,6 @@ Removes the installed script and its `lib/confluex` directory from the selected 
 Options:
 
 - `--install-dir DIR`: uninstall from a custom install location
-- `--uninstall`: direct flag alias for `uninstall`
 
 ## Options
 
@@ -193,7 +211,17 @@ If an explicit `--out` already exists, `confluex` stops with an error.
 - `--no-fail-fast`: continue after page-local failures instead of aborting the whole run
 - `--keep-metadata`: persist page metadata files in output
 - `--log-file FILE`: write a persistent run log to `FILE`
-- `--encrypt-for KEY`: create `<out>.tar.gz.gpg` for GPG recipient `KEY` and remove the plain output directory after successful encryption
+- `--encryption-key KEY`: create `<out>.tar.gz.gpg` for GPG key identity `KEY` and remove the plain output directory after successful encryption
+- `--clear-encryption-key`: only for `confluex config`, remove the saved default encryption key
+
+For `--encryption-key`, prefer a full GPG fingerprint. `KEY` can be:
+
+- a full fingerprint
+- a long key id
+- another GPG recipient specifier that `gpg --recipient` accepts
+
+If you do not want to use an email address, use the full fingerprint.
+If a default encryption key is saved with `confluex config`, `export` and `plan` use it automatically. An explicit `--encryption-key` overrides the saved default for the current run.
 
 ### Generic
 
@@ -226,7 +254,7 @@ Typical options:
 - `--no-fail-fast`
 - `--keep-metadata`
 - `--log-file FILE`
-- `--encrypt-for KEY`
+- `--encryption-key KEY`
 
 ### `confluex plan`
 
@@ -239,6 +267,7 @@ Typical options:
 - `--safe`
 - `--keep-metadata`
 - `--log-file FILE`
+- `--encryption-key KEY`
 
 ### `confluex doctor`
 
@@ -248,6 +277,16 @@ Typical options:
 
 - no options: verify local commands only
 - `--page-id ID`: also verify access to a specific page
+
+### `confluex config`
+
+Use when you want to inspect, save, or clear the default encryption key.
+
+Typical options:
+
+- no options: show the current config state
+- `--encryption-key KEY`: save the default key
+- `--clear-encryption-key`: clear the default key
 
 ### `confluex install`
 
@@ -305,7 +344,7 @@ dump/
   summary.txt
 ```
 
-If `--encrypt-for` is used and encryption succeeds:
+If `--encryption-key` is used, or a default encryption key is configured, and encryption succeeds:
 
 - `dump/` is removed
 - `dump.tar.gz.gpg` is created
@@ -387,10 +426,16 @@ Export and keep metadata for debugging:
 confluex export --page-id 12345 --out ./dump --keep-metadata --log-file ./confluex.log
 ```
 
-Export and encrypt for a GPG recipient:
+Export and encrypt for your own GPG key:
 
 ```bash
-confluex export --page-id 12345 --out ./dump --encrypt-for you@example.com
+confluex export --page-id 12345 --out ./dump --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+```
+
+Export using the saved default encryption key:
+
+```bash
+confluex export --page-id 12345 --out ./dump
 ```
 
 Plan conservatively:
@@ -440,6 +485,14 @@ Check:
 - `summary.txt`
 
 ### Decrypt and extract an encrypted export
+
+To find your key fingerprint:
+
+```bash
+gpg --fingerprint
+```
+
+Use the full fingerprint with `--encryption-key` if you want the least ambiguous and most explicit target key.
 
 If the result is `dump.tar.gz.gpg`, decrypt it:
 

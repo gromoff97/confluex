@@ -6,6 +6,8 @@ CONFLUEX_BIN="$ROOT_DIR/confluex"
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/confluex-smoke.XXXXXX")"
 MOCK_BIN_DIR="$TEST_ROOT/mock-bin"
 WORK_DIR="$TEST_ROOT/work"
+TEST_HOME="$TEST_ROOT/home"
+TEST_CONFIG_HOME="$TEST_ROOT/xdg-config"
 REAL_DATE_BIN="$(command -v date)"
 
 cleanup() {
@@ -14,7 +16,9 @@ cleanup() {
 
 trap cleanup EXIT
 
-mkdir -p "$MOCK_BIN_DIR" "$WORK_DIR"
+mkdir -p "$MOCK_BIN_DIR" "$WORK_DIR" "$TEST_HOME" "$TEST_CONFIG_HOME"
+export HOME="$TEST_HOME"
+export XDG_CONFIG_HOME="$TEST_CONFIG_HOME"
 
 cat > "$MOCK_BIN_DIR/confluence" <<'EOF'
 #!/usr/bin/env bash
@@ -1253,6 +1257,14 @@ assert_files_identical() {
   fi
 }
 
+config_file_path() {
+  printf '%s/confluex/config\n' "$XDG_CONFIG_HOME"
+}
+
+reset_config_file() {
+  rm -f "$(config_file_path)"
+}
+
 assert_file_exact() {
   local path="$1"
   local expected="$2"
@@ -1305,29 +1317,19 @@ test_unknown_option_suggestion() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
-test_install_conflict_rejected() {
-  local log_file="$TEST_ROOT/install-conflict.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --install --page-id 100; then
-    printf 'ASSERT FAILED: install conflict test should fail\n' >&2
-    exit 1
-  fi
-  assert_contains '--install cannot be combined with --page-id' "$log_file"
-  assert_no_default_output_dirs "$WORK_DIR"
-}
-
-test_install_dir_requires_install() {
+test_install_dir_is_rejected_for_export() {
   local log_file="$TEST_ROOT/install-dir.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --install-dir /tmp/confluex-bin; then
-    printf 'ASSERT FAILED: install-dir without install should fail\n' >&2
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --install-dir /tmp/confluex-bin; then
+    printf 'ASSERT FAILED: install-dir on export should fail\n' >&2
     exit 1
   fi
-  assert_contains '--install-dir requires --install' "$log_file"
+  assert_contains 'export and plan do not use --install-dir' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_empty_log_file_rejected() {
   local log_file="$TEST_ROOT/empty-log-file.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --log-file=; then
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --log-file=; then
     printf 'ASSERT FAILED: empty log-file should fail\n' >&2
     exit 1
   fi
@@ -1335,19 +1337,19 @@ test_empty_log_file_rejected() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
-test_empty_encrypt_recipient_is_rejected() {
-  local log_file="$TEST_ROOT/empty-encrypt-recipient.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --encrypt-for=; then
-    printf 'ASSERT FAILED: empty encrypt recipient should fail\n' >&2
+test_empty_encrypt_key_identity_is_rejected() {
+  local log_file="$TEST_ROOT/empty-encrypt-key.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --encryption-key=; then
+    printf 'ASSERT FAILED: empty encrypt key identity should fail\n' >&2
     exit 1
   fi
-  assert_contains '--encrypt-for requires a non-empty recipient' "$log_file"
+  assert_contains '--encryption-key requires a non-empty GPG key identity' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_missing_page_id_is_rejected() {
   local log_file="$TEST_ROOT/missing-page-id.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN"; then
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export; then
     printf 'ASSERT FAILED: missing-page-id scenario should fail\n' >&2
     exit 1
   fi
@@ -1355,9 +1357,19 @@ test_missing_page_id_is_rejected() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
+test_missing_command_is_rejected() {
+  local log_file="$TEST_ROOT/missing-command.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN"; then
+    printf 'ASSERT FAILED: missing-command scenario should fail\n' >&2
+    exit 1
+  fi
+  assert_contains 'ERROR: missing command' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
 test_invalid_page_id_is_rejected() {
   local log_file="$TEST_ROOT/invalid-page-id.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id nope; then
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id nope; then
     printf 'ASSERT FAILED: invalid-page-id scenario should fail\n' >&2
     exit 1
   fi
@@ -1367,7 +1379,7 @@ test_invalid_page_id_is_rejected() {
 
 test_invalid_max_find_candidates_is_rejected() {
   local log_file="$TEST_ROOT/invalid-max-find.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --max-find-candidates 0; then
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --max-find-candidates 0; then
     printf 'ASSERT FAILED: invalid-max-find scenario should fail\n' >&2
     exit 1
   fi
@@ -1390,13 +1402,36 @@ test_help_mentions_subcommands_and_safe_mode() {
   assert_contains 'confluex export --page-id <id> [OPTIONS]' "$log_file"
   assert_contains 'confluex plan --page-id <id> [OPTIONS]' "$log_file"
   assert_contains 'confluex doctor [--page-id <id>]' "$log_file"
+  assert_contains 'confluex config [--encryption-key KEY | --clear-encryption-key]' "$log_file"
   assert_contains '--safe' "$log_file"
+}
+
+test_help_documents_all_public_commands_and_options() {
+  local log_file="$TEST_ROOT/help-options.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --help
+
+  assert_contains 'confluex install [--install-dir DIR]' "$log_file"
+  assert_contains 'confluex uninstall [--install-dir DIR]' "$log_file"
+  assert_contains '--page-id ID' "$log_file"
+  assert_contains '--out DIR' "$log_file"
+  assert_contains '--dry-run' "$log_file"
+  assert_contains '--no-fail-fast' "$log_file"
+  assert_contains '--keep-metadata' "$log_file"
+  assert_contains '--log-file FILE' "$log_file"
+  assert_contains '--encryption-key KEY' "$log_file"
+  assert_contains 'fingerprint, long key id' "$log_file"
+  assert_contains 'confluex config [--encryption-key KEY | --clear-encryption-key]' "$log_file"
+  assert_contains '--max-pages N' "$log_file"
+  assert_contains '--max-download-mib N' "$log_file"
+  assert_contains '--sleep-ms N' "$log_file"
+  assert_contains '--max-find-candidates N' "$log_file"
+  assert_contains '--install-dir DIR' "$log_file"
 }
 
 test_install_writes_executable_to_requested_dir() {
   local install_dir="$WORK_DIR/install-bin"
   local log_file="$TEST_ROOT/install.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --install --install-dir "$install_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" install --install-dir "$install_dir"
 
   assert_file_exists "$install_dir/confluex"
   run_cmd "$TEST_ROOT/install-help.log" basic "$install_dir/confluex" --help
@@ -1422,18 +1457,18 @@ test_install_rejects_export_only_options() {
     exit 1
   fi
 
-  assert_contains '--install cannot be combined with --safe' "$log_file"
+  assert_contains 'install does not use --safe' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
-test_install_rejects_encrypt_for() {
+test_install_rejects_encryption_key() {
   local log_file="$TEST_ROOT/install-rejects-encrypt.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" install --encrypt-for you@example.com; then
-    printf 'ASSERT FAILED: install should reject --encrypt-for\n' >&2
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" install --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567; then
+    printf 'ASSERT FAILED: install should reject --encryption-key\n' >&2
     exit 1
   fi
 
-  assert_contains '--install cannot be combined with --encrypt-for' "$log_file"
+  assert_contains 'install does not use --encryption-key' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1448,23 +1483,6 @@ test_uninstall_subcommand_works() {
   assert_path_exists "$install_lib_dir"
 
   run_cmd "$uninstall_log" basic "$CONFLUEX_BIN" uninstall --install-dir "$install_dir"
-
-  assert_path_missing "$install_dir/confluex"
-  assert_path_missing "$install_lib_dir"
-  assert_contains "Removed $install_dir/confluex" "$uninstall_log"
-}
-
-test_uninstall_flag_works() {
-  local install_dir="$WORK_DIR/uninstall-flag-bin"
-  local install_lib_dir="$install_dir/lib/confluex"
-  local install_log="$TEST_ROOT/uninstall-flag-install.log"
-  local uninstall_log="$TEST_ROOT/uninstall-flag.log"
-  run_cmd "$install_log" basic "$CONFLUEX_BIN" install --install-dir "$install_dir"
-
-  assert_file_exists "$install_dir/confluex"
-  assert_path_exists "$install_lib_dir"
-
-  run_cmd "$uninstall_log" basic "$CONFLUEX_BIN" --uninstall --install-dir "$install_dir"
 
   assert_path_missing "$install_dir/confluex"
   assert_path_missing "$install_lib_dir"
@@ -1494,21 +1512,21 @@ test_uninstall_rejects_export_only_options() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
-test_uninstall_rejects_encrypt_for() {
+test_uninstall_rejects_encryption_key() {
   local log_file="$TEST_ROOT/uninstall-rejects-encrypt.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" uninstall --encrypt-for you@example.com; then
-    printf 'ASSERT FAILED: uninstall should reject --encrypt-for\n' >&2
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" uninstall --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567; then
+    printf 'ASSERT FAILED: uninstall should reject --encryption-key\n' >&2
     exit 1
   fi
 
-  assert_contains 'uninstall does not use --encrypt-for' "$log_file"
+  assert_contains 'uninstall does not use --encryption-key' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_basic_export_downloads_tree_and_linked_page() {
   local out_dir="$WORK_DIR/basic-export"
   local log_file="$TEST_ROOT/basic-export.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1597,21 +1615,99 @@ test_doctor_rejects_export_only_options() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
-test_doctor_rejects_encrypt_for() {
+test_doctor_rejects_encryption_key() {
   local log_file="$TEST_ROOT/doctor-rejects-encrypt.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" doctor --encrypt-for you@example.com; then
-    printf 'ASSERT FAILED: doctor should reject --encrypt-for\n' >&2
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" doctor --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567; then
+    printf 'ASSERT FAILED: doctor should reject --encryption-key\n' >&2
     exit 1
   fi
 
-  assert_contains 'doctor does not use --encrypt-for' "$log_file"
+  assert_contains 'doctor does not use --encryption-key' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_config_shows_not_set_by_default() {
+  local log_file="$TEST_ROOT/config-show-empty.log"
+  reset_config_file
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" config
+
+  assert_contains 'confluex config' "$log_file"
+  assert_contains "config file: $(config_file_path)" "$log_file"
+  assert_contains 'default encryption key: <not set>' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_config_saves_default_encryption_key() {
+  local log_file="$TEST_ROOT/config-save.log"
+  local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
+  reset_config_file
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" config --encryption-key "$key_fpr"
+
+  assert_file_exists "$(config_file_path)"
+  assert_contains "Saved default encryption key to $(config_file_path)" "$log_file"
+  assert_contains "encryption_key=$key_fpr" "$(config_file_path)"
+  assert_no_default_output_dirs "$WORK_DIR"
+  reset_config_file
+}
+
+test_config_shows_saved_encryption_key() {
+  local save_log="$TEST_ROOT/config-show-save.log"
+  local show_log="$TEST_ROOT/config-show.log"
+  local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
+
+  reset_config_file
+  run_cmd "$save_log" basic "$CONFLUEX_BIN" config --encryption-key "$key_fpr"
+  run_cmd "$show_log" basic "$CONFLUEX_BIN" config
+
+  assert_contains "default encryption key: $key_fpr" "$show_log"
+  assert_no_default_output_dirs "$WORK_DIR"
+  reset_config_file
+}
+
+test_config_clears_default_encryption_key() {
+  local save_log="$TEST_ROOT/config-clear-save.log"
+  local clear_log="$TEST_ROOT/config-clear.log"
+  local show_log="$TEST_ROOT/config-clear-show.log"
+
+  reset_config_file
+  run_cmd "$save_log" basic "$CONFLUEX_BIN" config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+  run_cmd "$clear_log" basic "$CONFLUEX_BIN" config --clear-encryption-key
+  run_cmd "$show_log" basic "$CONFLUEX_BIN" config
+
+  assert_path_missing "$(config_file_path)"
+  assert_contains "Cleared default encryption key from $(config_file_path)" "$clear_log"
+  assert_contains 'default encryption key: <not set>' "$show_log"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_config_rejects_export_only_options() {
+  local log_file="$TEST_ROOT/config-rejects-page-id.log"
+  reset_config_file
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" config --page-id 100; then
+    printf 'ASSERT FAILED: config should reject --page-id\n' >&2
+    exit 1
+  fi
+
+  assert_contains 'config does not use --page-id' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_config_rejects_conflicting_encryption_options() {
+  local log_file="$TEST_ROOT/config-conflict.log"
+  reset_config_file
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567 --clear-encryption-key; then
+    printf 'ASSERT FAILED: config should reject conflicting encryption options\n' >&2
+    exit 1
+  fi
+
+  assert_contains 'config cannot combine --encryption-key with --clear-encryption-key' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_page_id_equals_syntax_works() {
   local out_dir="$WORK_DIR/page-id-equals"
   local log_file="$TEST_ROOT/page-id-equals.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id=100 --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id=100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1623,7 +1719,7 @@ test_page_id_equals_syntax_works() {
 test_linked_page_does_not_pull_its_descendants() {
   local out_dir="$WORK_DIR/no-descendants"
   local log_file="$TEST_ROOT/no-descendants.log"
-  run_cmd "$log_file" linked_no_descendants "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" linked_no_descendants "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1636,7 +1732,7 @@ test_linked_page_does_not_pull_its_descendants() {
 test_duplicate_paths_do_not_duplicate_exports() {
   local out_dir="$WORK_DIR/duplicate-paths"
   local log_file="$TEST_ROOT/duplicate-paths.log"
-  run_cmd "$log_file" duplicate_paths "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" duplicate_paths "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1651,7 +1747,7 @@ test_duplicate_paths_do_not_duplicate_exports() {
 test_cycle_links_do_not_loop() {
   local out_dir="$WORK_DIR/cycle-links"
   local log_file="$TEST_ROOT/cycle-links.log"
-  run_cmd "$log_file" cycle_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" cycle_links "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1667,7 +1763,7 @@ test_cycle_links_do_not_loop() {
 test_self_link_does_not_duplicate_page() {
   local out_dir="$WORK_DIR/self-link"
   local log_file="$TEST_ROOT/self-link.log"
-  run_cmd "$log_file" self_link "$CONFLUEX_BIN" --page-id 700 --out "$out_dir"
+  run_cmd "$log_file" self_link "$CONFLUEX_BIN" export --page-id 700 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1680,7 +1776,7 @@ test_self_link_does_not_duplicate_page() {
 test_ambiguous_title_stays_unresolved() {
   local out_dir="$WORK_DIR/ambiguous"
   local log_file="$TEST_ROOT/ambiguous.log"
-  run_cmd "$log_file" ambiguous_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" ambiguous_title "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1696,7 +1792,7 @@ test_ambiguous_title_stays_unresolved() {
 test_cross_space_title_link_resolves_correctly() {
   local out_dir="$WORK_DIR/cross-space"
   local log_file="$TEST_ROOT/cross-space.log"
-  run_cmd "$log_file" cross_space "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" cross_space "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1708,7 +1804,7 @@ test_cross_space_title_link_resolves_correctly() {
 test_children_parser_ignores_non_page_ids() {
   local out_dir="$WORK_DIR/non-page-child-ids"
   local log_file="$TEST_ROOT/non-page-child-ids.log"
-  run_cmd "$log_file" non_page_child_ids "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" non_page_child_ids "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1720,7 +1816,7 @@ test_children_parser_ignores_non_page_ids() {
 test_page_param_with_colon_space_stays_same_space_title() {
   local out_dir="$WORK_DIR/title-with-colon"
   local log_file="$TEST_ROOT/title-with-colon.log"
-  run_cmd "$log_file" title_with_colon "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" title_with_colon "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1732,7 +1828,7 @@ test_page_param_with_colon_space_stays_same_space_title() {
 test_title_resolution_is_case_sensitive() {
   local out_dir="$WORK_DIR/case-sensitive-title"
   local log_file="$TEST_ROOT/case-sensitive-title.log"
-  run_cmd "$log_file" case_sensitive_title_match "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" case_sensitive_title_match "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1745,7 +1841,7 @@ test_title_resolution_is_case_sensitive() {
 test_title_resolution_does_not_normalize_internal_whitespace() {
   local out_dir="$WORK_DIR/whitespace-variant-title"
   local log_file="$TEST_ROOT/whitespace-variant-title.log"
-  run_cmd "$log_file" whitespace_variant_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" whitespace_variant_title "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1758,7 +1854,7 @@ test_title_resolution_does_not_normalize_internal_whitespace() {
 test_title_without_space_key_and_unknown_current_space_stays_unresolved() {
   local out_dir="$WORK_DIR/empty-current-space-title"
   local log_file="$TEST_ROOT/empty-current-space-title.log"
-  run_cmd "$log_file" empty_current_space_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" empty_current_space_title "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1772,7 +1868,7 @@ test_title_without_space_key_and_unknown_current_space_stays_unresolved() {
 test_candidate_info_title_mismatch_stays_unresolved() {
   local out_dir="$WORK_DIR/candidate-info-title-mismatch"
   local log_file="$TEST_ROOT/candidate-info-title-mismatch.log"
-  run_cmd "$log_file" candidate_info_title_mismatch "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" candidate_info_title_mismatch "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1785,7 +1881,7 @@ test_candidate_info_title_mismatch_stays_unresolved() {
 test_invalid_content_id_takes_priority_over_valid_title() {
   local out_dir="$WORK_DIR/invalid-content-id-valid-title"
   local log_file="$TEST_ROOT/invalid-content-id-valid-title.log"
-  run_cmd "$log_file" invalid_content_id_valid_title "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" invalid_content_id_valid_title "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1799,7 +1895,7 @@ test_invalid_content_id_takes_priority_over_valid_title() {
 test_duplicate_child_entries_do_not_duplicate_queueing() {
   local out_dir="$WORK_DIR/duplicate-child-entries"
   local log_file="$TEST_ROOT/duplicate-child-entries.log"
-  run_cmd "$log_file" duplicate_child_entries "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" duplicate_child_entries "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1814,7 +1910,7 @@ test_duplicate_child_entries_do_not_duplicate_queueing() {
 test_title_link_to_page_already_in_tree_is_not_reexported() {
   local out_dir="$WORK_DIR/title-link-to-tree-page"
   local log_file="$TEST_ROOT/title-link-to-tree-page.log"
-  run_cmd "$log_file" title_link_to_tree_page "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" title_link_to_tree_page "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1829,7 +1925,7 @@ test_title_link_to_page_already_in_tree_is_not_reexported() {
 test_shared_linked_page_from_two_sources_is_exported_once() {
   local out_dir="$WORK_DIR/shared-linked-page-two-sources"
   local log_file="$TEST_ROOT/shared-linked-page-two-sources.log"
-  run_cmd "$log_file" shared_linked_page_two_sources "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" shared_linked_page_two_sources "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1846,7 +1942,7 @@ test_shared_linked_page_from_two_sources_is_exported_once() {
 test_same_page_found_through_four_forms_exports_once() {
   local out_dir="$WORK_DIR/same-page-four-forms"
   local log_file="$TEST_ROOT/same-page-four-forms.log"
-  run_cmd "$log_file" same_page_four_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" same_page_four_forms "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1863,7 +1959,7 @@ test_same_page_found_through_four_forms_exports_once() {
 test_pageid_text_inside_code_blocks_is_ignored() {
   local out_dir="$WORK_DIR/code-block-pageid"
   local log_file="$TEST_ROOT/code-block-pageid.log"
-  run_cmd "$log_file" code_block_pageid_text "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" code_block_pageid_text "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1880,7 +1976,7 @@ test_pageid_text_inside_code_blocks_is_ignored() {
 test_children_command_failure_falls_back_to_root_only() {
   local out_dir="$WORK_DIR/children-command-fails"
   local log_file="$TEST_ROOT/children-command-fails.log"
-  run_cmd "$log_file" children_command_fails "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" children_command_fails "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1894,7 +1990,7 @@ test_children_command_failure_falls_back_to_root_only() {
 test_children_malformed_json_falls_back_to_root_only() {
   local out_dir="$WORK_DIR/children-malformed-json"
   local log_file="$TEST_ROOT/children-malformed-json.log"
-  run_cmd "$log_file" children_malformed_json "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" children_malformed_json "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1908,7 +2004,7 @@ test_children_malformed_json_falls_back_to_root_only() {
 test_find_output_without_explicit_ids_is_skipped() {
   local out_dir="$WORK_DIR/find-output-without-ids"
   local log_file="$TEST_ROOT/find-output-without-ids.log"
-  run_cmd "$log_file" find_output_without_ids "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" find_output_without_ids "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1921,7 +2017,7 @@ test_find_output_without_explicit_ids_is_skipped() {
 test_find_candidate_limit_skips_wide_matches() {
   local out_dir="$WORK_DIR/find-candidate-limit"
   local log_file="$TEST_ROOT/find-candidate-limit.log"
-  run_cmd "$log_file" find_candidate_limit "$CONFLUEX_BIN" --page-id 100 --max-find-candidates 3 --out "$out_dir"
+  run_cmd "$log_file" find_candidate_limit "$CONFLUEX_BIN" export --page-id 100 --max-find-candidates 3 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1934,7 +2030,7 @@ test_find_candidate_limit_skips_wide_matches() {
 test_find_resolution_survives_partial_candidate_info_failure() {
   local out_dir="$WORK_DIR/find-partial-candidate-info-failure"
   local log_file="$TEST_ROOT/find-partial-candidate-info-failure.log"
-  run_cmd "$log_file" find_partial_candidate_info_failure "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" find_partial_candidate_info_failure "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1946,7 +2042,7 @@ test_find_resolution_survives_partial_candidate_info_failure() {
 test_repeated_title_links_use_single_find_resolution() {
   local out_dir="$WORK_DIR/repeated-title-links"
   local log_file="$TEST_ROOT/repeated-title-links.log"
-  run_cmd "$log_file" repeated_title_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" repeated_title_links "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1960,7 +2056,7 @@ test_repeated_title_links_use_single_find_resolution() {
 test_find_cache_is_reused_across_pages() {
   local out_dir="$WORK_DIR/shared-find-cache"
   local log_file="$TEST_ROOT/shared-find-cache.log"
-  run_cmd "$log_file" shared_find_cache_across_pages "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" shared_find_cache_across_pages "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1976,7 +2072,7 @@ test_find_cache_is_reused_across_pages() {
 test_content_id_only_page_link_is_downloaded() {
   local out_dir="$WORK_DIR/content-id-only-link"
   local log_file="$TEST_ROOT/content-id-only-link.log"
-  run_cmd "$log_file" content_id_only_link "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" content_id_only_link "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -1989,7 +2085,7 @@ test_content_id_only_page_link_is_downloaded() {
 test_mixed_valid_and_broken_links_still_download_valid_target() {
   local out_dir="$WORK_DIR/mixed-valid-and-broken-links"
   local log_file="$TEST_ROOT/mixed-valid-and-broken-links.log"
-  run_cmd "$log_file" mixed_valid_and_broken_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" mixed_valid_and_broken_links "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2002,7 +2098,7 @@ test_mixed_valid_and_broken_links_still_download_valid_target() {
 test_mixed_valid_broken_and_ambiguous_links_behave_independently() {
   local out_dir="$WORK_DIR/mixed-valid-broken-ambiguous-links"
   local log_file="$TEST_ROOT/mixed-valid-broken-ambiguous-links.log"
-  run_cmd "$log_file" mixed_valid_broken_ambiguous_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" mixed_valid_broken_ambiguous_links "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2017,7 +2113,7 @@ test_mixed_valid_broken_and_ambiguous_links_behave_independently() {
 test_conflicting_content_id_and_title_prefers_content_id() {
   local out_dir="$WORK_DIR/conflicting-content-id-and-title"
   local log_file="$TEST_ROOT/conflicting-content-id-and-title.log"
-  run_cmd "$log_file" conflicting_content_id_and_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" conflicting_content_id_and_title "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2030,7 +2126,7 @@ test_conflicting_content_id_and_title_prefers_content_id() {
 test_linked_page_edit_failure_after_resolution_is_reported() {
   local out_dir="$WORK_DIR/linked-page-edit-failure-after-resolution"
   local log_file="$TEST_ROOT/linked-page-edit-failure-after-resolution.log"
-  run_cmd "$log_file" linked_page_edit_failure_after_resolution "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" linked_page_edit_failure_after_resolution "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2044,7 +2140,7 @@ test_linked_page_edit_failure_after_resolution_is_reported() {
 test_root_referenced_again_via_title_and_id_is_not_reexported() {
   local out_dir="$WORK_DIR/root-referenced-again"
   local log_file="$TEST_ROOT/root-referenced-again.log"
-  run_cmd "$log_file" root_referenced_again "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" root_referenced_again "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2059,7 +2155,7 @@ test_root_referenced_again_via_title_and_id_is_not_reexported() {
 test_unicode_and_entities_titles_resolve_correctly() {
   local out_dir="$WORK_DIR/unicode-entity-title"
   local log_file="$TEST_ROOT/unicode-entity-title.log"
-  run_cmd "$log_file" unicode_entity_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" unicode_entity_title "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2071,7 +2167,7 @@ test_unicode_and_entities_titles_resolve_correctly() {
 test_single_quoted_multiline_page_link_resolves() {
   local out_dir="$WORK_DIR/single-quote-multiline-page-link"
   local log_file="$TEST_ROOT/single-quote-multiline-page-link.log"
-  run_cmd "$log_file" single_quote_multiline_page_link "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" single_quote_multiline_page_link "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2083,7 +2179,7 @@ test_single_quoted_multiline_page_link_resolves() {
 test_broken_storage_xml_does_not_abort_run() {
   local out_dir="$WORK_DIR/broken-storage-xml"
   local log_file="$TEST_ROOT/broken-storage-xml.log"
-  run_cmd "$log_file" broken_storage_xml "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" broken_storage_xml "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2096,7 +2192,7 @@ test_broken_storage_xml_does_not_abort_run() {
 test_mixed_link_forms_are_detected() {
   local out_dir="$WORK_DIR/link-forms"
   local log_file="$TEST_ROOT/link-forms.log"
-  run_cmd "$log_file" link_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" link_forms "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2111,7 +2207,7 @@ test_mixed_link_forms_are_detected() {
 test_external_pageid_like_href_does_not_trigger_download() {
   local out_dir="$WORK_DIR/external-pageid-href"
   local log_file="$TEST_ROOT/external-pageid-href.log"
-  run_cmd "$log_file" link_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" link_forms "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2126,7 +2222,7 @@ test_external_pageid_like_href_does_not_trigger_download() {
 test_rediscovered_already_visited_page_is_not_reexported() {
   local out_dir="$WORK_DIR/rediscovered-after-visit"
   local log_file="$TEST_ROOT/rediscovered-after-visit.log"
-  run_cmd "$log_file" rediscovered_after_visit "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" rediscovered_after_visit "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2142,7 +2238,7 @@ test_rediscovered_already_visited_page_is_not_reexported() {
 test_root_page_repeated_in_children_is_ignored() {
   local out_dir="$WORK_DIR/root-repeated-in-children"
   local log_file="$TEST_ROOT/root-repeated-in-children.log"
-  run_cmd "$log_file" root_repeated_in_children "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" root_repeated_in_children "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2156,7 +2252,7 @@ test_root_page_repeated_in_children_is_ignored() {
 test_children_title_is_ignored_in_favor_of_info_title() {
   local out_dir="$WORK_DIR/children-title-mismatch"
   local log_file="$TEST_ROOT/children-title-mismatch.log"
-  run_cmd "$log_file" children_title_mismatch "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" children_title_mismatch "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2169,7 +2265,7 @@ test_children_title_is_ignored_in_favor_of_info_title() {
 test_child_without_title_in_children_is_still_exported() {
   local out_dir="$WORK_DIR/child-without-title"
   local log_file="$TEST_ROOT/child-without-title.log"
-  run_cmd "$log_file" child_without_title_in_children "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" child_without_title_in_children "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2180,7 +2276,7 @@ test_child_without_title_in_children_is_still_exported() {
 test_empty_title_in_info_uses_fallback_folder_name() {
   local out_dir="$WORK_DIR/empty-title-info"
   local log_file="$TEST_ROOT/empty-title-info.log"
-  run_cmd "$log_file" empty_title_info "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" empty_title_info "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2192,7 +2288,7 @@ test_empty_title_in_info_uses_fallback_folder_name() {
 test_space_key_is_recovered_from_url_when_missing_in_info() {
   local out_dir="$WORK_DIR/space-from-url-only"
   local log_file="$TEST_ROOT/space-from-url-only.log"
-  run_cmd "$log_file" space_from_url_only "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" space_from_url_only "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2204,7 +2300,7 @@ test_space_key_is_recovered_from_url_when_missing_in_info() {
 test_multiple_broken_links_including_invalid_id_are_handled_independently() {
   local out_dir="$WORK_DIR/broken-links-with-invalid-id"
   local log_file="$TEST_ROOT/broken-links-with-invalid-id.log"
-  run_cmd "$log_file" broken_links_with_invalid_id "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" broken_links_with_invalid_id "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2219,7 +2315,7 @@ test_multiple_broken_links_including_invalid_id_are_handled_independently() {
 test_dry_run_minimal_artifacts() {
   local out_dir="$WORK_DIR/dry-run-minimal"
   local log_file="$TEST_ROOT/dry-run-minimal.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2236,7 +2332,7 @@ test_dry_run_minimal_artifacts() {
 test_dry_run_keep_metadata() {
   local out_dir="$WORK_DIR/dry-run-keep"
   local log_file="$TEST_ROOT/dry-run-keep.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --keep-metadata --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --keep-metadata --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2249,7 +2345,7 @@ test_dry_run_keep_metadata() {
 test_dry_run_attachment_listing_failure_does_not_abort_plan() {
   local out_dir="$WORK_DIR/dry-run-attachments-fail"
   local log_file="$TEST_ROOT/dry-run-attachments-fail.log"
-  run_cmd "$log_file" dry_run_attachments_failure "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir"
+  run_cmd "$log_file" dry_run_attachments_failure "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2261,7 +2357,7 @@ test_log_file_opt_in() {
   local out_dir="$WORK_DIR/export-with-log"
   local explicit_log="$WORK_DIR/custom.log"
   local log_file="$TEST_ROOT/export-with-log.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir" --log-file "$explicit_log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --log-file "$explicit_log"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2276,7 +2372,7 @@ test_log_file_opt_in() {
 test_export_downloads_attachments() {
   local out_dir="$WORK_DIR/export-attachments"
   local log_file="$TEST_ROOT/export-attachments.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2288,7 +2384,7 @@ test_export_downloads_attachments() {
 test_export_keep_metadata_persists_metadata_files() {
   local out_dir="$WORK_DIR/export-keep-metadata"
   local log_file="$TEST_ROOT/export-keep-metadata.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --keep-metadata --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --keep-metadata --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2300,7 +2396,7 @@ test_export_keep_metadata_persists_metadata_files() {
 test_export_default_does_not_persist_metadata_files() {
   local out_dir="$WORK_DIR/export-no-metadata"
   local log_file="$TEST_ROOT/export-no-metadata.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2313,7 +2409,7 @@ test_export_default_does_not_persist_metadata_files() {
 test_dry_run_default_does_not_persist_metadata_files() {
   local out_dir="$WORK_DIR/dry-run-no-metadata"
   local log_file="$TEST_ROOT/dry-run-no-metadata.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2326,7 +2422,7 @@ test_dry_run_with_log_file_writes_log_without_html() {
   local out_dir="$WORK_DIR/dry-run-with-log"
   local explicit_log="$WORK_DIR/dry-run.log"
   local log_file="$TEST_ROOT/dry-run-with-log.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir" --log-file "$explicit_log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir" --log-file "$explicit_log"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2335,14 +2431,15 @@ test_dry_run_with_log_file_writes_log_without_html() {
   assert_path_missing "$out_dir/pages/ENG/Root_Page__100/page.html"
 }
 
-test_encrypt_for_creates_gpg_archive_and_removes_output_dir() {
+test_encryption_key_creates_gpg_archive_and_removes_output_dir() {
   local out_dir="$WORK_DIR/encrypted-export"
   local log_file="$TEST_ROOT/encrypted-export.log"
   local archive_path="${out_dir}.tar.gz.gpg"
   local instructions_path="${archive_path}.txt"
   local archive_listing="$TEST_ROOT/encrypted-export.contents"
+  local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
 
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt-for you@example.com
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encryption-key "$key_fpr"
 
   assert_path_missing "$out_dir"
   assert_file_exists "$archive_path"
@@ -2353,15 +2450,40 @@ test_encrypt_for_creates_gpg_archive_and_removes_output_dir() {
   assert_contains 'encrypted-export/pages/ENG/Root_Page__100/page.html' "$archive_listing"
   assert_contains 'decrypt with:' "$log_file"
   assert_contains 'extract with:' "$log_file"
+  assert_contains 'instructions file:' "$log_file"
+  assert_contains "GPG key identity: $key_fpr" "$instructions_path"
   assert_contains 'gpg --output encrypted-export.tar.gz --decrypt' "$instructions_path"
+  assert_contains 'tar -xzf encrypted-export.tar.gz' "$instructions_path"
+  assert_contains 'gpg --decrypt encrypted-export.tar.gz.gpg > encrypted-export.tar.gz && tar -xzf encrypted-export.tar.gz' "$instructions_path"
 }
 
-test_encrypt_for_failure_keeps_plain_output_dir() {
+test_plan_can_be_encrypted_and_removes_output_dir() {
+  local out_dir="$WORK_DIR/encrypted-plan"
+  local log_file="$TEST_ROOT/encrypted-plan.log"
+  local archive_path="${out_dir}.tar.gz.gpg"
+  local instructions_path="${archive_path}.txt"
+  local archive_listing="$TEST_ROOT/encrypted-plan.contents"
+
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir" --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+
+  assert_path_missing "$out_dir"
+  assert_file_exists "$archive_path"
+  assert_file_exists "$instructions_path"
+  tar -tzf "$archive_path" | sort > "$archive_listing"
+  assert_contains 'encrypted-plan/manifest.tsv' "$archive_listing"
+  assert_contains 'encrypted-plan/summary.txt' "$archive_listing"
+  assert_not_contains 'encrypted-plan/pages/ENG/Root_Page__100/page.html' "$archive_listing"
+  assert_contains 'gpg --output encrypted-plan.tar.gz --decrypt' "$instructions_path"
+  assert_contains 'tar -xzf encrypted-plan.tar.gz' "$instructions_path"
+}
+
+test_encryption_key_failure_keeps_plain_output_dir() {
   local out_dir="$WORK_DIR/encrypted-export-fail"
   local log_file="$TEST_ROOT/encrypted-export-fail.log"
   local archive_path="${out_dir}.tar.gz.gpg"
+  local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
 
-  if run_cmd "$log_file" basic env MOCK_GPG_FAIL=1 "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt-for you@example.com; then
+  if run_cmd "$log_file" basic env MOCK_GPG_FAIL=1 "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encryption-key "$key_fpr"; then
     printf 'ASSERT FAILED: encryption failure scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2370,12 +2492,52 @@ test_encrypt_for_failure_keeps_plain_output_dir() {
   assert_report_invariants "$out_dir"
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_path_missing "$archive_path"
-  assert_contains 'failed to encrypt archive for recipient you@example.com' "$log_file"
+  assert_contains "failed to encrypt archive for GPG key identity $key_fpr" "$log_file"
+}
+
+test_configured_encryption_key_is_used_by_default() {
+  local config_log="$TEST_ROOT/config-default-key-save.log"
+  local out_dir="$WORK_DIR/config-default-encrypted"
+  local log_file="$TEST_ROOT/config-default-encrypted.log"
+  local archive_path="${out_dir}.tar.gz.gpg"
+  local instructions_path="${archive_path}.txt"
+  local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
+
+  reset_config_file
+  run_cmd "$config_log" basic "$CONFLUEX_BIN" config --encryption-key "$key_fpr"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
+
+  assert_path_missing "$out_dir"
+  assert_file_exists "$archive_path"
+  assert_file_exists "$instructions_path"
+  assert_contains "GPG key identity: $key_fpr" "$instructions_path"
+  reset_config_file
+}
+
+test_cli_encryption_key_overrides_configured_default() {
+  local config_log="$TEST_ROOT/config-override-save.log"
+  local out_dir="$WORK_DIR/config-override-encrypted"
+  local log_file="$TEST_ROOT/config-override-encrypted.log"
+  local archive_path="${out_dir}.tar.gz.gpg"
+  local instructions_path="${archive_path}.txt"
+  local configured_key="0123456789ABCDEF0123456789ABCDEF01234567"
+  local override_key="89ABCDEF0123456789ABCDEF0123456789ABCDEF"
+
+  reset_config_file
+  run_cmd "$config_log" basic "$CONFLUEX_BIN" config --encryption-key "$configured_key"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encryption-key "$override_key"
+
+  assert_path_missing "$out_dir"
+  assert_file_exists "$archive_path"
+  assert_file_exists "$instructions_path"
+  assert_contains "GPG key identity: $override_key" "$instructions_path"
+  assert_not_contains "$configured_key" "$instructions_path"
+  reset_config_file
 }
 
 test_default_output_dir_is_generated_for_export() {
   local log_file="$TEST_ROOT/default-out-export.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100
 
   local generated_dir
   generated_dir="$(assert_single_generated_dir "$WORK_DIR" 'confluence_dump_*')"
@@ -2389,7 +2551,7 @@ test_default_output_dir_avoids_collision() {
   local existing_dir="$WORK_DIR/confluence_dump_100_20250101_010101"
   mkdir -p "$existing_dir"
 
-  run_cmd "$log_file" basic env CONFLUEX_FIXED_DATE_OUTPUT=20250101_010101 "$CONFLUEX_BIN" --page-id 100
+  run_cmd "$log_file" basic env CONFLUEX_FIXED_DATE_OUTPUT=20250101_010101 "$CONFLUEX_BIN" export --page-id 100
 
   assert_path_exists "$existing_dir"
   assert_standard_report_files "$WORK_DIR/confluence_dump_100_20250101_010101_2"
@@ -2398,7 +2560,7 @@ test_default_output_dir_avoids_collision() {
 
 test_default_output_dir_is_generated_for_dry_run() {
   local log_file="$TEST_ROOT/default-out-dry.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run
 
   local generated_dir
   generated_dir="$(assert_single_generated_dir "$WORK_DIR" 'confluence_plan_*')"
@@ -2410,7 +2572,7 @@ test_default_output_dir_is_generated_for_dry_run() {
 test_preflight_failure_stops_before_any_export() {
   local out_dir="$WORK_DIR/preflight-failure"
   local log_file="$TEST_ROOT/preflight-failure.log"
-  if run_cmd "$log_file" preflight_failure "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+  if run_cmd "$log_file" preflight_failure "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: preflight-failure scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2454,7 +2616,7 @@ test_explicit_output_dir_must_not_exist() {
   mkdir -p "$out_dir"
   printf 'sentinel\n' > "$out_dir/already-here.txt"
 
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: existing-out scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2468,7 +2630,7 @@ test_explicit_output_dir_must_not_exist() {
 test_max_pages_stops_early() {
   local out_dir="$WORK_DIR/max-pages"
   local log_file="$TEST_ROOT/max-pages.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --max-pages 2 --out "$out_dir"; then
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --max-pages 2 --out "$out_dir"; then
     printf 'ASSERT FAILED: max-pages scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2486,7 +2648,7 @@ test_max_pages_stops_early() {
 test_max_download_mib_stops_early() {
   local out_dir="$WORK_DIR/max-download"
   local log_file="$TEST_ROOT/max-download.log"
-  if run_cmd "$log_file" max_download_limit "$CONFLUEX_BIN" --page-id 100 --max-download-mib 1 --out "$out_dir"; then
+  if run_cmd "$log_file" max_download_limit "$CONFLUEX_BIN" export --page-id 100 --max-download-mib 1 --out "$out_dir"; then
     printf 'ASSERT FAILED: max-download scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2507,8 +2669,8 @@ test_repeated_runs_are_idempotent() {
   local norm_a=""
   local norm_b=""
 
-  run_cmd "$log_a" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_a"
-  run_cmd "$log_b" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_b"
+  run_cmd "$log_a" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_a"
+  run_cmd "$log_b" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_b"
 
   assert_standard_report_files "$out_a"
   assert_standard_report_files "$out_b"
@@ -2534,7 +2696,7 @@ test_basic_export_reports_match_contract_exactly() {
   local expected_unresolved=""
   local expected_failed=""
 
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   expected_manifest=$'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n100\tENG\tRoot Page\t'"$out_dir"$'/pages/ENG/Root_Page__100\troot\texport\t1\n200\tENG\tChild Page\t'"$out_dir"$'/pages/ENG/Child_Page__200\tchild:100\texport\t1\n300\tENG\tLinked Page\t'"$out_dir"$'/pages/ENG/Linked_Page__300\tlink-title:100\texport\t1\n'
   expected_resolved=$'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space\n100\tRoot Page\ttitle\tENG:Linked Page\t300\tLinked Page\tENG\n'
@@ -2550,7 +2712,7 @@ test_basic_export_reports_match_contract_exactly() {
 test_sanitize_collisions_export_to_distinct_directories() {
   local out_dir="$WORK_DIR/sanitize-collision"
   local log_file="$TEST_ROOT/sanitize-collision.log"
-  run_cmd "$log_file" sanitize_collision "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" sanitize_collision "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2565,7 +2727,7 @@ test_sanitize_collisions_export_to_distinct_directories() {
 test_fail_fast_stops_after_first_page_failure() {
   local out_dir="$WORK_DIR/fail-fast"
   local log_file="$TEST_ROOT/fail-fast.log"
-  if run_cmd "$log_file" fail_fast "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+  if run_cmd "$log_file" fail_fast "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: fail-fast scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2582,7 +2744,7 @@ test_fail_fast_stops_after_first_page_failure() {
 test_fail_fast_stops_after_edit_failure() {
   local out_dir="$WORK_DIR/edit-fail-fast"
   local log_file="$TEST_ROOT/edit-fail-fast.log"
-  if run_cmd "$log_file" edit_fail_fast "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+  if run_cmd "$log_file" edit_fail_fast "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: edit-fail-fast scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2600,7 +2762,7 @@ test_fail_fast_stops_after_edit_failure() {
 test_fail_fast_stops_after_info_failure() {
   local out_dir="$WORK_DIR/info-fail-fast"
   local log_file="$TEST_ROOT/info-fail-fast.log"
-  if run_cmd "$log_file" info_fail_fast "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+  if run_cmd "$log_file" info_fail_fast "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: info-fail-fast scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2618,7 +2780,7 @@ test_fail_fast_stops_after_info_failure() {
 test_no_fail_fast_continues_after_failure() {
   local out_dir="$WORK_DIR/no-fail-fast"
   local log_file="$TEST_ROOT/no-fail-fast.log"
-  run_cmd "$log_file" no_fail_fast "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" no_fail_fast "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2632,7 +2794,7 @@ test_no_fail_fast_continues_after_failure() {
 test_partial_export_failure_is_reported_without_losing_downloaded_html() {
   local out_dir="$WORK_DIR/partial-export-failure"
   local log_file="$TEST_ROOT/partial-export-failure.log"
-  run_cmd "$log_file" partial_export_failure "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" partial_export_failure "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2647,7 +2809,7 @@ test_partial_export_failure_is_reported_without_losing_downloaded_html() {
 test_no_fail_fast_continues_after_inaccessible_tree_page() {
   local out_dir="$WORK_DIR/inaccessible-tree-page"
   local log_file="$TEST_ROOT/inaccessible-tree-page.log"
-  run_cmd "$log_file" inaccessible_tree_page "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" inaccessible_tree_page "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2662,7 +2824,7 @@ test_no_fail_fast_continues_after_inaccessible_tree_page() {
 test_no_fail_fast_continues_after_linked_page_info_failure() {
   local out_dir="$WORK_DIR/linked-page-info-failure"
   local log_file="$TEST_ROOT/linked-page-info-failure.log"
-  run_cmd "$log_file" linked_page_info_failure_after_resolution "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+  run_cmd "$log_file" linked_page_info_failure_after_resolution "$CONFLUEX_BIN" export --page-id 100 --no-fail-fast --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2678,7 +2840,7 @@ test_interrupt_export_marks_incomplete_and_keeps_partial_data() {
   local log_file="$TEST_ROOT/interrupt-export.log"
   local exit_code=0
 
-  if run_cmd "$log_file" interrupt_export "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+  if run_cmd "$log_file" interrupt_export "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: interrupt-export scenario should return non-zero\n' >&2
     exit 1
   else
@@ -2698,7 +2860,7 @@ test_interrupt_dry_run_removes_output_dir() {
   local log_file="$TEST_ROOT/interrupt-dry-run.log"
   local exit_code=0
 
-  if run_cmd "$log_file" interrupt_dry_run "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir"; then
+  if run_cmd "$log_file" interrupt_dry_run "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"; then
     printf 'ASSERT FAILED: interrupt-dry-run scenario should return non-zero\n' >&2
     exit 1
   else
@@ -2709,30 +2871,69 @@ test_interrupt_dry_run_removes_output_dir() {
   assert_path_missing "$out_dir"
 }
 
+test_readme_documents_all_public_commands_and_options() {
+  assert_contains "### \`export\`" "$ROOT_DIR/README.md"
+  assert_contains "### \`plan\`" "$ROOT_DIR/README.md"
+  assert_contains "### \`doctor\`" "$ROOT_DIR/README.md"
+  assert_contains "### \`config\`" "$ROOT_DIR/README.md"
+  assert_contains "### \`install\`" "$ROOT_DIR/README.md"
+  assert_contains "### \`uninstall\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--page-id ID\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--out DIR\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--safe\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--max-pages N\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--max-download-mib N\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--sleep-ms N\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--max-find-candidates N\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--no-fail-fast\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--keep-metadata\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--log-file FILE\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--encryption-key KEY\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--clear-encryption-key\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--install-dir DIR\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--help\`" "$ROOT_DIR/README.md"
+  assert_contains 'prefer a full GPG fingerprint' "$ROOT_DIR/README.md"
+  assert_contains 'gpg --fingerprint' "$ROOT_DIR/README.md"
+  assert_contains 'overrides the saved default for the current run' "$ROOT_DIR/README.md"
+}
+
+test_readme_documents_gpg_decrypt_flow() {
+  assert_contains 'Decrypt and extract an encrypted export' "$ROOT_DIR/README.md"
+  assert_contains 'gpg --output dump.tar.gz --decrypt dump.tar.gz.gpg' "$ROOT_DIR/README.md"
+  assert_contains 'tar -xzf dump.tar.gz' "$ROOT_DIR/README.md"
+  assert_contains 'gpg --decrypt dump.tar.gz.gpg > dump.tar.gz && tar -xzf dump.tar.gz' "$ROOT_DIR/README.md"
+}
+
 test_unknown_option_suggestion
-test_install_conflict_rejected
-test_install_dir_requires_install
+test_install_dir_is_rejected_for_export
 test_empty_log_file_rejected
-test_empty_encrypt_recipient_is_rejected
+test_empty_encrypt_key_identity_is_rejected
+test_missing_command_is_rejected
 test_missing_page_id_is_rejected
 test_invalid_page_id_is_rejected
 test_invalid_max_find_candidates_is_rejected
 test_help_does_not_create_output_dirs
 test_help_mentions_subcommands_and_safe_mode
+test_help_documents_all_public_commands_and_options
 test_install_writes_executable_to_requested_dir
 test_install_subcommand_works
 test_install_rejects_export_only_options
-test_install_rejects_encrypt_for
+test_install_rejects_encryption_key
 test_uninstall_subcommand_works
-test_uninstall_flag_works
 test_uninstall_is_idempotent
 test_uninstall_rejects_export_only_options
-test_uninstall_rejects_encrypt_for
+test_uninstall_rejects_encryption_key
 test_doctor_without_page_id_reports_skipped_auth
 test_doctor_with_page_id_succeeds
 test_doctor_with_inaccessible_page_fails
 test_doctor_rejects_export_only_options
-test_doctor_rejects_encrypt_for
+test_doctor_rejects_encryption_key
+test_config_shows_not_set_by_default
+test_config_saves_default_encryption_key
+test_config_shows_saved_encryption_key
+test_config_clears_default_encryption_key
+test_config_rejects_export_only_options
+test_config_rejects_conflicting_encryption_options
 test_basic_export_downloads_tree_and_linked_page
 test_export_subcommand_works
 test_plan_subcommand_works
@@ -2789,8 +2990,11 @@ test_export_keep_metadata_persists_metadata_files
 test_export_default_does_not_persist_metadata_files
 test_dry_run_default_does_not_persist_metadata_files
 test_dry_run_with_log_file_writes_log_without_html
-test_encrypt_for_creates_gpg_archive_and_removes_output_dir
-test_encrypt_for_failure_keeps_plain_output_dir
+test_encryption_key_creates_gpg_archive_and_removes_output_dir
+test_plan_can_be_encrypted_and_removes_output_dir
+test_encryption_key_failure_keeps_plain_output_dir
+test_configured_encryption_key_is_used_by_default
+test_cli_encryption_key_overrides_configured_default
 test_default_output_dir_is_generated_for_export
 test_default_output_dir_avoids_collision
 test_default_output_dir_is_generated_for_dry_run
@@ -2812,5 +3016,7 @@ test_no_fail_fast_continues_after_inaccessible_tree_page
 test_no_fail_fast_continues_after_linked_page_info_failure
 test_interrupt_export_marks_incomplete_and_keeps_partial_data
 test_interrupt_dry_run_removes_output_dir
+test_readme_documents_all_public_commands_and_options
+test_readme_documents_gpg_decrypt_flow
 
 printf 'Smoke tests passed.\n'

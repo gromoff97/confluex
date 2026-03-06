@@ -16,57 +16,54 @@ Each requirement is written to satisfy `CIRCUS MATTA`:
 ## CLI Contract
 
 ### UX-CLI-001
-The CLI shall support explicit subcommands `export`, `plan`, `doctor`, `install`, and `uninstall`.
+The CLI shall support explicit subcommands `export`, `plan`, `doctor`, `config`, `install`, and `uninstall`.
 
 Acceptance:
 - `export` performs a real export
 - `plan` performs a dry-run
 - `doctor` performs environment and access diagnostics
+- `config` manages the saved default encryption key
 - `install` installs the tool
 - `uninstall` removes a prior self-installation
-- `--install` and `--uninstall` remain accepted as direct command aliases
 
 Traceability:
 - `test_export_subcommand_works`
 - `test_plan_subcommand_works`
 - `test_doctor_without_page_id_reports_skipped_auth`
+- `test_config_shows_not_set_by_default`
 - `test_install_subcommand_works`
 - `test_uninstall_subcommand_works`
-- `test_uninstall_flag_works`
 
 ### UX-CLI-002
-The legacy invocation `confluex --page-id <id>` shall remain supported as an alias for `export`.
-
-Traceability:
-- `test_basic_export_downloads_tree_and_linked_page`
-
-### UX-CLI-003
 The help output shall document primary workflows, safety controls, and examples.
 
 Traceability:
 - `test_help_does_not_create_output_dirs`
 - `test_help_mentions_subcommands_and_safe_mode`
+- `test_help_documents_all_public_commands_and_options`
 
-### UX-CLI-004
+### UX-CLI-003
 The CLI shall reject options that do not make sense for the selected command.
 
 Acceptance:
 - `install` rejects export-only and safety-only options
 - `uninstall` rejects export-only and safety-only options
 - `doctor` rejects export-only options
-- lifecycle and diagnostic commands reject `--encrypt-for`
+- `config` rejects export-only options
+- lifecycle and diagnostic commands reject `--encryption-key` where it does not apply
 
 Traceability:
-- `test_install_conflict_rejected`
-- `test_install_dir_requires_install`
+- `test_install_dir_is_rejected_for_export`
 - `test_install_rejects_export_only_options`
-- `test_install_rejects_encrypt_for`
+- `test_install_rejects_encryption_key`
 - `test_uninstall_rejects_export_only_options`
-- `test_uninstall_rejects_encrypt_for`
+- `test_uninstall_rejects_encryption_key`
 - `test_doctor_rejects_export_only_options`
-- `test_doctor_rejects_encrypt_for`
+- `test_doctor_rejects_encryption_key`
+- `test_config_rejects_export_only_options`
+- `test_config_rejects_conflicting_encryption_options`
 
-### UX-CLI-006
+### UX-CLI-004
 `uninstall` shall be idempotent.
 
 Acceptance:
@@ -82,6 +79,12 @@ The CLI shall suggest likely intended options for common typos.
 
 Traceability:
 - `test_unknown_option_suggestion`
+
+### UX-CLI-006
+The CLI shall reject invocations that omit a command.
+
+Traceability:
+- `test_missing_command_is_rejected`
 
 ## Diagnostic Workflow
 
@@ -102,6 +105,32 @@ Traceability:
 
 Traceability:
 - `test_doctor_with_inaccessible_page_fails`
+
+### UX-DOC-004
+The README shall document every public command and every public option that forms part of the CLI contract.
+
+Traceability:
+- `test_readme_documents_all_public_commands_and_options`
+
+### UX-DOC-005
+The README shall document how to decrypt and extract a GPG-encrypted result.
+
+Traceability:
+- `test_readme_documents_gpg_decrypt_flow`
+
+### UX-DOC-006
+The CLI shall allow saving, showing, and clearing a default encryption key.
+
+Acceptance:
+- `confluex config` shows the current config file path and current default key state
+- `confluex config --encryption-key KEY` saves the default key
+- `confluex config --clear-encryption-key` clears the saved default key
+
+Traceability:
+- `test_config_shows_not_set_by_default`
+- `test_config_saves_default_encryption_key`
+- `test_config_shows_saved_encryption_key`
+- `test_config_clears_default_encryption_key`
 
 ## Export Semantics
 
@@ -219,21 +248,27 @@ Traceability:
 - `test_default_output_dir_avoids_collision`
 
 ### UX-SAFE-006
-When `--encrypt-for` is used, successful completion shall produce an encrypted archive and remove the plain output directory.
+When `--encryption-key` is used for `export` or `plan`, or when a default encryption key is configured, successful completion shall produce an encrypted archive and remove the plain output directory.
 
 Acceptance:
 - `<out>.tar.gz.gpg` exists
 - `<out>.tar.gz.gpg.txt` exists with decrypt/extract instructions
 - `<out>` is removed
+- `KEY` is treated as a GPG key identity accepted by `gpg --recipient`
+- the documented preferred form is a full fingerprint
+- an explicit `--encryption-key` overrides the saved default for the current run
 
 Traceability:
-- `test_encrypt_for_creates_gpg_archive_and_removes_output_dir`
+- `test_encryption_key_creates_gpg_archive_and_removes_output_dir`
+- `test_plan_can_be_encrypted_and_removes_output_dir`
+- `test_configured_encryption_key_is_used_by_default`
+- `test_cli_encryption_key_overrides_configured_default`
 
 ### UX-SAFE-007
 If GPG encryption fails, the plain output directory shall be preserved.
 
 Traceability:
-- `test_encrypt_for_failure_keeps_plain_output_dir`
+- `test_encryption_key_failure_keeps_plain_output_dir`
 
 ## Reporting And Observability
 
