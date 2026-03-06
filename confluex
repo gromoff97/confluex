@@ -1,0 +1,783 @@
+#!/usr/bin/env bash
+if [[ -z "${BASH_VERSION:-}" ]]; then
+  exec bash "$0" "$@"
+fi
+set -euo pipefail
+
+INTERRUPTED=0
+SCRIPT_NAME="confluex"
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+INSTALL=0
+INSTALL_DIR="${HOME}/.local/bin"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  confluex --page-id <id> [--dry-run] [--out DIR]
+  confluex --install [--install-dir DIR]
+
+What it does:
+  - walks the full child tree of <page_id>
+  - exports every page with attachments
+  - parses storage XML on every page
+  - follows links to other Confluence pages and exports them too
+  - writes verbose logs, manifests, and link resolution reports
+
+Options:
+  --dry-run    Do not export page HTML or download attachments.
+               Still reads page metadata and storage XML to build the full plan.
+  --out DIR    Output directory. Default is generated automatically.
+  --page-id ID Root Confluence page id to export.
+  --no-fail-fast  Continue on runtime errors (best-effort export).
+  --install    Install this script to ~/.local/bin for global use.
+  --install-dir DIR  Custom install directory (default: ~/.local/bin).
+  -h, --help   Show this help.
+
+Requirements:
+  - bash (Git Bash is fine)
+  - node
+  - confluence-cli configured and working
+EOF
+}
+
+DRY_RUN=0
+OUT_DIR=""
+ROOT_ID=""
+FAIL_FAST=1
+
+while (($# > 0)); do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --out)
+      [[ $# -ge 2 ]] || { echo "ERROR: --out requires a directory" >&2; exit 1; }
+      OUT_DIR="$2"
+      shift 2
+      ;;
+    --page-id)
+      [[ $# -ge 2 ]] || { echo "ERROR: --page-id requires an id" >&2; exit 1; }
+      if [[ -n "$ROOT_ID" ]]; then
+        echo "ERROR: --page-id can be specified only once" >&2
+        usage >&2
+        exit 1
+      fi
+      ROOT_ID="$2"
+      shift 2
+      ;;
+    --page-id=*)
+      if [[ -n "$ROOT_ID" ]]; then
+        echo "ERROR: --page-id can be specified only once" >&2
+        usage >&2
+        exit 1
+      fi
+      ROOT_ID="${1#*=}"
+      shift
+      ;;
+    --no-fail-fast)
+      FAIL_FAST=0
+      shift
+      ;;
+    --install)
+      INSTALL=1
+      shift
+      ;;
+    --install-dir)
+      [[ $# -ge 2 ]] || { echo "ERROR: --install-dir requires a directory" >&2; exit 1; }
+      INSTALL_DIR="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --*)
+      echo "ERROR: unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      echo "ERROR: unexpected argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if (( INSTALL )); then
+  mkdir -p "$INSTALL_DIR"
+  cp "$SCRIPT_PATH" "$INSTALL_DIR/$SCRIPT_NAME"
+  chmod 755 "$INSTALL_DIR/$SCRIPT_NAME"
+  echo "Installed $SCRIPT_NAME to $INSTALL_DIR/$SCRIPT_NAME"
+  if ! printf '%s\n' "$PATH" | tr ':' '\n' | grep -Fx "$INSTALL_DIR" >/dev/null 2>&1; then
+    echo "WARNING: $INSTALL_DIR is not in PATH."
+  fi
+  exit 0
+fi
+
+if [[ -z "$ROOT_ID" ]]; then
+  usage >&2
+  exit 1
+fi
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "ERROR: required command not found: $1" >&2
+    exit 1
+  }
+}
+
+require_cmd bash
+require_cmd node
+require_cmd confluence
+require_cmd sed
+require_cmd awk
+require_cmd grep
+require_cmd sort
+require_cmd find
+require_cmd tr
+require_cmd wc
+
+if (( FAIL_FAST == 0 )); then
+  set +e
+fi
+
+TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+if [[ -z "$OUT_DIR" ]]; then
+  if (( DRY_RUN )); then
+    OUT_DIR="confluence_plan_${ROOT_ID}_${TIMESTAMP}"
+  else
+    OUT_DIR="confluence_dump_${ROOT_ID}_${TIMESTAMP}"
+  fi
+fi
+
+PAGES_DIR="$OUT_DIR/pages"
+META_DIR="$OUT_DIR/_meta"
+TMP_DIR="$OUT_DIR/_tmp"
+LOG_FILE="$OUT_DIR/run.log"
+MANIFEST="$OUT_DIR/manifest.tsv"
+LINKS_FILE="$OUT_DIR/resolved-links.tsv"
+UNRESOLVED="$OUT_DIR/unresolved-links.tsv"
+FAILED="$OUT_DIR/failed-pages.tsv"
+SUMMARY="$OUT_DIR/summary.txt"
+
+mkdir -p "$PAGES_DIR" "$META_DIR" "$TMP_DIR"
+: > "$LOG_FILE"
+: > "$FAILED"
+printf 'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n' > "$MANIFEST"
+printf 'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space\n' > "$LINKS_FILE"
+printf 'from_page_id\tfrom_title\tspace_key\tlink_type\tlink_value\n' > "$UNRESOLVED"
+
+log() {
+  local level="$1"; shift
+  local ts
+  ts="$(date '+%Y-%m-%d %H:%M:%S')"
+  printf '[%s] [%s] %s\n' "$ts" "$level" "$*" | tee -a "$LOG_FILE" >&2
+}
+
+log_info() { log INFO "$@"; }
+log_warn() { log WARN "$@"; }
+log_error() { log ERROR "$@"; }
+
+trim() {
+  local s="$1"
+  s="${s//$'\r'/}"
+  s="${s#${s%%[![:space:]]*}}"
+  s="${s%${s##*[![:space:]]}}"
+  printf '%s' "$s"
+}
+
+sanitize_name() {
+  local s="$1"
+  s="${s//$'\r'/ }"
+  s="${s//$'\n'/ }"
+  s="${s//$'\t'/ }"
+  s="$(printf '%s' "$s" | sed -E 's/[<>:"\/\\|?*]+/_/g; s/[[:cntrl:]]+/_/g; s/[[:space:]]+/_/g; s/_+/_/g; s/^_+//; s/_+$//; s/[. ]+$//')"
+  [[ -z "$s" ]] && s="untitled"
+  printf '%s' "$s"
+}
+
+escape_tsv() {
+  printf '%s' "$1" | tr '\t\r\n' '   '
+}
+
+extract_first_id_from_file() {
+  local file="$1"
+  local id=""
+  id="$(sed -n 's/^[[:space:]]*ID:[[:space:]]*//p' "$file" | head -n1 | grep -Eo '[0-9]+' | head -n1 || true)"
+  if [[ -z "$id" ]]; then
+    id="$(grep -Eo '[0-9]{3,}' "$file" | head -n1 || true)"
+  fi
+  [[ "$id" =~ ^[0-9]+$ ]] || return 1
+  printf '%s\n' "$id"
+}
+
+parse_info_file() {
+  local file="$1"
+  node - "$file" <<'NODE'
+const fs = require('fs');
+const text = fs.readFileSync(process.argv[2], 'utf8');
+const lines = text.split(/\r?\n/);
+let title = '';
+let spaceKey = '';
+let url = '';
+for (const line of lines) {
+  let m;
+  if (!title && (m = line.match(/^\s*Title:\s*(.+)\s*$/i))) title = m[1].trim();
+  if (!spaceKey && (m = line.match(/^\s*(?:Space Key|SpaceKey):\s*(.+)\s*$/i))) spaceKey = m[1].trim();
+  if (!spaceKey && (m = line.match(/^\s*Space:\s*.*\(([^()]+)\)\s*$/i))) spaceKey = m[1].trim();
+  if (!url && (m = line.match(/^\s*URL:\s*(.+)\s*$/i))) url = m[1].trim();
+}
+if (!spaceKey && url) {
+  let m = url.match(/\/spaces\/([^/?#]+)\//i);
+  if (m) spaceKey = m[1].trim();
+  if (!spaceKey) {
+    m = url.match(/[?&]spaceKey=([^&#]+)/i);
+    if (m) spaceKey = decodeURIComponent(m[1]).trim();
+  }
+}
+process.stdout.write(`${title}\u001f${spaceKey}\u001f${url}`);
+NODE
+}
+
+extract_children_ids() {
+  local json_file="$1"
+  node - "$json_file" <<'NODE'
+const fs = require('fs');
+const file = process.argv[2];
+const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+const ids = new Set();
+function walk(v) {
+  if (Array.isArray(v)) {
+    for (const item of v) walk(item);
+    return;
+  }
+  if (!v || typeof v !== 'object') return;
+  if ('id' in v && (('title' in v) || ('url' in v) || ('children' in v))) {
+    const id = String(v.id);
+    if (/^\d+$/.test(id)) ids.add(id);
+  }
+  for (const value of Object.values(v)) walk(value);
+}
+walk(data);
+for (const id of ids) console.log(id);
+NODE
+}
+
+extract_link_refs() {
+  local xml_file="$1"
+  local current_space="$2"
+  node - "$xml_file" "$current_space" <<'NODE'
+const fs = require('fs');
+const xml = fs.readFileSync(process.argv[2], 'utf8');
+const currentSpace = process.argv[3] || '';
+const US = '\x1f';
+const seen = new Set();
+const decode = (s = '') => s
+  .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+  .replace(/&#(\d+);/g, (_, num) => String.fromCodePoint(parseInt(num, 10)))
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&quot;/g, '"')
+  .replace(/&apos;/g, "'")
+  .replace(/&#34;/g, '"')
+  .replace(/&#39;/g, "'")
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>')
+  .replace(/&amp;/g, '&');
+function attr(attrs, name) {
+  const re = new RegExp(`${name}=(\"([^\"]*)\"|'([^']*)')`);
+  const m = attrs.match(re);
+  if (!m) return '';
+  return decode(m[2] || m[3] || '');
+}
+function emit(parts) {
+  const clean = parts.map((p) => String(p || '').replace(/[\r\n\t]+/g, ' ').trim());
+  const key = JSON.stringify(clean);
+  if (seen.has(key)) return;
+  seen.add(key);
+  process.stdout.write(clean.join(US) + '\n');
+}
+let m;
+const contentEntityRe = /<ri:content-entity\b[^>]*ri:content-id="(\d+)"[^>]*\/?>/g;
+while ((m = contentEntityRe.exec(xml))) emit(['id', m[1]]);
+const pageRe = /<ri:page\b([^>]*)\/?>/g;
+while ((m = pageRe.exec(xml))) {
+  const attrs = m[1] || '';
+  const contentId = attr(attrs, 'ri:content-id');
+  if (contentId) emit(['id', contentId]);
+  const title = attr(attrs, 'ri:content-title').trim();
+  if (!title) continue;
+  const space = (attr(attrs, 'ri:space-key') || currentSpace).trim();
+  if (title) emit(['title', space, title]);
+}
+const pageParamRe = /<ac:parameter\b[^>]*ac:name="page"[^>]*>([\s\S]*?)<\/ac:parameter>/g;
+while ((m = pageParamRe.exec(xml))) {
+  const raw = decode(m[1].replace(/<[^>]+>/g, '').trim());
+  if (!raw) continue;
+  let space = currentSpace;
+  let title = raw;
+  const explicit = raw.match(/^([A-Z0-9_.-]+):(.*)$/);
+  if (explicit) {
+    space = explicit[1].trim();
+    title = explicit[2].trim();
+  }
+  if (title) emit(['title', space, title]);
+}
+const hrefRe = /href=(\"([^\"]*)\"|'([^']*)')/g;
+while ((m = hrefRe.exec(xml))) {
+  const href = decode(m[2] || m[3] || '');
+  if (!/pageId=\d+/.test(href)) continue;
+  if (!/viewpage\.action|\/pages\//i.test(href)) continue;
+  const idMatch = href.match(/pageId=(\d+)/);
+  if (idMatch) emit(['id', idMatch[1]]);
+}
+NODE
+}
+
+log_attachments_from_export() {
+  local attachments_dir="$1"
+  if [[ ! -d "$attachments_dir" ]]; then
+    log_info "    attachments: none"
+    printf '0\n'
+    return 0
+  fi
+
+  local count=0
+  while IFS= read -r -d '' file; do
+    count=$((count + 1))
+    local rel="${file#$attachments_dir/}"
+    log_info "    attachment downloaded: $rel"
+  done < <(find "$attachments_dir" -type f -print0 | sort -z)
+
+  if (( count == 0 )); then
+    log_info "    attachments: none"
+  else
+    log_info "    attachments total: $count"
+  fi
+  printf '%s\n' "$count"
+}
+
+log_attachments_preview() {
+  local page_id="$1"
+  local out_file="$2"
+  if confluence attachments "$page_id" > "$out_file" 2>>"$LOG_FILE"; then
+    local line_count=0
+    while IFS= read -r line; do
+      line="$(trim "$line")"
+      [[ -z "$line" ]] && continue
+      line_count=$((line_count + 1))
+      log_info "    attachment candidate: $line"
+    done < "$out_file"
+    printf '%s\n' "$line_count"
+  else
+    log_warn "    could not list attachments for dry-run preview"
+    printf '0\n'
+  fi
+}
+
+resolve_by_title() {
+  local title="$1"
+  local space_key="$2"
+  local cache_key="${space_key}|${title}"
+
+  if [[ -n "${FIND_CACHE[$cache_key]+x}" ]]; then
+    [[ -n "${FIND_CACHE[$cache_key]}" ]] && printf '%s\n' "${FIND_CACHE[$cache_key]}"
+    return 0
+  fi
+
+  local out_file="$TMP_DIR/find_${RANDOM}_${RANDOM}.txt"
+  if [[ -n "$space_key" ]]; then
+    if ! confluence find "$title" --space "$space_key" > "$out_file" 2>>"$LOG_FILE"; then
+      FIND_CACHE["$cache_key"]=""
+      rm -f "$out_file"
+      return 1
+    fi
+  else
+    if ! confluence find "$title" > "$out_file" 2>>"$LOG_FILE"; then
+      FIND_CACHE["$cache_key"]=""
+      rm -f "$out_file"
+      return 1
+    fi
+  fi
+
+  local ids=()
+  while IFS= read -r id; do
+    [[ "$id" =~ ^[0-9]+$ ]] || continue
+    ids+=("$id")
+  done < <(sed -n 's/^[[:space:]]*ID:[[:space:]]*//p' "$out_file" | grep -Eo '^[0-9]+' | sort -u || true)
+
+  if (( ${#ids[@]} == 0 )); then
+    while IFS= read -r id; do
+      [[ "$id" =~ ^[0-9]+$ ]] || continue
+      ids+=("$id")
+    done < <(grep -Eo '[0-9]{3,}' "$out_file" | sort -u || true)
+  fi
+
+  local resolved_id=""
+  local ambiguous=0
+  for id in "${ids[@]}"; do
+    local cand_title=""
+    local cand_space=""
+    if [[ -n "${TITLE_BY_ID[$id]+x}" || -n "${SPACE_BY_ID[$id]+x}" ]]; then
+      cand_title="${TITLE_BY_ID[$id]:-}"
+      cand_space="${SPACE_BY_ID[$id]:-}"
+    else
+      local info_tmp="$TMP_DIR/info_find_${id}.txt"
+      if ! confluence info "$id" > "$info_tmp" 2>>"$LOG_FILE"; then
+        continue
+      fi
+      local parsed
+      parsed="$(parse_info_file "$info_tmp")"
+      IFS=$'\x1f' read -r cand_title cand_space _ <<< "$parsed"
+    fi
+
+    [[ -n "$cand_title" ]] || continue
+    if [[ -n "$space_key" && "$cand_space" != "$space_key" ]]; then
+      continue
+    fi
+    if [[ "$cand_title" != "$title" ]]; then
+      continue
+    fi
+
+    if [[ -z "$resolved_id" ]]; then
+      resolved_id="$id"
+    else
+      ambiguous=1
+      break
+    fi
+  done
+
+  rm -f "$out_file"
+
+  if (( ambiguous )); then
+    log_warn "ambiguous title resolution for [${space_key:-any}] $title; skipping"
+    FIND_CACHE["$cache_key"]=""
+    return 1
+  fi
+
+  if [[ -n "$resolved_id" ]]; then
+    FIND_CACHE["$cache_key"]="$resolved_id"
+    printf '%s\n' "$resolved_id"
+    return 0
+  fi
+
+  FIND_CACHE["$cache_key"]=""
+  return 1
+}
+
+page_folder_for() {
+  local page_id="$1"
+  local space_key="$2"
+  local title="$3"
+  local safe_space safe_title
+  safe_space="$(sanitize_name "${space_key:-NO_SPACE}")"
+  safe_title="$(sanitize_name "${title:-page_$page_id}")"
+  printf '%s/%s/%s__%s\n' "$PAGES_DIR" "$safe_space" "$safe_title" "$page_id"
+}
+
+declare -a QUEUE=()
+declare -A QUEUED=()
+declare -A VISITED=()
+declare -A FIND_CACHE=()
+declare -A DISCOVERED_BY=()
+declare -A TITLE_BY_ID=()
+declare -A SPACE_BY_ID=()
+declare -A FOLDER_BY_ID=()
+
+count_lines() {
+  local file="$1"
+  if [[ -f "$file" ]]; then
+    wc -l < "$file" | tr -d ' '
+  else
+    printf '0\n'
+  fi
+}
+
+count_minus_header() {
+  local file="$1"
+  local lines
+  lines="$(count_lines "$file")"
+  if [[ "$lines" =~ ^[0-9]+$ ]] && (( lines > 0 )); then
+    printf '%s\n' "$((lines - 1))"
+  else
+    printf '0\n'
+  fi
+}
+
+processed_count=0
+failed_count=0
+unresolved_count=0
+resolved_count=0
+manifest_count=0
+
+compute_counts() {
+  processed_count="${#VISITED[@]}"
+  failed_count="$(count_lines "$FAILED")"
+  unresolved_count="$(count_minus_header "$UNRESOLVED")"
+  resolved_count="$(count_minus_header "$LINKS_FILE")"
+  manifest_count="$(count_minus_header "$MANIFEST")"
+}
+
+write_summary() {
+  local incomplete="$1"
+  local reason="${2:-}"
+  compute_counts
+  {
+    echo "root_page_id=$ROOT_ID"
+    echo "dry_run=$DRY_RUN"
+    echo "output_dir=$OUT_DIR"
+    echo "processed_pages=$processed_count"
+    echo "manifest_rows=$manifest_count"
+    echo "resolved_links=$resolved_count"
+    echo "unresolved_links=$unresolved_count"
+    echo "failed_operations=$failed_count"
+    echo "incomplete=$incomplete"
+    if [[ -n "$reason" ]]; then
+      echo "interrupt_reason=$reason"
+    fi
+  } > "$SUMMARY"
+}
+
+mark_incomplete() {
+  local reason="$1"
+  if [[ -n "$OUT_DIR" && -d "$OUT_DIR" ]]; then
+    {
+      echo "interrupted_at=$(date '+%Y-%m-%d %H:%M:%S')"
+      echo "reason=$reason"
+      echo "root_page_id=$ROOT_ID"
+      echo "dry_run=$DRY_RUN"
+    } > "$OUT_DIR/INCOMPLETE"
+  fi
+}
+
+on_interrupt() {
+  local reason="SIGINT"
+  trap - INT TERM
+  INTERRUPTED=1
+  set +e
+  if (( DRY_RUN )); then
+    log_warn "interrupted (dry-run); removing $OUT_DIR"
+    if [[ -n "$OUT_DIR" && -d "$OUT_DIR" ]]; then
+      rm -rf "$OUT_DIR"
+    fi
+  else
+    log_warn "interrupted; marking export as incomplete"
+    mark_incomplete "$reason"
+    write_summary 1 "$reason"
+  fi
+  exit 130
+}
+
+trap 'on_interrupt' INT TERM
+
+enqueue() {
+  local id="$1"
+  local reason="$2"
+  [[ "$id" =~ ^[0-9]+$ ]] || return 0
+  if [[ -n "${VISITED[$id]+x}" || -n "${QUEUED[$id]+x}" ]]; then
+    return 0
+  fi
+  QUEUE+=("$id")
+  QUEUED["$id"]=1
+  DISCOVERED_BY["$id"]="$reason"
+  log_info "queued page $id (reason: $reason)"
+}
+
+record_manifest() {
+  local page_id="$1"
+  local space_key="$2"
+  local title="$3"
+  local folder="$4"
+  local discovered_by="$5"
+  local mode="$6"
+  local attachment_count="$7"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$page_id" \
+    "$(escape_tsv "$space_key")" \
+    "$(escape_tsv "$title")" \
+    "$(escape_tsv "$folder")" \
+    "$(escape_tsv "$discovered_by")" \
+    "$mode" \
+    "$attachment_count" >> "$MANIFEST"
+}
+
+process_page() {
+  local page_id="$1"
+  local info_tmp="$TMP_DIR/info_${page_id}.txt"
+
+  log_info "------------------------------------------------------------"
+  log_info "processing page $page_id"
+  log_info "  discovered by: ${DISCOVERED_BY[$page_id]:-unknown}"
+  log_info "  mode: $([[ $DRY_RUN -eq 1 ]] && echo dry-run || echo export)"
+
+  if [[ "$page_id" == "$ROOT_ID" && -f "$PREFLIGHT_INFO_FILE" ]]; then
+    cp "$PREFLIGHT_INFO_FILE" "$info_tmp"
+  else
+    if ! confluence info "$page_id" > "$info_tmp" 2>>"$LOG_FILE"; then
+      log_error "failed to get info for page $page_id"
+      printf '%s\tinfo\n' "$page_id" >> "$FAILED"
+      return 1
+    fi
+  fi
+
+  local parsed title space_key page_url
+  parsed="$(parse_info_file "$info_tmp")"
+  IFS=$'\x1f' read -r title space_key page_url <<< "$parsed"
+  [[ -z "$title" ]] && title="page_$page_id"
+  local page_dir
+  page_dir="$(page_folder_for "$page_id" "$space_key" "$title")"
+  mkdir -p "$page_dir"
+
+  TITLE_BY_ID["$page_id"]="$title"
+  SPACE_BY_ID["$page_id"]="$space_key"
+  FOLDER_BY_ID["$page_id"]="$page_dir"
+
+  cp "$info_tmp" "$page_dir/_info.txt"
+
+  log_info "  title: $title"
+  log_info "  space: ${space_key:-<unknown>}"
+  [[ -n "$page_url" ]] && log_info "  url: $page_url"
+  log_info "  folder: $page_dir"
+
+  local storage_file="$page_dir/_storage.xml"
+  if confluence edit "$page_id" --output "$storage_file" >>"$LOG_FILE" 2>&1; then
+    log_info "  saved storage XML: $storage_file"
+  else
+    log_warn "  failed to export storage XML for page $page_id"
+    printf '%s\tedit\n' "$page_id" >> "$FAILED"
+  fi
+
+  if [[ -f "$storage_file" ]]; then
+    local refs_file="$TMP_DIR/refs_${page_id}.txt"
+    if extract_link_refs "$storage_file" "$space_key" > "$refs_file" 2>>"$LOG_FILE"; then
+      while IFS=$'\x1f' read -r ref_type ref_a ref_b; do
+        [[ -z "$ref_type" ]] && continue
+        if [[ "$ref_type" == "id" ]]; then
+          log_info "  found internal link by pageId: $ref_a"
+          printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "$page_id" \
+            "$(escape_tsv "$title")" \
+            "id" \
+            "$ref_a" \
+            "$ref_a" \
+            "" \
+            "" >> "$LINKS_FILE"
+          enqueue "$ref_a" "link-id:$page_id"
+          continue
+        fi
+
+        if [[ "$ref_type" == "title" ]]; then
+          local resolved_id=""
+          log_info "  found internal link by title: [${ref_a:-same-space}] $ref_b"
+          if resolved_id="$(resolve_by_title "$ref_b" "$ref_a" 2>/dev/null)"; then
+            log_info "    resolved link -> pageId $resolved_id"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$page_id" \
+              "$(escape_tsv "$title")" \
+              "title" \
+              "$(escape_tsv "${ref_a:+$ref_a:}$ref_b")" \
+              "$resolved_id" \
+              "$(escape_tsv "${TITLE_BY_ID[$resolved_id]:-}")" \
+              "$(escape_tsv "${SPACE_BY_ID[$resolved_id]:-$ref_a}")" >> "$LINKS_FILE"
+            enqueue "$resolved_id" "link-title:$page_id"
+          else
+            log_warn "    could not resolve link: [${ref_a:-same-space}] $ref_b"
+            printf '%s\t%s\t%s\t%s\t%s\n' \
+              "$page_id" \
+              "$(escape_tsv "$title")" \
+              "$(escape_tsv "$space_key")" \
+              "title" \
+              "$(escape_tsv "${ref_a:+$ref_a:}$ref_b")" >> "$UNRESOLVED"
+          fi
+        fi
+      done < "$refs_file"
+    else
+      log_warn "  failed to parse links for page $page_id"
+    fi
+  fi
+
+  local attachment_count=0
+  if (( DRY_RUN )); then
+    log_info "  DRY-RUN: page content and attachments will NOT be downloaded"
+    attachment_count="$(log_attachments_preview "$page_id" "$page_dir/_attachments_preview.txt")"
+    log_info "  DRY-RUN: would export page to $page_dir/page.html"
+    log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
+    record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
+    return 0
+  fi
+
+  log_info "  exporting page HTML + attachments"
+  if confluence export "$page_id" --format html --dest "$page_dir" --file page.html --attachments-dir attachments >>"$LOG_FILE" 2>&1; then
+    log_info "  export complete"
+  else
+    log_warn "  export failed for page $page_id"
+    printf '%s\texport\n' "$page_id" >> "$FAILED"
+  fi
+
+  attachment_count="$(log_attachments_from_export "$page_dir/attachments")"
+  record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "export" "$attachment_count"
+  return 0
+}
+
+log_info "starting"
+log_info "root page id: $ROOT_ID"
+log_info "output dir: $OUT_DIR"
+log_info "dry-run: $DRY_RUN"
+
+PREFLIGHT_INFO_FILE="$TMP_DIR/preflight_info_${ROOT_ID}.txt"
+log_info "preflight: checking confluence-cli access"
+if ! confluence info "$ROOT_ID" > "$PREFLIGHT_INFO_FILE" 2>>"$LOG_FILE"; then
+  log_error "preflight failed: cannot access page $ROOT_ID. Check confluence-cli authentication and permissions."
+  exit 1
+fi
+
+ROOT_CHILDREN_JSON="$TMP_DIR/root_children.json"
+log_info "collecting recursive children for root page $ROOT_ID"
+if confluence children "$ROOT_ID" --recursive --format json > "$ROOT_CHILDREN_JSON" 2>>"$LOG_FILE"; then
+  enqueue "$ROOT_ID" root
+  root_children_ids="$TMP_DIR/root_children_ids.txt"
+  if extract_children_ids "$ROOT_CHILDREN_JSON" > "$root_children_ids" 2>>"$LOG_FILE"; then
+    while IFS= read -r child_id; do
+      [[ -z "$child_id" ]] && continue
+      [[ "$child_id" == "$ROOT_ID" ]] && continue
+      log_info "found child page in tree: $child_id"
+      enqueue "$child_id" "child:$ROOT_ID"
+    done < "$root_children_ids"
+  else
+    log_warn "failed to parse children list for root page $ROOT_ID; continuing with root page only"
+  fi
+else
+  log_warn "failed to collect children for root page $ROOT_ID; continuing with root page only"
+  enqueue "$ROOT_ID" root
+fi
+
+q_idx=0
+while (( q_idx < ${#QUEUE[@]} )); do
+  page_id="${QUEUE[$q_idx]}"
+  q_idx=$((q_idx + 1))
+  [[ -n "${VISITED[$page_id]+x}" ]] && continue
+  if process_page "$page_id"; then
+    VISITED["$page_id"]=1
+  else
+    VISITED["$page_id"]=1
+  fi
+done
+
+write_summary 0 ""
+
+log_info "done"
+log_info "processed pages: $processed_count"
+log_info "manifest rows: $manifest_count"
+log_info "resolved links: $resolved_count"
+log_info "unresolved links: $unresolved_count"
+log_info "failed operations: $failed_count"
+log_info "summary: $SUMMARY"
+log_info "manifest: $MANIFEST"
+log_info "resolved links: $LINKS_FILE"
+log_info "unresolved links: $UNRESOLVED"
+log_info "run log: $LOG_FILE"
+
+if (( failed_count > 0 )); then
+  log_warn "some operations failed; see $FAILED and $LOG_FILE"
+fi
