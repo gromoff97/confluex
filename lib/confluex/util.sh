@@ -30,8 +30,8 @@ log_error() { confluex_log ERROR "$@"; }
 trim() {
   local s="$1"
   s="${s//$'\r'/}"
-  s="${s#${s%%[![:space:]]*}}"
-  s="${s%${s##*[![:space:]]}}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
   printf '%s' "$s"
 }
 

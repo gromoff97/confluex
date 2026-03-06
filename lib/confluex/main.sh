@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-
+# shellcheck disable=SC1091
 . "$CONFLUEX_LIB_DIR/util.sh"
+# shellcheck disable=SC1091
 . "$CONFLUEX_LIB_DIR/cli.sh"
-
-INTERRUPTED=0
 
 # Runtime paths (initialized by confluex_init_runtime_paths).
 OUT_DIR=""
@@ -33,7 +32,6 @@ declare -A FIND_CACHE=()
 declare -A DISCOVERED_BY=()
 declare -A TITLE_BY_ID=()
 declare -A SPACE_BY_ID=()
-declare -A FOLDER_BY_ID=()
 
 confluex_reset_state() {
   QUEUE=()
@@ -43,7 +41,6 @@ confluex_reset_state() {
   DISCOVERED_BY=()
   TITLE_BY_ID=()
   SPACE_BY_ID=()
-  FOLDER_BY_ID=()
 }
 
 confluex_parse_info_file() {
@@ -120,7 +117,7 @@ confluex_log_attachments_from_export() {
   local count=0
   while IFS= read -r -d '' file; do
     count=$((count + 1))
-    local rel="${file#$attachments_dir/}"
+    local rel="${file#"$attachments_dir"/}"
     log_info "    attachment downloaded: $rel"
   done < <(find "$attachments_dir" -type f -print0 | sort -z)
 
@@ -351,7 +348,6 @@ confluex_process_page() {
 
   TITLE_BY_ID["$page_id"]="$title"
   SPACE_BY_ID["$page_id"]="$space_key"
-  FOLDER_BY_ID["$page_id"]="$page_dir"
 
   cp "$info_tmp" "$page_dir/_info.txt"
 
@@ -446,7 +442,6 @@ confluex_mark_incomplete() {
 confluex_on_interrupt() {
   local reason="SIGINT"
   trap - INT TERM
-  INTERRUPTED=1
   set +e
 
   if (( CFG_DRY_RUN )); then
