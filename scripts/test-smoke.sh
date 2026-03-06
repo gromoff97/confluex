@@ -39,6 +39,9 @@ scenario_info() {
     basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100)
       emit_info 100 "Root Page" "ENG"
       ;;
+    preflight_failure:100)
+      exit 1
+      ;;
     empty_current_space_title:100)
       printf 'ID: 100\n'
       printf 'Title: Root Page\n'
@@ -941,6 +944,23 @@ assert_no_default_output_dirs() {
   fi
 }
 
+assert_single_generated_dir() {
+  local work_dir="$1"
+  local glob_pattern="$2"
+  local matches=()
+
+  while IFS= read -r match; do
+    matches+=("$match")
+  done < <(find "$work_dir" -maxdepth 1 -mindepth 1 -type d -name "$glob_pattern" | sort)
+
+  if (( ${#matches[@]} != 1 )); then
+    printf 'ASSERT FAILED: expected exactly one directory matching %s in %s, got %s\n' "$glob_pattern" "$work_dir" "${#matches[@]}" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${matches[0]}"
+}
+
 assert_page_exported() {
   local out_dir="$1"
   local space_key="$2"
@@ -968,7 +988,9 @@ assert_page_html_missing() {
 assert_report_invariants() {
   local out_dir="$1"
   local dry_run
+  local base_dir
   dry_run="$(summary_value "$out_dir/summary.txt" dry_run)"
+  base_dir="$(dirname "$out_dir")"
 
   if [[ "$dry_run" == "1" ]]; then
     awk -F'\t' '
@@ -994,6 +1016,9 @@ assert_report_invariants() {
     { print $1 "\t" $4 }
   ' "$out_dir/manifest.tsv" | while IFS=$'\t' read -r page_id folder; do
     [[ -z "$folder" ]] && continue
+    if [[ "$folder" != /* ]]; then
+      folder="$base_dir/$folder"
+    fi
     assert_path_exists "$folder"
     if [[ -f "$folder/page.html" ]]; then
       continue
@@ -1093,6 +1118,25 @@ test_empty_log_file_rejected() {
     exit 1
   fi
   assert_contains '--log-file requires a non-empty file path' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_help_does_not_create_output_dirs() {
+  local log_file="$TEST_ROOT/help.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --help
+
+  assert_contains 'Usage:' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_install_writes_executable_to_requested_dir() {
+  local install_dir="$WORK_DIR/install-bin"
+  local log_file="$TEST_ROOT/install.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --install --install-dir "$install_dir"
+
+  assert_file_exists "$install_dir/confluex"
+  run_cmd "$TEST_ROOT/install-help.log" basic "$install_dir/confluex" --help
+  assert_contains 'Usage:' "$TEST_ROOT/install-help.log"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1739,6 +1783,69 @@ test_log_file_opt_in() {
   assert_contains 'starting' "$explicit_log"
 }
 
+test_export_keep_metadata_persists_metadata_files() {
+  local out_dir="$WORK_DIR/export-keep-metadata"
+  local log_file="$TEST_ROOT/export-keep-metadata.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --keep-metadata --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/_info.txt"
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/_storage.xml"
+}
+
+test_dry_run_with_log_file_writes_log_without_html() {
+  local out_dir="$WORK_DIR/dry-run-with-log"
+  local explicit_log="$WORK_DIR/dry-run.log"
+  local log_file="$TEST_ROOT/dry-run-with-log.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir" --log-file "$explicit_log"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_file_exists "$explicit_log"
+  assert_contains 'starting' "$explicit_log"
+  assert_path_missing "$out_dir/pages/ENG/Root_Page__100/page.html"
+}
+
+test_default_output_dir_is_generated_for_export() {
+  local log_file="$TEST_ROOT/default-out-export.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100
+
+  local generated_dir
+  generated_dir="$(assert_single_generated_dir "$WORK_DIR" 'confluence_dump_*')"
+  assert_standard_report_files "$generated_dir"
+  assert_report_invariants "$generated_dir"
+  assert_page_exported "$generated_dir" ENG Root_Page 100
+}
+
+test_default_output_dir_is_generated_for_dry_run() {
+  local log_file="$TEST_ROOT/default-out-dry.log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run
+
+  local generated_dir
+  generated_dir="$(assert_single_generated_dir "$WORK_DIR" 'confluence_plan_*')"
+  assert_standard_report_files "$generated_dir"
+  assert_report_invariants "$generated_dir"
+  assert_path_missing "$generated_dir/pages/ENG/Root_Page__100/page.html"
+}
+
+test_preflight_failure_stops_before_any_export() {
+  local out_dir="$WORK_DIR/preflight-failure"
+  local log_file="$TEST_ROOT/preflight-failure.log"
+  if run_cmd "$log_file" preflight_failure "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"; then
+    printf 'ASSERT FAILED: preflight-failure scenario should return non-zero\n' >&2
+    exit 1
+  fi
+
+  assert_file_exists "$out_dir/manifest.tsv"
+  assert_file_exists "$out_dir/resolved-links.tsv"
+  assert_file_exists "$out_dir/unresolved-links.tsv"
+  assert_file_exists "$out_dir/failed-pages.tsv"
+  assert_path_missing "$out_dir/summary.txt"
+  assert_path_missing "$out_dir/pages/ENG/Root_Page__100"
+}
+
 test_fail_fast_stops_after_first_page_failure() {
   local out_dir="$WORK_DIR/fail-fast"
   local log_file="$TEST_ROOT/fail-fast.log"
@@ -1825,6 +1932,8 @@ test_unknown_option_suggestion
 test_install_conflict_rejected
 test_install_dir_requires_install
 test_empty_log_file_rejected
+test_help_does_not_create_output_dirs
+test_install_writes_executable_to_requested_dir
 test_basic_export_downloads_tree_and_linked_page
 test_linked_page_does_not_pull_its_descendants
 test_duplicate_paths_do_not_duplicate_exports
@@ -1871,6 +1980,11 @@ test_multiple_broken_links_including_invalid_id_are_handled_independently
 test_dry_run_minimal_artifacts
 test_dry_run_keep_metadata
 test_log_file_opt_in
+test_export_keep_metadata_persists_metadata_files
+test_dry_run_with_log_file_writes_log_without_html
+test_default_output_dir_is_generated_for_export
+test_default_output_dir_is_generated_for_dry_run
+test_preflight_failure_stops_before_any_export
 test_fail_fast_stops_after_first_page_failure
 test_fail_fast_stops_after_edit_failure
 test_fail_fast_stops_after_info_failure
