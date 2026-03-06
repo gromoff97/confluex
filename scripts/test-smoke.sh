@@ -36,13 +36,13 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100)
       emit_info 100 "Root Page" "ENG"
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200)
       emit_info 200 "Child Page" "ENG"
       ;;
-    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300)
+    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300)
       emit_info 300 "Linked Page" "ENG"
       ;;
     linked_no_descendants:400)
@@ -75,6 +75,12 @@ scenario_info() {
     find_candidate_limit:860|find_candidate_limit:861|find_candidate_limit:862|find_candidate_limit:863)
       emit_info "$page_id" "Popular Page" "ENG"
       ;;
+    repeated_title_links:910)
+      emit_info 910 "Repeated Page" "ENG"
+      ;;
+    unicode_entity_title:930)
+      emit_info 930 "R&D Привет" "ENG"
+      ;;
     *)
       exit 1
       ;;
@@ -101,7 +107,7 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
       ;;
-    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100)
+    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100)
       cat <<'JSON'
 {"results":[]}
 JSON
@@ -109,6 +115,16 @@ JSON
     non_page_child_ids:100)
       cat <<'JSON'
 {"results":[{"id":"200","title":"Child Page","children":[]}],"metadata":{"id":"999","title":"Not A Page","url":"/metadata/999"}}
+JSON
+      ;;
+    duplicate_child_entries:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]},{"id":"200","title":"Child Page","children":[]},{"id":"300","title":"Linked Page","children":[]}]}
+JSON
+      ;;
+    inaccessible_tree_page:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]},{"id":"940","title":"Forbidden Page","children":[]}]}
 JSON
       ;;
     linked_no_descendants:300)
@@ -130,14 +146,24 @@ scenario_edit() {
   local output="$3"
 
   case "$scenario:$page_id" in
-    basic:100|linked_no_descendants:100|cycle_links:100|duplicate_paths:100|non_page_child_ids:100)
+    basic:100|linked_no_descendants:100|cycle_links:100|non_page_child_ids:100)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
+XML
+      ;;
+    duplicate_child_entries:100|inaccessible_tree_page:100)
+      cat > "$output" <<'XML'
+<p>root page</p>
 XML
       ;;
     basic:200|linked_no_descendants:200|non_page_child_ids:200)
       cat > "$output" <<'XML'
 <p>child page</p>
+XML
+      ;;
+    duplicate_child_entries:200|duplicate_child_entries:300|inaccessible_tree_page:200)
+      cat > "$output" <<'XML'
+<p>child export</p>
 XML
       ;;
     basic:300|linked_no_descendants:300|non_page_child_ids:300)
@@ -251,6 +277,60 @@ XML
 <p>popular page</p>
 XML
       ;;
+    same_page_four_forms:100)
+      cat > "$output" <<'XML'
+<ri:content-entity ri:content-id="300" />
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
+<ac:parameter ac:name="page">ENG:Linked Page</ac:parameter>
+<a href="/pages/viewpage.action?pageId=300">internal href</a>
+XML
+      ;;
+    same_page_four_forms:300)
+      cat > "$output" <<'XML'
+<p>same page via many link forms</p>
+XML
+      ;;
+    code_block_pageid_text:100)
+      cat > "$output" <<'XML'
+<ac:plain-text-body><![CDATA[<a href="/pages/viewpage.action?pageId=889">not a real link</a>]]></ac:plain-text-body>
+<code>pageId=888</code>
+<pre><a href="/pages/viewpage.action?pageId=887">still not a link</a></pre>
+XML
+      ;;
+    repeated_title_links:100)
+      {
+        i=1
+        while (( i <= 100 )); do
+          printf '%s\n' '<ac:link><ri:page ri:space-key="ENG" ri:content-title="Repeated Page" /></ac:link>'
+          i=$((i + 1))
+        done
+      } > "$output"
+      ;;
+    repeated_title_links:910)
+      cat > "$output" <<'XML'
+<p>repeated page</p>
+XML
+      ;;
+    content_id_only_link:100)
+      cat > "$output" <<'XML'
+<ri:page ri:content-id="300" />
+XML
+      ;;
+    content_id_only_link:300)
+      cat > "$output" <<'XML'
+<p>content-id only page</p>
+XML
+      ;;
+    unicode_entity_title:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="R&amp;D Привет" /></ac:link>
+XML
+      ;;
+    unicode_entity_title:930)
+      cat > "$output" <<'XML'
+<p>unicode and entities page</p>
+XML
+      ;;
     fail_fast:200|no_fail_fast:200)
       cat > "$output" <<'XML'
 <p>will fail on export</p>
@@ -285,6 +365,9 @@ scenario_find() {
     basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|non_page_child_ids:Linked\ Page:ENG)
       printf 'ID: 300\n'
       ;;
+    same_page_four_forms:Linked\ Page:ENG|content_id_only_link:Linked\ Page:ENG)
+      printf 'ID: 300\n'
+      ;;
     cross_space:Shared\ Page:OTHER)
       printf 'ID: 500\n'
       ;;
@@ -305,6 +388,12 @@ scenario_find() {
       ;;
     find_candidate_limit:Popular\ Page:ENG)
       printf 'ID: 860\nID: 861\nID: 862\nID: 863\n'
+      ;;
+    repeated_title_links:Repeated\ Page:ENG)
+      printf 'ID: 910\n'
+      ;;
+    unicode_entity_title:R\&D\ Привет:ENG)
+      printf 'ID: 930\n'
       ;;
     *)
       exit 1
@@ -332,6 +421,16 @@ scenario_export() {
 
 cmd="${1:-}"
 shift || true
+
+if [[ -n "${MOCK_CALLS_FILE:-}" ]]; then
+  {
+    printf '%s' "$cmd"
+    for arg in "$@"; do
+      printf '\t%s' "$arg"
+    done
+    printf '\n'
+  } >> "$MOCK_CALLS_FILE"
+fi
 
 case "$cmd" in
   info)
@@ -482,13 +581,37 @@ manifest_page_count() {
   awk -F'\t' -v page_id="$page_id" 'NR > 1 && $1 == page_id { count += 1 } END { print count + 0 }' "$file"
 }
 
+mock_calls_file() {
+  local log_file="$1"
+  printf '%s.calls\n' "$log_file"
+}
+
+mock_call_count() {
+  local log_file="$1"
+  local pattern="$2"
+  local calls_file
+  calls_file="$(mock_calls_file "$log_file")"
+  if [[ ! -f "$calls_file" ]]; then
+    printf '0\n'
+    return 0
+  fi
+  awk -F'\t' -v pattern="$pattern" '
+    BEGIN { count = 0 }
+    $0 ~ pattern { count += 1 }
+    END { print count + 0 }
+  ' "$calls_file"
+}
+
 run_cmd() {
   local log_file="$1"
   local scenario="$2"
   shift 2
+  local calls_file
+  calls_file="$(mock_calls_file "$log_file")"
+  : > "$calls_file"
   (
     cd "$WORK_DIR"
-    SCENARIO="$scenario" "$@"
+    SCENARIO="$scenario" MOCK_CALLS_FILE="$calls_file" "$@"
   ) >"$log_file" 2>&1
 }
 
@@ -620,6 +743,40 @@ test_page_param_with_colon_space_stays_same_space_title() {
   assert_file_exists "$out_dir/pages/ENG/API_Overview__800/page.html"
 }
 
+test_duplicate_child_entries_do_not_duplicate_queueing() {
+  local out_dir="$WORK_DIR/duplicate-child-entries"
+  local log_file="$TEST_ROOT/duplicate-child-entries.log"
+  run_cmd "$log_file" duplicate_child_entries "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "duplicate-child-entries processed_pages"
+  assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 200)" "duplicate-child-entries manifest page 200 count"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t200($|\t)')" "duplicate-child-entries export page 200 count"
+}
+
+test_same_page_found_through_four_forms_exports_once() {
+  local out_dir="$WORK_DIR/same-page-four-forms"
+  local log_file="$TEST_ROOT/same-page-four-forms.log"
+  run_cmd "$log_file" same_page_four_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "same-page-four-forms processed_pages"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
+  assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "same-page-four-forms manifest page 300 count"
+  assert_equal "1" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "same-page-four-forms find count"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "same-page-four-forms export page 300 count"
+}
+
+test_pageid_text_inside_code_blocks_is_ignored() {
+  local out_dir="$WORK_DIR/code-block-pageid"
+  local log_file="$TEST_ROOT/code-block-pageid.log"
+  run_cmd "$log_file" code_block_pageid_text "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "code-block-pageid processed_pages"
+  assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "code-block-pageid resolved_links"
+  assert_equal "0" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "code-block-pageid unresolved_links"
+  assert_equal "0" "$(mock_call_count "$log_file" '^info\t88[789]($|\t)')" "code-block-pageid unexpected info count"
+  assert_equal "0" "$(mock_call_count "$log_file" '^export\t88[789]($|\t)')" "code-block-pageid unexpected export count"
+}
+
 test_find_output_without_explicit_ids_is_skipped() {
   local out_dir="$WORK_DIR/find-output-without-ids"
   local log_file="$TEST_ROOT/find-output-without-ids.log"
@@ -640,6 +797,37 @@ test_find_candidate_limit_skips_wide_matches() {
   assert_contains 'returned 4 candidates; limit is 3, skipping' "$log_file"
 }
 
+test_repeated_title_links_use_single_find_resolution() {
+  local out_dir="$WORK_DIR/repeated-title-links"
+  local log_file="$TEST_ROOT/repeated-title-links.log"
+  run_cmd "$log_file" repeated_title_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "repeated-title-links processed_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "repeated-title-links resolved_links"
+  assert_equal "1" "$(mock_call_count "$log_file" '^find\tRepeated Page\t--space\tENG$')" "repeated-title-links find count"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t910($|\t)')" "repeated-title-links export count"
+}
+
+test_content_id_only_page_link_is_downloaded() {
+  local out_dir="$WORK_DIR/content-id-only-link"
+  local log_file="$TEST_ROOT/content-id-only-link.log"
+  run_cmd "$log_file" content_id_only_link "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "content-id-only-link processed_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "content-id-only-link resolved_links"
+  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_equal "0" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "content-id-only-link find count"
+}
+
+test_unicode_and_entities_titles_resolve_correctly() {
+  local out_dir="$WORK_DIR/unicode-entity-title"
+  local log_file="$TEST_ROOT/unicode-entity-title.log"
+  run_cmd "$log_file" unicode_entity_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "unicode-entity-title resolved_links"
+  assert_file_exists "$out_dir/pages/ENG/R&D_Привет__930/page.html"
+}
+
 test_mixed_link_forms_are_detected() {
   local out_dir="$WORK_DIR/link-forms"
   local log_file="$TEST_ROOT/link-forms.log"
@@ -650,6 +838,15 @@ test_mixed_link_forms_are_detected() {
   assert_file_exists "$out_dir/pages/ENG/Href_Linked__502/page.html"
   assert_equal "4" "$(manifest_row_count "$out_dir/manifest.tsv")" "link-forms manifest rows"
   assert_not_contains '999' "$out_dir/resolved-links.tsv"
+}
+
+test_external_pageid_like_href_does_not_trigger_download() {
+  local out_dir="$WORK_DIR/external-pageid-href"
+  local log_file="$TEST_ROOT/external-pageid-href.log"
+  run_cmd "$log_file" link_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "0" "$(mock_call_count "$log_file" '^info\t999($|\t)')" "external-pageid-href info count"
+  assert_equal "0" "$(mock_call_count "$log_file" '^export\t999($|\t)')" "external-pageid-href export count"
 }
 
 test_dry_run_minimal_artifacts() {
@@ -707,6 +904,18 @@ test_no_fail_fast_continues_after_failure() {
   assert_file_exists "$out_dir/pages/ENG/Later_Page__900/page.html"
 }
 
+test_no_fail_fast_continues_after_inaccessible_tree_page() {
+  local out_dir="$WORK_DIR/inaccessible-tree-page"
+  local log_file="$TEST_ROOT/inaccessible-tree-page.log"
+  run_cmd "$log_file" inaccessible_tree_page "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_equal "0" "$(summary_value "$out_dir/summary.txt" incomplete)" "inaccessible-tree-page incomplete"
+  assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "inaccessible-tree-page processed_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "inaccessible-tree-page failed_operations"
+  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_path_missing "$out_dir/pages/NO_SPACE/Forbidden_Page__940"
+}
+
 test_unknown_option_suggestion
 test_install_conflict_rejected
 test_install_dir_requires_install
@@ -720,13 +929,21 @@ test_ambiguous_title_stays_unresolved
 test_cross_space_title_link_resolves_correctly
 test_children_parser_ignores_non_page_ids
 test_page_param_with_colon_space_stays_same_space_title
+test_duplicate_child_entries_do_not_duplicate_queueing
+test_same_page_found_through_four_forms_exports_once
+test_pageid_text_inside_code_blocks_is_ignored
 test_find_output_without_explicit_ids_is_skipped
 test_find_candidate_limit_skips_wide_matches
+test_repeated_title_links_use_single_find_resolution
+test_content_id_only_page_link_is_downloaded
+test_unicode_and_entities_titles_resolve_correctly
 test_mixed_link_forms_are_detected
+test_external_pageid_like_href_does_not_trigger_download
 test_dry_run_minimal_artifacts
 test_dry_run_keep_metadata
 test_log_file_opt_in
 test_fail_fast_stops_after_first_page_failure
 test_no_fail_fast_continues_after_failure
+test_no_fail_fast_continues_after_inaccessible_tree_page
 
 printf 'Smoke tests passed.\n'
