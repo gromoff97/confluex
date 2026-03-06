@@ -54,13 +54,17 @@ Acceptance:
 - `install` rejects export-only and safety-only options
 - `uninstall` rejects export-only and safety-only options
 - `doctor` rejects export-only options
+- lifecycle and diagnostic commands reject `--encrypt-for`
 
 Traceability:
 - `test_install_conflict_rejected`
 - `test_install_dir_requires_install`
 - `test_install_rejects_export_only_options`
+- `test_install_rejects_encrypt_for`
 - `test_uninstall_rejects_export_only_options`
+- `test_uninstall_rejects_encrypt_for`
 - `test_doctor_rejects_export_only_options`
+- `test_doctor_rejects_encrypt_for`
 
 ### UX-CLI-006
 `uninstall` shall be idempotent.
@@ -213,6 +217,23 @@ Automatically generated output directories shall avoid collisions.
 
 Traceability:
 - `test_default_output_dir_avoids_collision`
+
+### UX-SAFE-006
+When `--encrypt-for` is used, successful completion shall produce an encrypted archive and remove the plain output directory.
+
+Acceptance:
+- `<out>.tar.gz.gpg` exists
+- `<out>.tar.gz.gpg.txt` exists with decrypt/extract instructions
+- `<out>` is removed
+
+Traceability:
+- `test_encrypt_for_creates_gpg_archive_and_removes_output_dir`
+
+### UX-SAFE-007
+If GPG encryption fails, the plain output directory shall be preserved.
+
+Traceability:
+- `test_encrypt_for_failure_keeps_plain_output_dir`
 
 ## Reporting And Observability
 
