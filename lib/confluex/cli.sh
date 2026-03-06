@@ -64,12 +64,14 @@ confluex_install() {
 }
 
 confluex_parse_args() {
+  # shellcheck disable=SC2034
   CFG_DRY_RUN=0
   CFG_OUT_DIR=""
   CFG_ROOT_ID=""
   CFG_FAIL_FAST=1
   CFG_INSTALL=0
   CFG_INSTALL_DIR="${HOME}/.local/bin"
+  CFG_HELP_ONLY=0
 
   while (($# > 0)); do
     case "$1" in
@@ -85,15 +87,18 @@ confluex_parse_args() {
         shift
         ;;
       --dry-run)
+        # shellcheck disable=SC2034
         CFG_DRY_RUN=1
         shift
         ;;
       --out)
         [[ $# -ge 2 ]] || { printf 'ERROR: --out requires a directory\n' >&2; return 1; }
+        # shellcheck disable=SC2034
         CFG_OUT_DIR="$2"
         shift 2
         ;;
       --no-fail-fast)
+        # shellcheck disable=SC2034
         CFG_FAIL_FAST=0
         shift
         ;;
@@ -108,6 +113,7 @@ confluex_parse_args() {
         ;;
       -h|--help)
         confluex_usage
+        # shellcheck disable=SC2034
         CFG_HELP_ONLY=1
         return 0
         ;;
