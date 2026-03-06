@@ -19,8 +19,13 @@ confluex_log() {
   local level="$1"
   shift
   local ts
+  local line
   ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-  printf '[%s] [%s] %s\n' "$ts" "$level" "$*" | tee -a "$LOG_FILE" >&2
+  line="$(printf '[%s] [%s] %s\n' "$ts" "$level" "$*")"
+  printf '%s\n' "$line" >&2
+  if [[ -n "${LOG_FILE:-}" ]]; then
+    printf '%s\n' "$line" >> "$LOG_FILE"
+  fi
 }
 
 log_info() { confluex_log INFO "$@"; }

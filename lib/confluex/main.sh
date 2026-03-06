@@ -7,7 +7,6 @@
 # Runtime paths (initialized by confluex_init_runtime_paths).
 OUT_DIR=""
 PAGES_DIR=""
-META_DIR=""
 TMP_DIR=""
 LOG_FILE=""
 MANIFEST=""
@@ -134,7 +133,7 @@ confluex_log_attachments_preview() {
   local page_id="$1"
   local out_file="$2"
 
-  if ! confluence attachments "$page_id" > "$out_file" 2>>"$LOG_FILE"; then
+  if ! confluex_capture_stdout "$out_file" confluence attachments "$page_id"; then
     log_warn "    could not list attachments for dry-run preview"
     printf '0\n'
     return 0
@@ -151,6 +150,44 @@ confluex_log_attachments_preview() {
   printf '%s\n' "$line_count"
 }
 
+confluex_temp_file() {
+  local name="$1"
+  printf '%s/%s\n' "$TMP_DIR" "$name"
+}
+
+confluex_capture_stdout() {
+  local out_file="$1"
+  shift
+
+  if [[ -n "$LOG_FILE" ]]; then
+    "$@" > "$out_file" 2>>"$LOG_FILE"
+    return $?
+  fi
+
+  "$@" > "$out_file"
+}
+
+confluex_run_with_optional_log() {
+  if [[ -n "$LOG_FILE" ]]; then
+    "$@" >>"$LOG_FILE" 2>&1
+    return $?
+  fi
+
+  "$@"
+}
+
+confluex_page_metadata_path() {
+  local page_dir="$1"
+  local name="$2"
+
+  if (( CFG_KEEP_METADATA )); then
+    printf '%s/%s\n' "$page_dir" "$name"
+    return 0
+  fi
+
+  printf '%s\n' "$(confluex_temp_file "$name")"
+}
+
 confluex_cache_page_info_if_missing() {
   local page_id="$1"
 
@@ -159,7 +196,7 @@ confluex_cache_page_info_if_missing() {
   fi
 
   local info_tmp="$TMP_DIR/info_cache_${page_id}.txt"
-  if ! confluence info "$page_id" > "$info_tmp" 2>>"$LOG_FILE"; then
+  if ! confluex_capture_stdout "$info_tmp" confluence info "$page_id"; then
     return 1
   fi
 
@@ -186,13 +223,13 @@ confluex_resolve_by_title() {
 
   local out_file="$TMP_DIR/find_${RANDOM}_${RANDOM}.txt"
   if [[ -n "$space_key" ]]; then
-    if ! confluence find "$title" --space "$space_key" > "$out_file" 2>>"$LOG_FILE"; then
+    if ! confluex_capture_stdout "$out_file" confluence find "$title" --space "$space_key"; then
       FIND_CACHE["$cache_key"]=""
       rm -f "$out_file"
       return 1
     fi
   else
-    if ! confluence find "$title" > "$out_file" 2>>"$LOG_FILE"; then
+    if ! confluex_capture_stdout "$out_file" confluence find "$title"; then
       FIND_CACHE["$cache_key"]=""
       rm -f "$out_file"
       return 1
@@ -265,7 +302,7 @@ confluex_process_links_for_page() {
   local storage_file="$4"
 
   local refs_file="$TMP_DIR/refs_${page_id}.txt"
-  if ! confluex_extract_link_refs "$storage_file" "$space_key" > "$refs_file" 2>>"$LOG_FILE"; then
+  if ! confluex_capture_stdout "$refs_file" confluex_extract_link_refs "$storage_file" "$space_key"; then
     log_warn "  failed to parse links for page $page_id"
     return 0
   fi
@@ -317,7 +354,8 @@ confluex_process_links_for_page() {
 
 confluex_process_page() {
   local page_id="$1"
-  local info_tmp="$TMP_DIR/info_${page_id}.txt"
+  local info_tmp
+  info_tmp="$(confluex_temp_file "info_${page_id}.txt")"
 
   log_info "------------------------------------------------------------"
   log_info "processing page $page_id"
@@ -327,7 +365,7 @@ confluex_process_page() {
   if [[ "$page_id" == "$CFG_ROOT_ID" && -f "$PREFLIGHT_INFO_FILE" ]]; then
     cp "$PREFLIGHT_INFO_FILE" "$info_tmp"
   else
-    if ! confluence info "$page_id" > "$info_tmp" 2>>"$LOG_FILE"; then
+    if ! confluex_capture_stdout "$info_tmp" confluence info "$page_id"; then
       log_error "failed to get info for page $page_id"
       printf '%s\tinfo\n' "$page_id" >> "$FAILED"
       return 1
@@ -349,15 +387,18 @@ confluex_process_page() {
   TITLE_BY_ID["$page_id"]="$title"
   SPACE_BY_ID["$page_id"]="$space_key"
 
-  cp "$info_tmp" "$page_dir/_info.txt"
+  if (( CFG_KEEP_METADATA )); then
+    cp "$info_tmp" "$page_dir/_info.txt"
+  fi
 
   log_info "  title: $title"
   log_info "  space: ${space_key:-<unknown>}"
   [[ -n "$page_url" ]] && log_info "  url: $page_url"
   log_info "  folder: $page_dir"
 
-  local storage_file="$page_dir/_storage.xml"
-  if confluence edit "$page_id" --output "$storage_file" >>"$LOG_FILE" 2>&1; then
+  local storage_file
+  storage_file="$(confluex_page_metadata_path "$page_dir" "_storage.xml")"
+  if confluex_run_with_optional_log confluence edit "$page_id" --output "$storage_file"; then
     log_info "  saved storage XML: $storage_file"
     confluex_process_links_for_page "$page_id" "$title" "$space_key" "$storage_file"
   else
@@ -370,8 +411,10 @@ confluex_process_page() {
 
   local attachment_count=0
   if (( CFG_DRY_RUN )); then
+    local attachments_preview_file
+    attachments_preview_file="$(confluex_page_metadata_path "$page_dir" "_attachments_preview.txt")"
     log_info "  DRY-RUN: page content and attachments will NOT be downloaded"
-    attachment_count="$(confluex_log_attachments_preview "$page_id" "$page_dir/_attachments_preview.txt")"
+    attachment_count="$(confluex_log_attachments_preview "$page_id" "$attachments_preview_file")"
     log_info "  DRY-RUN: would export page to $page_dir/page.html"
     log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
     confluex_record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
@@ -379,7 +422,7 @@ confluex_process_page() {
   fi
 
   log_info "  exporting page HTML + attachments"
-  if confluence export "$page_id" --format html --dest "$page_dir" --file page.html --attachments-dir attachments >>"$LOG_FILE" 2>&1; then
+  if confluex_run_with_optional_log confluence export "$page_id" --format html --dest "$page_dir" --file page.html --attachments-dir attachments; then
     log_info "  export complete"
   else
     log_warn "  export failed for page $page_id"
@@ -468,6 +511,23 @@ confluex_on_interrupt() {
   exit 130
 }
 
+confluex_cleanup_tmp_dir() {
+  if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
+    rm -rf "$TMP_DIR"
+  fi
+}
+
+confluex_on_exit() {
+  local exit_code="$1"
+
+  if (( exit_code == 130 )); then
+    confluex_cleanup_tmp_dir
+    return 0
+  fi
+
+  confluex_cleanup_tmp_dir
+}
+
 confluex_init_runtime_paths() {
   local timestamp
   timestamp="$(date +%Y%m%d_%H%M%S)"
@@ -483,19 +543,25 @@ confluex_init_runtime_paths() {
   fi
 
   PAGES_DIR="$OUT_DIR/pages"
-  META_DIR="$OUT_DIR/_meta"
-  TMP_DIR="$OUT_DIR/_tmp"
-  LOG_FILE="$OUT_DIR/run.log"
+  TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/confluex.${CFG_ROOT_ID}.XXXXXX")"
+  LOG_FILE=""
   MANIFEST="$OUT_DIR/manifest.tsv"
   LINKS_FILE="$OUT_DIR/resolved-links.tsv"
   UNRESOLVED="$OUT_DIR/unresolved-links.tsv"
   FAILED="$OUT_DIR/failed-pages.tsv"
   SUMMARY="$OUT_DIR/summary.txt"
-  PREFLIGHT_INFO_FILE="$TMP_DIR/preflight_info_${CFG_ROOT_ID}.txt"
+  PREFLIGHT_INFO_FILE="$(confluex_temp_file "preflight_info_${CFG_ROOT_ID}.txt")"
 
-  mkdir -p "$PAGES_DIR" "$META_DIR" "$TMP_DIR"
+  if [[ -n "$CFG_LOG_FILE" ]]; then
+    LOG_FILE="$CFG_LOG_FILE"
+  fi
 
-  : > "$LOG_FILE"
+  mkdir -p "$PAGES_DIR"
+
+  if [[ -n "$LOG_FILE" ]]; then
+    mkdir -p "$(dirname "$LOG_FILE")"
+    : > "$LOG_FILE"
+  fi
   : > "$FAILED"
   printf 'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n' > "$MANIFEST"
   printf 'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space\n' > "$LINKS_FILE"
@@ -507,7 +573,7 @@ confluex_collect_initial_queue() {
   local root_children_ids="$TMP_DIR/root_children_ids.txt"
 
   log_info "collecting recursive children for root page $CFG_ROOT_ID"
-  if ! confluence children "$CFG_ROOT_ID" --recursive --format json > "$root_children_json" 2>>"$LOG_FILE"; then
+  if ! confluex_capture_stdout "$root_children_json" confluence children "$CFG_ROOT_ID" --recursive --format json; then
     log_warn "failed to collect children for root page $CFG_ROOT_ID; continuing with root page only"
     confluex_enqueue "$CFG_ROOT_ID" root
     return 0
@@ -515,7 +581,7 @@ confluex_collect_initial_queue() {
 
   confluex_enqueue "$CFG_ROOT_ID" root
 
-  if ! confluex_extract_children_ids "$root_children_json" > "$root_children_ids" 2>>"$LOG_FILE"; then
+  if ! confluex_capture_stdout "$root_children_ids" confluex_extract_children_ids "$root_children_json"; then
     log_warn "failed to parse children list for root page $CFG_ROOT_ID; continuing with root page only"
     return 0
   fi
@@ -530,7 +596,7 @@ confluex_collect_initial_queue() {
 
 confluex_preflight() {
   log_info "preflight: checking confluence-cli access"
-  if confluence info "$CFG_ROOT_ID" > "$PREFLIGHT_INFO_FILE" 2>>"$LOG_FILE"; then
+  if confluex_capture_stdout "$PREFLIGHT_INFO_FILE" confluence info "$CFG_ROOT_ID"; then
     return 0
   fi
 
@@ -586,12 +652,19 @@ confluex_main() {
   confluex_reset_state
   confluex_init_runtime_paths
   trap 'confluex_on_interrupt' INT TERM
+  trap 'confluex_on_exit $?' EXIT
 
   log_info "starting"
   log_info "root page id: $CFG_ROOT_ID"
   log_info "output dir: $OUT_DIR"
   log_info "dry-run: $CFG_DRY_RUN"
   log_info "fail-fast: $CFG_FAIL_FAST"
+  log_info "keep-metadata: $CFG_KEEP_METADATA"
+  if [[ -n "$LOG_FILE" ]]; then
+    log_info "log-file: $LOG_FILE"
+  else
+    log_info "log-file: disabled"
+  fi
 
   if ! confluex_preflight; then
     return 1
@@ -617,10 +690,16 @@ confluex_main() {
   log_info "manifest: $MANIFEST"
   log_info "resolved links: $LINKS_FILE"
   log_info "unresolved links: $UNRESOLVED"
-  log_info "run log: $LOG_FILE"
+  if [[ -n "$LOG_FILE" ]]; then
+    log_info "run log: $LOG_FILE"
+  fi
 
   if (( failed_count > 0 )); then
-    log_warn "some operations failed; see $FAILED and $LOG_FILE"
+    if [[ -n "$LOG_FILE" ]]; then
+      log_warn "some operations failed; see $FAILED and $LOG_FILE"
+    else
+      log_warn "some operations failed; see $FAILED"
+    fi
   fi
 
   return 0

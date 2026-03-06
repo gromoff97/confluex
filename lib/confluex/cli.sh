@@ -4,6 +4,7 @@ confluex_usage() {
   cat <<'USAGE'
 Usage:
   confluex --page-id <id> [--dry-run] [--out DIR] [--no-fail-fast]
+           [--keep-metadata] [--log-file FILE]
   confluex --install [--install-dir DIR]
 
 What it does:
@@ -11,7 +12,7 @@ What it does:
   - exports every page with attachments
   - parses storage XML on every page
   - follows links to other Confluence pages and exports them too
-  - writes verbose logs, manifests, and link resolution reports
+  - writes reports, and persistent logs only if requested
 
 Options:
   --page-id ID       Root Confluence page id to export.
@@ -19,6 +20,8 @@ Options:
                      Still reads page metadata and storage XML to build the full plan.
   --out DIR          Output directory. Default is generated automatically.
   --no-fail-fast     Continue on runtime errors (best-effort export).
+  --keep-metadata    Persist page metadata files such as _info.txt and _storage.xml.
+  --log-file FILE    Write a persistent log file. By default logs go only to stderr.
   --install          Install this script for global use.
   --install-dir DIR  Custom install directory (default: ~/.local/bin).
   -h, --help         Show this help.
@@ -28,6 +31,54 @@ Requirements:
   - node
   - confluence-cli configured and working
 USAGE
+}
+
+confluex_suggest_option() {
+  local bad_option="$1"
+
+  case "$bad_option" in
+    --page|--pageid|--page-id=*|--page_id|--page-idd|--page-idx)
+      printf '%s\n' "--page-id"
+      ;;
+    --dry|--dryrun|--dry-run=*|--dry_run)
+      printf '%s\n' "--dry-run"
+      ;;
+    --output|--out-dir|--outdir|--out=*)
+      printf '%s\n' "--out"
+      ;;
+    --metadata|--keep-meta|--keep_metadata)
+      printf '%s\n' "--keep-metadata"
+      ;;
+    --log|--logfile|--log-file=*|--logs)
+      printf '%s\n' "--log-file"
+      ;;
+    --install-dir=*|--instal|--instal-dir|--installdir)
+      printf '%s\n' "--install-dir"
+      ;;
+    --nofailfast|--no-failfast|--no_fail_fast|--fail-slow)
+      printf '%s\n' "--no-fail-fast"
+      ;;
+    --halp|--hlep)
+      printf '%s\n' "--help"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+confluex_print_unknown_option() {
+  local bad_option="$1"
+  local suggestion=""
+
+  suggestion="$(confluex_suggest_option "$bad_option" || true)"
+  if [[ -n "$suggestion" ]]; then
+    printf 'ERROR: unknown option: %s\n' "$bad_option" >&2
+    printf 'Did you mean: %s ?\n' "$suggestion" >&2
+    return 0
+  fi
+
+  printf 'ERROR: unknown option: %s\n' "$bad_option" >&2
 }
 
 confluex_default_install_lib_dir() {
@@ -72,6 +123,8 @@ confluex_parse_args() {
   CFG_INSTALL=0
   CFG_INSTALL_DIR="${HOME}/.local/bin"
   CFG_HELP_ONLY=0
+  CFG_KEEP_METADATA=0
+  CFG_LOG_FILE=""
 
   while (($# > 0)); do
     case "$1" in
@@ -102,6 +155,22 @@ confluex_parse_args() {
         CFG_FAIL_FAST=0
         shift
         ;;
+      --keep-metadata)
+        # shellcheck disable=SC2034
+        CFG_KEEP_METADATA=1
+        shift
+        ;;
+      --log-file)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --log-file requires a file path\n' >&2; return 1; }
+        # shellcheck disable=SC2034
+        CFG_LOG_FILE="$2"
+        shift 2
+        ;;
+      --log-file=*)
+        # shellcheck disable=SC2034
+        CFG_LOG_FILE="${1#*=}"
+        shift
+        ;;
       --install)
         CFG_INSTALL=1
         shift
@@ -118,7 +187,7 @@ confluex_parse_args() {
         return 0
         ;;
       --*)
-        printf 'ERROR: unknown option: %s\n' "$1" >&2
+        confluex_print_unknown_option "$1"
         return 1
         ;;
       *)
