@@ -305,10 +305,17 @@ confluex_resolve_by_title() {
   done < <(sed -n 's/^[[:space:]]*ID:[[:space:]]*//p' "$out_file" | grep -Eo '^[0-9]+' | sort -u || true)
 
   if (( ${#ids[@]} == 0 )); then
-    while IFS= read -r id; do
-      [[ "$id" =~ ^[0-9]+$ ]] || continue
-      ids+=("$id")
-    done < <(grep -Eo '[0-9]{3,}' "$out_file" | sort -u || true)
+    log_warn "could not parse explicit page ids from find results for [${space_key:-any}] $title; skipping"
+    FIND_CACHE["$cache_key"]=""
+    rm -f "$out_file"
+    return 1
+  fi
+
+  if (( ${#ids[@]} > CFG_MAX_FIND_CANDIDATES )); then
+    log_warn "find results for [${space_key:-any}] $title returned ${#ids[@]} candidates; limit is $CFG_MAX_FIND_CANDIDATES, skipping"
+    FIND_CACHE["$cache_key"]=""
+    rm -f "$out_file"
+    return 1
   fi
 
   local resolved_id=""
@@ -389,7 +396,7 @@ confluex_process_links_for_page() {
       local resolved_id=""
       log_info "  found internal link by title: [${ref_a:-same-space}] $ref_b"
 
-      if resolved_id="$(confluex_resolve_by_title "$ref_b" "$ref_a" 2>/dev/null)"; then
+      if resolved_id="$(confluex_resolve_by_title "$ref_b" "$ref_a")"; then
         log_info "    resolved link -> pageId $resolved_id"
         printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
           "$page_id" \
@@ -746,6 +753,7 @@ confluex_main() {
   log_info "dry-run: $CFG_DRY_RUN"
   log_info "fail-fast: $CFG_FAIL_FAST"
   log_info "keep-metadata: $CFG_KEEP_METADATA"
+  log_info "max-find-candidates: $CFG_MAX_FIND_CANDIDATES"
   if [[ -n "$LOG_FILE" ]]; then
     log_info "log-file: $LOG_FILE"
   else
