@@ -15,4 +15,7 @@ fi
   "$ROOT_DIR/confluex" \
   "$ROOT_DIR/lib/confluex/main.sh" \
   "$ROOT_DIR/lib/confluex/cli.sh" \
-  "$ROOT_DIR/lib/confluex/util.sh"
+  "$ROOT_DIR/lib/confluex/util.sh" \
+  "$ROOT_DIR/scripts/install-shellcheck.sh" \
+  "$ROOT_DIR/scripts/lint-shell.sh" \
+  "$ROOT_DIR/scripts/test-smoke.sh"

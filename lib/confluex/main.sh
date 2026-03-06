@@ -382,7 +382,9 @@ confluex_process_page() {
 
   local page_dir
   page_dir="$(confluex_page_folder_for "$page_id" "$space_key" "$title")"
-  mkdir -p "$page_dir"
+  if (( CFG_KEEP_METADATA || CFG_DRY_RUN == 0 )); then
+    mkdir -p "$page_dir"
+  fi
 
   TITLE_BY_ID["$page_id"]="$title"
   SPACE_BY_ID["$page_id"]="$space_key"

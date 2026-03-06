@@ -122,9 +122,11 @@ confluex_parse_args() {
   CFG_FAIL_FAST=1
   CFG_INSTALL=0
   CFG_INSTALL_DIR="${HOME}/.local/bin"
+  CFG_INSTALL_DIR_SET=0
   CFG_HELP_ONLY=0
   CFG_KEEP_METADATA=0
   CFG_LOG_FILE=""
+  CFG_LOG_FILE_SET=0
 
   while (($# > 0)); do
     case "$1" in
@@ -164,11 +166,13 @@ confluex_parse_args() {
         [[ $# -ge 2 ]] || { printf 'ERROR: --log-file requires a file path\n' >&2; return 1; }
         # shellcheck disable=SC2034
         CFG_LOG_FILE="$2"
+        CFG_LOG_FILE_SET=1
         shift 2
         ;;
       --log-file=*)
         # shellcheck disable=SC2034
         CFG_LOG_FILE="${1#*=}"
+        CFG_LOG_FILE_SET=1
         shift
         ;;
       --install)
@@ -178,6 +182,7 @@ confluex_parse_args() {
       --install-dir)
         [[ $# -ge 2 ]] || { printf 'ERROR: --install-dir requires a directory\n' >&2; return 1; }
         CFG_INSTALL_DIR="$2"
+        CFG_INSTALL_DIR_SET=1
         shift 2
         ;;
       -h|--help)
@@ -198,6 +203,30 @@ confluex_parse_args() {
   done
 
   if (( CFG_INSTALL )); then
+    if [[ -n "$CFG_ROOT_ID" ]]; then
+      printf 'ERROR: --install cannot be combined with --page-id\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_OUT_DIR" ]]; then
+      printf 'ERROR: --install cannot be combined with --out\n' >&2
+      return 1
+    fi
+    if (( CFG_DRY_RUN )); then
+      printf 'ERROR: --install cannot be combined with --dry-run\n' >&2
+      return 1
+    fi
+    if (( CFG_FAIL_FAST == 0 )); then
+      printf 'ERROR: --install cannot be combined with --no-fail-fast\n' >&2
+      return 1
+    fi
+    if (( CFG_KEEP_METADATA )); then
+      printf 'ERROR: --install cannot be combined with --keep-metadata\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_LOG_FILE" ]]; then
+      printf 'ERROR: --install cannot be combined with --log-file\n' >&2
+      return 1
+    fi
     return 0
   fi
 
@@ -206,8 +235,18 @@ confluex_parse_args() {
     return 1
   fi
 
+  if (( CFG_INSTALL_DIR_SET )); then
+    printf 'ERROR: --install-dir requires --install\n' >&2
+    return 1
+  fi
+
   if [[ ! "$CFG_ROOT_ID" =~ ^[0-9]+$ ]]; then
     printf 'ERROR: --page-id must be numeric, got: %s\n' "$CFG_ROOT_ID" >&2
+    return 1
+  fi
+
+  if (( CFG_LOG_FILE_SET )) && [[ -z "$CFG_LOG_FILE" ]]; then
+    printf 'ERROR: --log-file requires a non-empty file path\n' >&2
     return 1
   fi
 
