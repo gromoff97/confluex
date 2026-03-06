@@ -3,9 +3,11 @@
 confluex_usage() {
   cat <<'USAGE'
 Usage:
-  confluex --page-id <id> [--dry-run] [--out DIR] [--no-fail-fast]
-           [--keep-metadata] [--log-file FILE] [--max-find-candidates N]
-  confluex --install [--install-dir DIR]
+  confluex export --page-id <id> [OPTIONS]
+  confluex plan --page-id <id> [OPTIONS]
+  confluex doctor [--page-id <id>]
+  confluex install [--install-dir DIR]
+  confluex --page-id <id> [OPTIONS]
 
 What it does:
   - walks the full child tree of <page_id>
@@ -16,18 +18,31 @@ What it does:
 
 Options:
   --page-id ID       Root Confluence page id to export.
+  --safe             Conservative profile for production usage.
+                     Defaults: --max-find-candidates 5 --max-pages 200
+                     --max-download-mib 256 --sleep-ms 200
   --dry-run          Do not export page HTML or download attachments.
                      Still reads page metadata and storage XML to build the full plan.
   --out DIR          Output directory. Default is generated automatically.
   --no-fail-fast     Continue on runtime errors (best-effort export).
   --keep-metadata    Persist page metadata files such as _info.txt and _storage.xml.
   --log-file FILE    Write a persistent log file. By default logs go only to stderr.
+  --max-pages N      Stop after N processed pages.
+  --max-download-mib N
+                     Stop after downloading N MiB in total.
+  --sleep-ms N       Sleep N ms between processed pages.
   --max-find-candidates N
                      Maximum number of `confluence find` candidates to inspect per title link.
                      Default: 10.
   --install          Install this script for global use.
   --install-dir DIR  Custom install directory (default: ~/.local/bin).
   -h, --help         Show this help.
+
+Examples:
+  confluex plan --page-id 12345
+  confluex export --page-id 12345 --out ./dump --safe
+  confluex doctor --page-id 12345
+  confluex install
 
 Requirements:
   - bash (Git Bash is fine)
@@ -57,6 +72,18 @@ confluex_suggest_option() {
       ;;
     --max-find|--max-find-candidate|--max-find-results|--max-candidates)
       printf '%s\n' "--max-find-candidates"
+      ;;
+    --safe-mode|--safe_export|--cautious|--guarded)
+      printf '%s\n' "--safe"
+      ;;
+    --max-page|--page-limit|--max-items)
+      printf '%s\n' "--max-pages"
+      ;;
+    --max-download|--max-download-mb|--max-mib)
+      printf '%s\n' "--max-download-mib"
+      ;;
+    --sleep|--pause-ms|--delay-ms)
+      printf '%s\n' "--sleep-ms"
       ;;
     --install-dir=*|--instal|--instal-dir|--installdir)
       printf '%s\n' "--install-dir"
@@ -123,6 +150,7 @@ confluex_install() {
 confluex_parse_args() {
   # shellcheck disable=SC2034
   CFG_DRY_RUN=0
+  CFG_COMMAND="export"
   CFG_OUT_DIR=""
   CFG_ROOT_ID=""
   CFG_FAIL_FAST=1
@@ -134,6 +162,32 @@ confluex_parse_args() {
   CFG_LOG_FILE=""
   CFG_LOG_FILE_SET=0
   CFG_MAX_FIND_CANDIDATES=10
+  CFG_MAX_FIND_CANDIDATES_SET=0
+  CFG_SAFE_MODE=0
+  CFG_MAX_PAGES=0
+  CFG_MAX_PAGES_SET=0
+  CFG_MAX_DOWNLOAD_MIB=0
+  CFG_MAX_DOWNLOAD_MIB_SET=0
+  CFG_SLEEP_MS=0
+  CFG_SLEEP_MS_SET=0
+
+  case "${1:-}" in
+    export|plan|doctor|install)
+      CFG_COMMAND="$1"
+      shift
+      ;;
+  esac
+
+  case "$CFG_COMMAND" in
+    plan)
+      CFG_DRY_RUN=1
+      ;;
+    doctor)
+      ;;
+    install)
+      CFG_INSTALL=1
+      ;;
+  esac
 
   while (($# > 0)); do
     case "$1" in
@@ -151,6 +205,10 @@ confluex_parse_args() {
       --dry-run)
         # shellcheck disable=SC2034
         CFG_DRY_RUN=1
+        shift
+        ;;
+      --safe)
+        CFG_SAFE_MODE=1
         shift
         ;;
       --out)
@@ -186,15 +244,51 @@ confluex_parse_args() {
         [[ $# -ge 2 ]] || { printf 'ERROR: --max-find-candidates requires a number\n' >&2; return 1; }
         # shellcheck disable=SC2034
         CFG_MAX_FIND_CANDIDATES="$2"
+        CFG_MAX_FIND_CANDIDATES_SET=1
         shift 2
         ;;
       --max-find-candidates=*)
         # shellcheck disable=SC2034
         CFG_MAX_FIND_CANDIDATES="${1#*=}"
+        CFG_MAX_FIND_CANDIDATES_SET=1
+        shift
+        ;;
+      --max-pages)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --max-pages requires a number\n' >&2; return 1; }
+        CFG_MAX_PAGES="$2"
+        CFG_MAX_PAGES_SET=1
+        shift 2
+        ;;
+      --max-pages=*)
+        CFG_MAX_PAGES="${1#*=}"
+        CFG_MAX_PAGES_SET=1
+        shift
+        ;;
+      --max-download-mib)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --max-download-mib requires a number\n' >&2; return 1; }
+        CFG_MAX_DOWNLOAD_MIB="$2"
+        CFG_MAX_DOWNLOAD_MIB_SET=1
+        shift 2
+        ;;
+      --max-download-mib=*)
+        CFG_MAX_DOWNLOAD_MIB="${1#*=}"
+        CFG_MAX_DOWNLOAD_MIB_SET=1
+        shift
+        ;;
+      --sleep-ms)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --sleep-ms requires a number\n' >&2; return 1; }
+        CFG_SLEEP_MS="$2"
+        CFG_SLEEP_MS_SET=1
+        shift 2
+        ;;
+      --sleep-ms=*)
+        CFG_SLEEP_MS="${1#*=}"
+        CFG_SLEEP_MS_SET=1
         shift
         ;;
       --install)
         CFG_INSTALL=1
+        CFG_COMMAND="install"
         shift
         ;;
       --install-dir)
@@ -245,6 +339,78 @@ confluex_parse_args() {
       printf 'ERROR: --install cannot be combined with --log-file\n' >&2
       return 1
     fi
+    if (( CFG_SAFE_MODE )); then
+      printf 'ERROR: --install cannot be combined with --safe\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_PAGES_SET )); then
+      printf 'ERROR: --install cannot be combined with --max-pages\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_DOWNLOAD_MIB_SET )); then
+      printf 'ERROR: --install cannot be combined with --max-download-mib\n' >&2
+      return 1
+    fi
+    if (( CFG_SLEEP_MS_SET )); then
+      printf 'ERROR: --install cannot be combined with --sleep-ms\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_FIND_CANDIDATES_SET )); then
+      printf 'ERROR: --install cannot be combined with --max-find-candidates\n' >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  if [[ "$CFG_COMMAND" == "doctor" ]]; then
+    if [[ -n "$CFG_OUT_DIR" ]]; then
+      printf 'ERROR: doctor does not use --out\n' >&2
+      return 1
+    fi
+    if (( CFG_DRY_RUN )); then
+      printf 'ERROR: doctor does not use --dry-run\n' >&2
+      return 1
+    fi
+    if (( CFG_FAIL_FAST == 0 )); then
+      printf 'ERROR: doctor does not use --no-fail-fast\n' >&2
+      return 1
+    fi
+    if (( CFG_KEEP_METADATA )); then
+      printf 'ERROR: doctor does not use --keep-metadata\n' >&2
+      return 1
+    fi
+    if (( CFG_SAFE_MODE )); then
+      printf 'ERROR: doctor does not use --safe\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_PAGES_SET )); then
+      printf 'ERROR: doctor does not use --max-pages\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_DOWNLOAD_MIB_SET )); then
+      printf 'ERROR: doctor does not use --max-download-mib\n' >&2
+      return 1
+    fi
+    if (( CFG_SLEEP_MS_SET )); then
+      printf 'ERROR: doctor does not use --sleep-ms\n' >&2
+      return 1
+    fi
+    if [[ ! "$CFG_MAX_FIND_CANDIDATES" =~ ^[0-9]+$ ]] || (( CFG_MAX_FIND_CANDIDATES == 0 )); then
+      printf 'ERROR: --max-find-candidates must be a positive integer, got: %s\n' "$CFG_MAX_FIND_CANDIDATES" >&2
+      return 1
+    fi
+    if (( CFG_INSTALL_DIR_SET )); then
+      printf 'ERROR: --install-dir requires --install\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_ROOT_ID" && ! "$CFG_ROOT_ID" =~ ^[0-9]+$ ]]; then
+      printf 'ERROR: --page-id must be numeric, got: %s\n' "$CFG_ROOT_ID" >&2
+      return 1
+    fi
+    if (( CFG_LOG_FILE_SET )) && [[ -z "$CFG_LOG_FILE" ]]; then
+      printf 'ERROR: --log-file requires a non-empty file path\n' >&2
+      return 1
+    fi
     return 0
   fi
 
@@ -268,9 +434,39 @@ confluex_parse_args() {
     return 1
   fi
 
+  if [[ ! "$CFG_MAX_PAGES" =~ ^[0-9]+$ ]]; then
+    printf 'ERROR: --max-pages must be a non-negative integer, got: %s\n' "$CFG_MAX_PAGES" >&2
+    return 1
+  fi
+
+  if [[ ! "$CFG_MAX_DOWNLOAD_MIB" =~ ^[0-9]+$ ]]; then
+    printf 'ERROR: --max-download-mib must be a non-negative integer, got: %s\n' "$CFG_MAX_DOWNLOAD_MIB" >&2
+    return 1
+  fi
+
+  if [[ ! "$CFG_SLEEP_MS" =~ ^[0-9]+$ ]]; then
+    printf 'ERROR: --sleep-ms must be a non-negative integer, got: %s\n' "$CFG_SLEEP_MS" >&2
+    return 1
+  fi
+
   if (( CFG_LOG_FILE_SET )) && [[ -z "$CFG_LOG_FILE" ]]; then
     printf 'ERROR: --log-file requires a non-empty file path\n' >&2
     return 1
+  fi
+
+  if (( CFG_SAFE_MODE )); then
+    if (( CFG_MAX_FIND_CANDIDATES_SET == 0 )); then
+      CFG_MAX_FIND_CANDIDATES=5
+    fi
+    if (( CFG_MAX_PAGES_SET == 0 )); then
+      CFG_MAX_PAGES=200
+    fi
+    if (( CFG_MAX_DOWNLOAD_MIB_SET == 0 )); then
+      CFG_MAX_DOWNLOAD_MIB=256
+    fi
+    if (( CFG_SLEEP_MS_SET == 0 )); then
+      CFG_SLEEP_MS=200
+    fi
   fi
 
   return 0
