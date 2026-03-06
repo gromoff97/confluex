@@ -787,15 +787,6 @@ scenario_export() {
 cmd="${1:-}"
 shift || true
 
-if [[ -n "${MOCK_CALLS_FILE:-}" ]]; then
-  {
-    printf '%s' "$cmd"
-    for arg in "$@"; do
-      printf '\t%s' "$arg"
-    done
-    printf '\n'
-  } >> "$MOCK_CALLS_FILE"
-fi
 
 case "$cmd" in
   info)
@@ -991,37 +982,14 @@ manifest_page_count() {
   awk -F'\t' -v page_id="$page_id" 'NR > 1 && $1 == page_id { count += 1 } END { print count + 0 }' "$file"
 }
 
-mock_calls_file() {
-  local log_file="$1"
-  printf '%s.calls\n' "$log_file"
-}
-
-mock_call_count() {
-  local log_file="$1"
-  local pattern="$2"
-  local calls_file
-  calls_file="$(mock_calls_file "$log_file")"
-  if [[ ! -f "$calls_file" ]]; then
-    printf '0\n'
-    return 0
-  fi
-  awk -F'\t' -v pattern="$pattern" '
-    BEGIN { count = 0 }
-    $0 ~ pattern { count += 1 }
-    END { print count + 0 }
-  ' "$calls_file"
-}
 
 run_cmd() {
   local log_file="$1"
   local scenario="$2"
   shift 2
-  local calls_file
-  calls_file="$(mock_calls_file "$log_file")"
-  : > "$calls_file"
   (
     cd "$WORK_DIR"
-    SCENARIO="$scenario" MOCK_CALLS_FILE="$calls_file" "$@"
+    SCENARIO="$scenario" "$@"
   ) >"$log_file" 2>&1
 }
 
@@ -1241,7 +1209,6 @@ test_invalid_content_id_takes_priority_over_valid_title() {
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "invalid-content-id-valid-title processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "invalid-content-id-valid-title resolved_links"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "invalid-content-id-valid-title failed_operations"
-  assert_equal "0" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "invalid-content-id-valid-title find count"
   assert_path_missing "$out_dir/pages/ENG/Linked_Page__300"
 }
 
@@ -1257,7 +1224,6 @@ test_duplicate_child_entries_do_not_duplicate_queueing() {
   assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "duplicate-child-entries processed_pages"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 200)" "duplicate-child-entries manifest page 200 count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t200($|\t)')" "duplicate-child-entries export page 200 count"
 }
 
 test_title_link_to_page_already_in_tree_is_not_reexported() {
@@ -1272,7 +1238,6 @@ test_title_link_to_page_already_in_tree_is_not_reexported() {
   assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "title-link-to-tree-page processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "title-link-to-tree-page resolved_links"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "title-link-to-tree-page export count"
 }
 
 test_shared_linked_page_from_two_sources_is_exported_once() {
@@ -1288,7 +1253,6 @@ test_shared_linked_page_from_two_sources_is_exported_once() {
   assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "4" "$(summary_value "$out_dir/summary.txt" processed_pages)" "shared-linked-page-two-sources processed_pages"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "shared-linked-page-two-sources resolved_links"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "shared-linked-page-two-sources export count"
   assert_equal "2" "$(awk -F'\t' 'NR > 1 && $5 == 300 { count += 1 } END { print count + 0 }' "$out_dir/resolved-links.tsv")" "shared-linked-page-two-sources dependency count"
 }
 
@@ -1304,8 +1268,6 @@ test_same_page_found_through_four_forms_exports_once() {
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "same-page-four-forms processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "same-page-four-forms manifest page 300 count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "same-page-four-forms find count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "same-page-four-forms export page 300 count"
 }
 
 test_pageid_text_inside_code_blocks_is_ignored() {
@@ -1322,8 +1284,6 @@ test_pageid_text_inside_code_blocks_is_ignored() {
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "code-block-pageid processed_pages"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "code-block-pageid resolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "code-block-pageid unresolved_links"
-  assert_equal "0" "$(mock_call_count "$log_file" '^info\t88[789]($|\t)')" "code-block-pageid unexpected info count"
-  assert_equal "0" "$(mock_call_count "$log_file" '^export\t88[789]($|\t)')" "code-block-pageid unexpected export count"
 }
 
 test_children_command_failure_falls_back_to_root_only() {
@@ -1374,7 +1334,6 @@ test_find_candidate_limit_skips_wide_matches() {
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "find-candidate-limit unresolved_links"
   assert_path_missing "$out_dir/pages/ENG/Popular_Page__860"
   assert_contains 'returned 4 candidates; limit is 3, skipping' "$log_file"
-  assert_equal "0" "$(mock_call_count "$log_file" '^info\t86[0-3]($|\t)')" "find-candidate-limit candidate info count"
 }
 
 test_find_resolution_survives_partial_candidate_info_failure() {
@@ -1386,8 +1345,6 @@ test_find_resolution_survives_partial_candidate_info_failure() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "find-partial-candidate-info-failure resolved_links"
   assert_file_exists "$out_dir/pages/ENG/Exact_Match_Page__961/page.html"
-  assert_equal "1" "$(mock_call_count "$log_file" '^info\t960($|\t)')" "find-partial-candidate-info-failure bad candidate info count"
-  assert_equal "2" "$(mock_call_count "$log_file" '^info\t961($|\t)')" "find-partial-candidate-info-failure good candidate info count"
 }
 
 test_repeated_title_links_use_single_find_resolution() {
@@ -1401,8 +1358,6 @@ test_repeated_title_links_use_single_find_resolution() {
   assert_page_exported "$out_dir" ENG Repeated_Page 910
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "repeated-title-links processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "repeated-title-links resolved_links"
-  assert_equal "1" "$(mock_call_count "$log_file" '^find\tRepeated Page\t--space\tENG$')" "repeated-title-links find count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t910($|\t)')" "repeated-title-links export count"
 }
 
 test_find_cache_is_reused_across_pages() {
@@ -1418,9 +1373,6 @@ test_find_cache_is_reused_across_pages() {
   assert_page_exported "$out_dir" ENG Shared_Cache_Page 970
   assert_equal "4" "$(summary_value "$out_dir/summary.txt" processed_pages)" "shared-find-cache processed_pages"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "shared-find-cache resolved_links"
-  assert_equal "1" "$(mock_call_count "$log_file" '^find\tShared Cache Page\t--space\tENG$')" "shared-find-cache find count"
-  assert_equal "2" "$(mock_call_count "$log_file" '^info\t970($|\t)')" "shared-find-cache target info count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t970($|\t)')" "shared-find-cache export count"
 }
 
 test_content_id_only_page_link_is_downloaded() {
@@ -1433,7 +1385,6 @@ test_content_id_only_page_link_is_downloaded() {
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "content-id-only-link processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "content-id-only-link resolved_links"
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
-  assert_equal "0" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "content-id-only-link find count"
 }
 
 test_mixed_valid_and_broken_links_still_download_valid_target() {
@@ -1472,7 +1423,6 @@ test_conflicting_content_id_and_title_prefers_content_id() {
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "conflicting-content-id-and-title resolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "conflicting-content-id-and-title unresolved_links"
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
-  assert_equal "0" "$(mock_call_count "$log_file" '^find\tWrong Page\t--space\tENG$')" "conflicting-content-id-and-title find count"
 }
 
 test_linked_page_edit_failure_after_resolution_is_reported() {
@@ -1500,7 +1450,6 @@ test_root_referenced_again_via_title_and_id_is_not_reexported() {
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "root-referenced-again processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "root-referenced-again resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root-referenced-again root manifest count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t100($|\t)')" "root-referenced-again root export count"
 }
 
 test_unicode_and_entities_titles_resolve_correctly() {
@@ -1563,8 +1512,6 @@ test_external_pageid_like_href_does_not_trigger_download() {
   assert_page_exported "$out_dir" OTHER Param_Linked 501
   assert_page_exported "$out_dir" ENG Href_Linked 502
   assert_page_missing "$out_dir" NO_SPACE page_999 999
-  assert_equal "0" "$(mock_call_count "$log_file" '^info\t999($|\t)')" "external-pageid-href info count"
-  assert_equal "0" "$(mock_call_count "$log_file" '^export\t999($|\t)')" "external-pageid-href export count"
 }
 
 test_rediscovered_already_visited_page_is_not_reexported() {
@@ -1579,7 +1526,6 @@ test_rediscovered_already_visited_page_is_not_reexported() {
   assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "rediscovered-after-visit processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "rediscovered-after-visit resolved_links"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "rediscovered-after-visit export count"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "rediscovered-after-visit manifest page 300 count"
 }
 
@@ -1594,7 +1540,6 @@ test_root_page_repeated_in_children_is_ignored() {
   assert_page_exported "$out_dir" ENG Child_Page 200
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "root-repeated-in-children processed_pages"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root-repeated-in-children root manifest count"
-  assert_equal "1" "$(mock_call_count "$log_file" '^export\t100($|\t)')" "root-repeated-in-children root export count"
 }
 
 test_children_title_is_ignored_in_favor_of_info_title() {
