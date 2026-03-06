@@ -16,6 +16,19 @@
 - `node`
 - `confluence` CLI installed and already configured
 
+`confluex` does not install or configure `confluence` CLI for you.
+
+If you want encrypted output, the machine that runs `confluex` must already have the target GPG public key in its keyring. The receiving side must have the matching private key to decrypt.
+
+`confluex config --encryption-key ...` only saves the key identity to use by default. It does not create, import, or validate GPG keys.
+
+## Before First Run
+
+1. Install `confluence` CLI and make sure it is already authenticated.
+2. Run `confluex doctor`.
+3. If you want encrypted output, import your GPG public key on the machine that will run `confluex`.
+4. If you want that key used by default, run `confluex config --encryption-key <your_fingerprint>`.
+
 ## Install
 
 Install to the default user location:
@@ -63,6 +76,8 @@ Build a plan without downloading HTML or attachments:
 ```bash
 confluex plan --page-id 12345 --out ./plan
 ```
+
+`plan` still talks to Confluence and reads page metadata/storage XML. It only skips HTML export and attachment downloads.
 
 Run a full export:
 
@@ -137,6 +152,8 @@ Checks:
 - `confluence` CLI availability
 - page access, if `--page-id` is provided
 
+`doctor` does not verify that a saved GPG key exists in the local GPG keyring.
+
 Examples:
 
 ```bash
@@ -147,6 +164,8 @@ confluex doctor --page-id 12345
 ### `config`
 
 Manages the saved default encryption key.
+
+This command stores only the key identity string. It does not generate or import keys.
 
 Examples:
 
