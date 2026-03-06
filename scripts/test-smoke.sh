@@ -963,8 +963,48 @@ fi
 exec "$REAL_DATE_BIN" "\$@"
 EOF
 
+cat > "$MOCK_BIN_DIR/gpg" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+output=""
+input=""
+
+if [[ -n "${MOCK_GPG_FAIL:-}" ]]; then
+  exit 1
+fi
+
+while (($# > 0)); do
+  case "$1" in
+    --output|-o)
+      output="$2"
+      shift 2
+      ;;
+    --recipient|--trust-model)
+      shift 2
+      ;;
+    --batch|--yes|--encrypt|--decrypt)
+      shift
+      ;;
+    --*)
+      shift
+      ;;
+    *)
+      input="$1"
+      shift
+      ;;
+  esac
+done
+
+[[ -n "$output" ]] || exit 1
+[[ -n "$input" ]] || exit 1
+
+cp "$input" "$output"
+EOF
+
 chmod 755 "$MOCK_BIN_DIR/confluence"
 chmod 755 "$MOCK_BIN_DIR/date"
+chmod 755 "$MOCK_BIN_DIR/gpg"
 export PATH="$MOCK_BIN_DIR:$PATH"
 
 assert_file_exists() {
@@ -1192,7 +1232,10 @@ normalize_report_copy() {
       sed -E "s|$escaped_out|__OUT__|g" "$src" > "$dest"
       ;;
     summary.txt)
-      sed -E "s|^output_dir=.*$|output_dir=__OUT__|" "$src" > "$dest"
+      sed -E \
+        -e "s|^output_dir=.*$|output_dir=__OUT__|" \
+        -e "s|^encrypted_archive=.*$|encrypted_archive=__ARCHIVE__|" \
+        "$src" > "$dest"
       ;;
     *)
       cp "$src" "$dest"
@@ -1292,6 +1335,16 @@ test_empty_log_file_rejected() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
+test_empty_encrypt_recipient_is_rejected() {
+  local log_file="$TEST_ROOT/empty-encrypt-recipient.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --encrypt-for=; then
+    printf 'ASSERT FAILED: empty encrypt recipient should fail\n' >&2
+    exit 1
+  fi
+  assert_contains '--encrypt-for requires a non-empty recipient' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
 test_missing_page_id_is_rejected() {
   local log_file="$TEST_ROOT/missing-page-id.log"
   if run_cmd "$log_file" basic "$CONFLUEX_BIN"; then
@@ -1373,6 +1426,17 @@ test_install_rejects_export_only_options() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
+test_install_rejects_encrypt_for() {
+  local log_file="$TEST_ROOT/install-rejects-encrypt.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" install --encrypt-for you@example.com; then
+    printf 'ASSERT FAILED: install should reject --encrypt-for\n' >&2
+    exit 1
+  fi
+
+  assert_contains '--install cannot be combined with --encrypt-for' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
 test_uninstall_subcommand_works() {
   local install_dir="$WORK_DIR/uninstall-bin"
   local install_lib_dir="$install_dir/lib/confluex"
@@ -1427,6 +1491,17 @@ test_uninstall_rejects_export_only_options() {
   fi
 
   assert_contains 'uninstall does not use --safe' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_uninstall_rejects_encrypt_for() {
+  local log_file="$TEST_ROOT/uninstall-rejects-encrypt.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" uninstall --encrypt-for you@example.com; then
+    printf 'ASSERT FAILED: uninstall should reject --encrypt-for\n' >&2
+    exit 1
+  fi
+
+  assert_contains 'uninstall does not use --encrypt-for' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1519,6 +1594,17 @@ test_doctor_rejects_export_only_options() {
   fi
 
   assert_contains 'doctor does not use --out' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
+test_doctor_rejects_encrypt_for() {
+  local log_file="$TEST_ROOT/doctor-rejects-encrypt.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" doctor --encrypt-for you@example.com; then
+    printf 'ASSERT FAILED: doctor should reject --encrypt-for\n' >&2
+    exit 1
+  fi
+
+  assert_contains 'doctor does not use --encrypt-for' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -2249,6 +2335,44 @@ test_dry_run_with_log_file_writes_log_without_html() {
   assert_path_missing "$out_dir/pages/ENG/Root_Page__100/page.html"
 }
 
+test_encrypt_for_creates_gpg_archive_and_removes_output_dir() {
+  local out_dir="$WORK_DIR/encrypted-export"
+  local log_file="$TEST_ROOT/encrypted-export.log"
+  local archive_path="${out_dir}.tar.gz.gpg"
+  local instructions_path="${archive_path}.txt"
+  local archive_listing="$TEST_ROOT/encrypted-export.contents"
+
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt-for you@example.com
+
+  assert_path_missing "$out_dir"
+  assert_file_exists "$archive_path"
+  assert_file_exists "$instructions_path"
+  tar -tzf "$archive_path" | sort > "$archive_listing"
+  assert_contains 'encrypted-export/manifest.tsv' "$archive_listing"
+  assert_contains 'encrypted-export/summary.txt' "$archive_listing"
+  assert_contains 'encrypted-export/pages/ENG/Root_Page__100/page.html' "$archive_listing"
+  assert_contains 'decrypt with:' "$log_file"
+  assert_contains 'extract with:' "$log_file"
+  assert_contains 'gpg --output encrypted-export.tar.gz --decrypt' "$instructions_path"
+}
+
+test_encrypt_for_failure_keeps_plain_output_dir() {
+  local out_dir="$WORK_DIR/encrypted-export-fail"
+  local log_file="$TEST_ROOT/encrypted-export-fail.log"
+  local archive_path="${out_dir}.tar.gz.gpg"
+
+  if run_cmd "$log_file" basic env MOCK_GPG_FAIL=1 "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt-for you@example.com; then
+    printf 'ASSERT FAILED: encryption failure scenario should return non-zero\n' >&2
+    exit 1
+  fi
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_path_missing "$archive_path"
+  assert_contains 'failed to encrypt archive for recipient you@example.com' "$log_file"
+}
+
 test_default_output_dir_is_generated_for_export() {
   local log_file="$TEST_ROOT/default-out-export.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100
@@ -2589,6 +2713,7 @@ test_unknown_option_suggestion
 test_install_conflict_rejected
 test_install_dir_requires_install
 test_empty_log_file_rejected
+test_empty_encrypt_recipient_is_rejected
 test_missing_page_id_is_rejected
 test_invalid_page_id_is_rejected
 test_invalid_max_find_candidates_is_rejected
@@ -2597,14 +2722,17 @@ test_help_mentions_subcommands_and_safe_mode
 test_install_writes_executable_to_requested_dir
 test_install_subcommand_works
 test_install_rejects_export_only_options
+test_install_rejects_encrypt_for
 test_uninstall_subcommand_works
 test_uninstall_flag_works
 test_uninstall_is_idempotent
 test_uninstall_rejects_export_only_options
+test_uninstall_rejects_encrypt_for
 test_doctor_without_page_id_reports_skipped_auth
 test_doctor_with_page_id_succeeds
 test_doctor_with_inaccessible_page_fails
 test_doctor_rejects_export_only_options
+test_doctor_rejects_encrypt_for
 test_basic_export_downloads_tree_and_linked_page
 test_export_subcommand_works
 test_plan_subcommand_works
@@ -2661,6 +2789,8 @@ test_export_keep_metadata_persists_metadata_files
 test_export_default_does_not_persist_metadata_files
 test_dry_run_default_does_not_persist_metadata_files
 test_dry_run_with_log_file_writes_log_without_html
+test_encrypt_for_creates_gpg_archive_and_removes_output_dir
+test_encrypt_for_failure_keeps_plain_output_dir
 test_default_output_dir_is_generated_for_export
 test_default_output_dir_avoids_collision
 test_default_output_dir_is_generated_for_dry_run

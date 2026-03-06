@@ -15,6 +15,8 @@ UNRESOLVED=""
 FAILED=""
 SUMMARY=""
 PREFLIGHT_INFO_FILE=""
+ENCRYPTED_ARCHIVE=""
+ENCRYPTION_HINT_FILE=""
 
 # Counters (filled by confluex_compute_counts).
 processed_count=0
@@ -61,6 +63,8 @@ confluex_reset_state() {
   linked_count=0
   other_count=0
   CONFLUEX_STOP_REASON=""
+  ENCRYPTED_ARCHIVE=""
+  ENCRYPTION_HINT_FILE=""
 }
 
 confluex_parse_info_file() {
@@ -200,6 +204,10 @@ confluex_log_attachments_preview() {
 confluex_temp_file() {
   local name="$1"
   printf '%s/%s\n' "$TMP_DIR" "$name"
+}
+
+confluex_archive_path_for_out_dir() {
+  printf '%s.tar.gz.gpg\n' "$OUT_DIR"
 }
 
 confluex_file_size_bytes() {
@@ -635,6 +643,8 @@ confluex_write_summary() {
     printf 'root_page_id=%s\n' "$CFG_ROOT_ID"
     printf 'dry_run=%s\n' "$CFG_DRY_RUN"
     printf 'safe_mode=%s\n' "$CFG_SAFE_MODE"
+    printf 'encrypt_for=%s\n' "$CFG_ENCRYPT_FOR"
+    printf 'encrypted_archive=%s\n' "$(confluex_archive_path_for_out_dir)"
     printf 'output_dir=%s\n' "$OUT_DIR"
     printf 'max_pages=%s\n' "$CFG_MAX_PAGES"
     printf 'max_download_mib=%s\n' "$CFG_MAX_DOWNLOAD_MIB"
@@ -813,6 +823,72 @@ confluex_preflight() {
   return 1
 }
 
+confluex_write_encryption_instructions() {
+  local archive_path="$1"
+  local archive_name
+  local tar_name
+  local hint_file
+
+  archive_name="$(basename "$archive_path")"
+  tar_name="${archive_name%.gpg}"
+  hint_file="${archive_path}.txt"
+
+  {
+    printf 'Encrypted archive: %s\n' "$archive_name"
+    printf 'Recipient: %s\n' "$CFG_ENCRYPT_FOR"
+    printf '\n'
+    printf 'Decrypt:\n'
+    printf '  gpg --output %s --decrypt %s\n' "$tar_name" "$archive_name"
+    printf '\n'
+    printf 'Extract:\n'
+    printf '  tar -xzf %s\n' "$tar_name"
+    printf '\n'
+    printf 'One-shot:\n'
+    printf '  gpg --decrypt %s > %s && tar -xzf %s\n' "$archive_name" "$tar_name" "$tar_name"
+  } > "$hint_file"
+
+  ENCRYPTION_HINT_FILE="$hint_file"
+}
+
+confluex_encrypt_output_dir() {
+  local out_parent
+  local out_name
+  local archive_tar
+  local archive_gpg
+
+  out_parent="$(dirname "$OUT_DIR")"
+  out_name="$(basename "$OUT_DIR")"
+  archive_tar="${OUT_DIR}.tar.gz"
+  archive_gpg="$(confluex_archive_path_for_out_dir)"
+
+  log_info "encrypting output directory for GPG recipient: $CFG_ENCRYPT_FOR"
+
+  rm -f "$archive_tar" "$archive_gpg" "${archive_gpg}.txt"
+
+  if ! tar -C "$out_parent" -czf "$archive_tar" "$out_name"; then
+    log_error "failed to create tar archive for $OUT_DIR"
+    rm -f "$archive_tar"
+    return 1
+  fi
+
+  if ! gpg --batch --yes --trust-model always --recipient "$CFG_ENCRYPT_FOR" --output "$archive_gpg" --encrypt "$archive_tar"; then
+    log_error "failed to encrypt archive for recipient $CFG_ENCRYPT_FOR"
+    rm -f "$archive_tar" "$archive_gpg"
+    return 1
+  fi
+
+  rm -f "$archive_tar"
+  confluex_write_encryption_instructions "$archive_gpg"
+  rm -rf "$OUT_DIR"
+
+  ENCRYPTED_ARCHIVE="$archive_gpg"
+  log_info "encrypted archive: $archive_gpg"
+  log_info "decrypt with: gpg --output ${out_name}.tar.gz --decrypt $archive_gpg"
+  log_info "extract with: tar -xzf ${out_name}.tar.gz"
+  log_info "instructions file: ${archive_gpg}.txt"
+  return 0
+}
+
 confluex_run_doctor() {
   local ok=1
   local info_file=""
@@ -890,6 +966,7 @@ confluex_run_export() {
 confluex_main() {
   local script_path="$1"
   local script_lib_dir="$2"
+  local -a required_cmds=()
   shift 2
 
   CFG_HELP_ONLY=0
@@ -917,7 +994,11 @@ confluex_main() {
     return $?
   fi
 
-  confluex_require_cmds bash node confluence sed awk grep sort find tr wc || return 1
+  required_cmds=(bash node confluence sed awk grep sort find tr wc)
+  if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+    required_cmds+=(tar gpg)
+  fi
+  confluex_require_cmds "${required_cmds[@]}" || return 1
 
   confluex_reset_state
   CFG_MAX_DOWNLOAD_BYTES=$((CFG_MAX_DOWNLOAD_MIB * 1048576))
@@ -962,6 +1043,12 @@ confluex_main() {
 
   confluex_write_summary 0 ""
 
+  if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+    if ! confluex_encrypt_output_dir; then
+      return 1
+    fi
+  fi
+
   log_info "done"
   log_info "processed pages: $processed_count"
   log_info "tree pages: $tree_count"
@@ -970,10 +1057,21 @@ confluex_main() {
   log_info "resolved links: $resolved_count"
   log_info "unresolved links: $unresolved_count"
   log_info "failed operations: $failed_count"
-  log_info "summary: $SUMMARY"
-  log_info "manifest: $MANIFEST"
-  log_info "resolved links: $LINKS_FILE"
-  log_info "unresolved links: $UNRESOLVED"
+  if [[ -n "$ENCRYPTED_ARCHIVE" ]]; then
+    log_info "summary: inside encrypted archive"
+    log_info "manifest: inside encrypted archive"
+    log_info "resolved links: inside encrypted archive"
+    log_info "unresolved links: inside encrypted archive"
+    log_info "encrypted archive: $ENCRYPTED_ARCHIVE"
+    if [[ -n "$ENCRYPTION_HINT_FILE" ]]; then
+      log_info "encryption instructions: $ENCRYPTION_HINT_FILE"
+    fi
+  else
+    log_info "summary: $SUMMARY"
+    log_info "manifest: $MANIFEST"
+    log_info "resolved links: $LINKS_FILE"
+    log_info "unresolved links: $UNRESOLVED"
+  fi
   log_info "downloaded total: $(confluex_bytes_to_mib "$downloaded_total_bytes") MiB"
   log_info "downloaded content: $(confluex_bytes_to_mib "$downloaded_content_bytes") MiB"
   log_info "downloaded metadata: $(confluex_bytes_to_mib "$downloaded_metadata_bytes") MiB"

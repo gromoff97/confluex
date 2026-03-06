@@ -28,6 +28,8 @@ Options:
   --no-fail-fast     Continue on runtime errors (best-effort export).
   --keep-metadata    Persist page metadata files such as _info.txt and _storage.xml.
   --log-file FILE    Write a persistent log file. By default logs go only to stderr.
+  --encrypt-for KEY  Encrypt the final output as <out>.tar.gz.gpg for GPG recipient KEY.
+                     After successful encryption the plain output directory is removed.
   --max-pages N      Stop after N processed pages.
   --max-download-mib N
                      Stop after downloading N MiB in total.
@@ -43,6 +45,7 @@ Options:
 Examples:
   confluex plan --page-id 12345
   confluex export --page-id 12345 --out ./dump --safe
+  confluex export --page-id 12345 --out ./dump --encrypt-for you@example.com
   confluex doctor --page-id 12345
   confluex install
   confluex uninstall
@@ -72,6 +75,9 @@ confluex_suggest_option() {
       ;;
     --log|--logfile|--log-file=*|--logs)
       printf '%s\n' "--log-file"
+      ;;
+    --encrypt|--encrypt-recipient|--encrypt_to|--recipient)
+      printf '%s\n' "--encrypt-for"
       ;;
     --max-find|--max-find-candidate|--max-find-results|--max-candidates)
       printf '%s\n' "--max-find-candidates"
@@ -191,6 +197,8 @@ confluex_parse_args() {
   CFG_KEEP_METADATA=0
   CFG_LOG_FILE=""
   CFG_LOG_FILE_SET=0
+  CFG_ENCRYPT_FOR=""
+  CFG_ENCRYPT_FOR_SET=0
   CFG_MAX_FIND_CANDIDATES=10
   CFG_MAX_FIND_CANDIDATES_SET=0
   CFG_SAFE_MODE=0
@@ -270,6 +278,17 @@ confluex_parse_args() {
         # shellcheck disable=SC2034
         CFG_LOG_FILE="${1#*=}"
         CFG_LOG_FILE_SET=1
+        shift
+        ;;
+      --encrypt-for)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --encrypt-for requires a recipient\n' >&2; return 1; }
+        CFG_ENCRYPT_FOR="$2"
+        CFG_ENCRYPT_FOR_SET=1
+        shift 2
+        ;;
+      --encrypt-for=*)
+        CFG_ENCRYPT_FOR="${1#*=}"
+        CFG_ENCRYPT_FOR_SET=1
         shift
         ;;
       --max-find-candidates)
@@ -375,6 +394,10 @@ confluex_parse_args() {
       printf 'ERROR: --install cannot be combined with --log-file\n' >&2
       return 1
     fi
+    if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+      printf 'ERROR: --install cannot be combined with --encrypt-for\n' >&2
+      return 1
+    fi
     if (( CFG_SAFE_MODE )); then
       printf 'ERROR: --install cannot be combined with --safe\n' >&2
       return 1
@@ -423,6 +446,10 @@ confluex_parse_args() {
       printf 'ERROR: uninstall does not use --log-file\n' >&2
       return 1
     fi
+    if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+      printf 'ERROR: uninstall does not use --encrypt-for\n' >&2
+      return 1
+    fi
     if (( CFG_SAFE_MODE )); then
       printf 'ERROR: uninstall does not use --safe\n' >&2
       return 1
@@ -461,6 +488,10 @@ confluex_parse_args() {
     fi
     if (( CFG_KEEP_METADATA )); then
       printf 'ERROR: doctor does not use --keep-metadata\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+      printf 'ERROR: doctor does not use --encrypt-for\n' >&2
       return 1
     fi
     if (( CFG_SAFE_MODE )); then
@@ -535,6 +566,11 @@ confluex_parse_args() {
 
   if (( CFG_LOG_FILE_SET )) && [[ -z "$CFG_LOG_FILE" ]]; then
     printf 'ERROR: --log-file requires a non-empty file path\n' >&2
+    return 1
+  fi
+
+  if (( CFG_ENCRYPT_FOR_SET )) && [[ -z "$CFG_ENCRYPT_FOR" ]]; then
+    printf 'ERROR: --encrypt-for requires a non-empty recipient\n' >&2
     return 1
   fi
 

@@ -70,6 +70,12 @@ Run a full export:
 confluex export --page-id 12345 --out ./dump
 ```
 
+Run an encrypted export for a GPG recipient:
+
+```bash
+confluex export --page-id 12345 --out ./dump --encrypt-for you@example.com
+```
+
 Run a more conservative export:
 
 ```bash
@@ -187,6 +193,7 @@ If an explicit `--out` already exists, `confluex` stops with an error.
 - `--no-fail-fast`: continue after page-local failures instead of aborting the whole run
 - `--keep-metadata`: persist page metadata files in output
 - `--log-file FILE`: write a persistent run log to `FILE`
+- `--encrypt-for KEY`: create `<out>.tar.gz.gpg` for GPG recipient `KEY` and remove the plain output directory after successful encryption
 
 ### Generic
 
@@ -219,6 +226,7 @@ Typical options:
 - `--no-fail-fast`
 - `--keep-metadata`
 - `--log-file FILE`
+- `--encrypt-for KEY`
 
 ### `confluex plan`
 
@@ -297,6 +305,12 @@ dump/
   summary.txt
 ```
 
+If `--encrypt-for` is used and encryption succeeds:
+
+- `dump/` is removed
+- `dump.tar.gz.gpg` is created
+- `dump.tar.gz.gpg.txt` is created with decrypt/unpack commands
+
 ## Reports
 
 ### `manifest.tsv`
@@ -373,6 +387,12 @@ Export and keep metadata for debugging:
 confluex export --page-id 12345 --out ./dump --keep-metadata --log-file ./confluex.log
 ```
 
+Export and encrypt for a GPG recipient:
+
+```bash
+confluex export --page-id 12345 --out ./dump --encrypt-for you@example.com
+```
+
 Plan conservatively:
 
 ```bash
@@ -418,6 +438,28 @@ Check:
 - `unresolved-links.tsv`
 - `failed-pages.tsv`
 - `summary.txt`
+
+### Decrypt and extract an encrypted export
+
+If the result is `dump.tar.gz.gpg`, decrypt it:
+
+```bash
+gpg --output dump.tar.gz --decrypt dump.tar.gz.gpg
+```
+
+Then extract it:
+
+```bash
+tar -xzf dump.tar.gz
+```
+
+One-shot variant:
+
+```bash
+gpg --decrypt dump.tar.gz.gpg > dump.tar.gz && tar -xzf dump.tar.gz
+```
+
+If `confluex` created `dump.tar.gz.gpg.txt`, the same commands are written there as a reminder.
 
 ## Quality
 
