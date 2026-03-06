@@ -36,7 +36,7 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100)
       emit_info 100 "Root Page" "ENG"
       ;;
     empty_current_space_title:100)
@@ -45,11 +45,20 @@ scenario_info() {
       printf 'Space Key: \n'
       printf 'URL: https://example.invalid/pages/100\n'
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200)
       emit_info 200 "Child Page" "ENG"
       ;;
-    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300|rediscovered_after_visit:300|title_link_to_tree_page:300|mixed_valid_broken_ambiguous_links:300)
+    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300|rediscovered_after_visit:300|title_link_to_tree_page:300|mixed_valid_broken_ambiguous_links:300|invalid_content_id_valid_title:300|shared_linked_page_two_sources:300)
       emit_info 300 "Linked Page" "ENG"
+      ;;
+    shared_linked_page_two_sources:201)
+      emit_info 201 "Second Child" "ENG"
+      ;;
+    linked_page_edit_failure_after_resolution:998)
+      emit_info 998 "Locked Page" "ENG"
+      ;;
+    children_title_mismatch:200)
+      emit_info 200 "Actual Child Page" "ENG"
       ;;
     candidate_info_title_mismatch:993)
       emit_info 993 "Actually Different Page" "ENG"
@@ -187,9 +196,19 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
       ;;
-    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|case_sensitive_title_match:100|whitespace_variant_title:100|empty_current_space_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|space_from_url_only:100)
+    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|case_sensitive_title_match:100|whitespace_variant_title:100|empty_current_space_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|space_from_url_only:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|broken_links_with_invalid_id:100)
       cat <<'JSON'
 {"results":[]}
+JSON
+      ;;
+    children_title_mismatch:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Stale Child Title","children":[]}]}
+JSON
+      ;;
+    shared_linked_page_two_sources:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]},{"id":"201","title":"Second Child","children":[]}]}
 JSON
       ;;
     title_link_to_tree_page:100)
@@ -285,6 +304,43 @@ XML
     candidate_info_title_mismatch:100)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Expected Page" /></ac:link>
+XML
+      ;;
+    invalid_content_id_valid_title:100)
+      cat > "$output" <<'XML'
+<ri:page ri:content-id="997" ri:space-key="ENG" ri:content-title="Linked Page" />
+XML
+      ;;
+    linked_page_edit_failure_after_resolution:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Locked Page" /></ac:link>
+XML
+      ;;
+    children_title_mismatch:100)
+      cat > "$output" <<'XML'
+<p>root page</p>
+XML
+      ;;
+    shared_linked_page_two_sources:100)
+      cat > "$output" <<'XML'
+<p>root page</p>
+XML
+      ;;
+    shared_linked_page_two_sources:200)
+      cat > "$output" <<'XML'
+<ri:content-entity ri:content-id="300" />
+XML
+      ;;
+    shared_linked_page_two_sources:201)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
+XML
+      ;;
+    broken_links_with_invalid_id:100)
+      cat > "$output" <<'XML'
+<ri:content-entity ri:content-id="997" />
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Missing Page" /></ac:link>
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Common Page" /></ac:link>
 XML
       ;;
     case_sensitive_title_match:100)
@@ -532,9 +588,14 @@ XML
 <p>exact match page</p>
 XML
       ;;
-    candidate_info_title_mismatch:993|case_sensitive_title_match:990|whitespace_variant_title:991|empty_current_space_title:995|empty_current_space_title:996|mixed_valid_and_broken_links:300|mixed_valid_broken_ambiguous_links:300|conflicting_content_id_and_title:300|empty_title_info:992|space_from_url_only:994)
+    candidate_info_title_mismatch:993|case_sensitive_title_match:990|whitespace_variant_title:991|empty_current_space_title:995|empty_current_space_title:996|mixed_valid_and_broken_links:300|mixed_valid_broken_ambiguous_links:300|conflicting_content_id_and_title:300|empty_title_info:992|space_from_url_only:994|children_title_mismatch:200|shared_linked_page_two_sources:300)
       cat > "$output" <<'XML'
 <p>target page</p>
+XML
+      ;;
+    linked_page_edit_failure_after_resolution:998)
+      cat > "$output" <<'XML'
+<p>locked page metadata</p>
 XML
       ;;
     same_page_four_forms:100)
@@ -630,7 +691,7 @@ scenario_find() {
   local space_key="${3:-}"
 
   case "$scenario:$title:$space_key" in
-    basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|non_page_child_ids:Linked\ Page:ENG|rediscovered_after_visit:Linked\ Page:ENG|title_link_to_tree_page:Linked\ Page:ENG)
+    basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|non_page_child_ids:Linked\ Page:ENG|rediscovered_after_visit:Linked\ Page:ENG|title_link_to_tree_page:Linked\ Page:ENG|shared_linked_page_two_sources:Linked\ Page:ENG)
       printf 'ID: 300\n'
       ;;
     same_page_four_forms:Linked\ Page:ENG|content_id_only_link:Linked\ Page:ENG)
@@ -666,6 +727,9 @@ scenario_find() {
     candidate_info_title_mismatch:Expected\ Page:ENG)
       printf 'ID: 993\n'
       ;;
+    linked_page_edit_failure_after_resolution:Locked\ Page:ENG)
+      printf 'ID: 998\n'
+      ;;
     shared_find_cache_across_pages:Shared\ Cache\ Page:ENG)
       printf 'ID: 970\n'
       ;;
@@ -682,6 +746,9 @@ scenario_find() {
       printf 'ID: 995\nID: 996\n'
       ;;
     mixed_valid_broken_ambiguous_links:Common\ Page:ENG)
+      printf 'ID: 600\nID: 601\n'
+      ;;
+    broken_links_with_invalid_id:Common\ Page:ENG)
       printf 'ID: 600\nID: 601\n'
       ;;
     root_referenced_again:Root\ Page:ENG)
@@ -705,6 +772,9 @@ scenario_export() {
 
   case "$scenario:$page_id" in
     fail_fast:200|no_fail_fast:200)
+      exit 1
+      ;;
+    linked_page_edit_failure_after_resolution:998)
       exit 1
       ;;
   esac
@@ -1079,6 +1149,18 @@ test_candidate_info_title_mismatch_stays_unresolved() {
   assert_path_missing "$out_dir/pages/ENG/Actually_Different_Page__993"
 }
 
+test_invalid_content_id_takes_priority_over_valid_title() {
+  local out_dir="$WORK_DIR/invalid-content-id-valid-title"
+  local log_file="$TEST_ROOT/invalid-content-id-valid-title.log"
+  run_cmd "$log_file" invalid_content_id_valid_title "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "invalid-content-id-valid-title processed_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "invalid-content-id-valid-title resolved_links"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "invalid-content-id-valid-title failed_operations"
+  assert_equal "0" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "invalid-content-id-valid-title find count"
+  assert_path_missing "$out_dir/pages/ENG/Linked_Page__300"
+}
+
 test_duplicate_child_entries_do_not_duplicate_queueing() {
   local out_dir="$WORK_DIR/duplicate-child-entries"
   local log_file="$TEST_ROOT/duplicate-child-entries.log"
@@ -1097,6 +1179,17 @@ test_title_link_to_page_already_in_tree_is_not_reexported() {
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "title-link-to-tree-page processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "title-link-to-tree-page resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "title-link-to-tree-page export count"
+}
+
+test_shared_linked_page_from_two_sources_is_exported_once() {
+  local out_dir="$WORK_DIR/shared-linked-page-two-sources"
+  local log_file="$TEST_ROOT/shared-linked-page-two-sources.log"
+  run_cmd "$log_file" shared_linked_page_two_sources "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "4" "$(summary_value "$out_dir/summary.txt" processed_pages)" "shared-linked-page-two-sources processed_pages"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "shared-linked-page-two-sources resolved_links"
+  assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "shared-linked-page-two-sources export count"
+  assert_equal "2" "$(awk -F'\t' 'NR > 1 && $5 == 300 { count += 1 } END { print count + 0 }' "$out_dir/resolved-links.tsv")" "shared-linked-page-two-sources dependency count"
 }
 
 test_same_page_found_through_four_forms_exports_once() {
@@ -1244,6 +1337,17 @@ test_conflicting_content_id_and_title_prefers_content_id() {
   assert_equal "0" "$(mock_call_count "$log_file" '^find\tWrong Page\t--space\tENG$')" "conflicting-content-id-and-title find count"
 }
 
+test_linked_page_edit_failure_after_resolution_is_reported() {
+  local out_dir="$WORK_DIR/linked-page-edit-failure-after-resolution"
+  local log_file="$TEST_ROOT/linked-page-edit-failure-after-resolution.log"
+  run_cmd "$log_file" linked_page_edit_failure_after_resolution "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "linked-page-edit-failure-after-resolution processed_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "linked-page-edit-failure-after-resolution resolved_links"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "linked-page-edit-failure-after-resolution failed_operations"
+  assert_path_missing "$out_dir/pages/ENG/Locked_Page__998/page.html"
+}
+
 test_root_referenced_again_via_title_and_id_is_not_reexported() {
   local out_dir="$WORK_DIR/root-referenced-again"
   local log_file="$TEST_ROOT/root-referenced-again.log"
@@ -1325,6 +1429,16 @@ test_root_page_repeated_in_children_is_ignored() {
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t100($|\t)')" "root-repeated-in-children root export count"
 }
 
+test_children_title_is_ignored_in_favor_of_info_title() {
+  local out_dir="$WORK_DIR/children-title-mismatch"
+  local log_file="$TEST_ROOT/children-title-mismatch.log"
+  run_cmd "$log_file" children_title_mismatch "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-title-mismatch processed_pages"
+  assert_file_exists "$out_dir/pages/ENG/Actual_Child_Page__200/page.html"
+  assert_path_missing "$out_dir/pages/ENG/Stale_Child_Title__200"
+}
+
 test_empty_title_in_info_uses_fallback_folder_name() {
   local out_dir="$WORK_DIR/empty-title-info"
   local log_file="$TEST_ROOT/empty-title-info.log"
@@ -1341,6 +1455,18 @@ test_space_key_is_recovered_from_url_when_missing_in_info() {
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "space-from-url-only processed_pages"
   assert_file_exists "$out_dir/pages/OPS/URL_Space_Page__994/page.html"
+}
+
+test_multiple_broken_links_including_invalid_id_are_handled_independently() {
+  local out_dir="$WORK_DIR/broken-links-with-invalid-id"
+  local log_file="$TEST_ROOT/broken-links-with-invalid-id.log"
+  run_cmd "$log_file" broken_links_with_invalid_id "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "broken-links-with-invalid-id unresolved_links"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "broken-links-with-invalid-id failed_operations"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "broken-links-with-invalid-id resolved_links"
+  assert_path_missing "$out_dir/pages/ENG/Common_Page__600"
+  assert_path_missing "$out_dir/pages/ENG/Common_Page__601"
 }
 
 test_dry_run_minimal_artifacts() {
@@ -1455,8 +1581,10 @@ test_title_resolution_is_case_sensitive
 test_title_resolution_does_not_normalize_internal_whitespace
 test_title_without_space_key_and_unknown_current_space_stays_unresolved
 test_candidate_info_title_mismatch_stays_unresolved
+test_invalid_content_id_takes_priority_over_valid_title
 test_duplicate_child_entries_do_not_duplicate_queueing
 test_title_link_to_page_already_in_tree_is_not_reexported
+test_shared_linked_page_from_two_sources_is_exported_once
 test_same_page_found_through_four_forms_exports_once
 test_pageid_text_inside_code_blocks_is_ignored
 test_children_command_failure_falls_back_to_root_only
@@ -1470,6 +1598,7 @@ test_content_id_only_page_link_is_downloaded
 test_mixed_valid_and_broken_links_still_download_valid_target
 test_mixed_valid_broken_and_ambiguous_links_behave_independently
 test_conflicting_content_id_and_title_prefers_content_id
+test_linked_page_edit_failure_after_resolution_is_reported
 test_root_referenced_again_via_title_and_id_is_not_reexported
 test_unicode_and_entities_titles_resolve_correctly
 test_single_quoted_multiline_page_link_resolves
@@ -1478,8 +1607,10 @@ test_mixed_link_forms_are_detected
 test_external_pageid_like_href_does_not_trigger_download
 test_rediscovered_already_visited_page_is_not_reexported
 test_root_page_repeated_in_children_is_ignored
+test_children_title_is_ignored_in_favor_of_info_title
 test_empty_title_in_info_uses_fallback_folder_name
 test_space_key_is_recovered_from_url_when_missing_in_info
+test_multiple_broken_links_including_invalid_id_are_handled_independently
 test_dry_run_minimal_artifacts
 test_dry_run_keep_metadata
 test_log_file_opt_in
