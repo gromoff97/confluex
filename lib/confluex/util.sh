@@ -73,3 +73,37 @@ count_minus_header() {
     printf '0\n'
   fi
 }
+
+confluex_config_dir() {
+  printf '%s/confluex\n' "${XDG_CONFIG_HOME:-$HOME/.config}"
+}
+
+confluex_config_file() {
+  printf '%s/config\n' "$(confluex_config_dir)"
+}
+
+confluex_read_config_encryption_key() {
+  local config_file
+  config_file="$(confluex_config_file)"
+
+  if [[ -f "$config_file" ]]; then
+    sed -n 's/^encryption_key=//p' "$config_file" | head -n 1
+  fi
+}
+
+confluex_write_config_encryption_key() {
+  local key="$1"
+  local config_dir
+  local config_file
+  config_dir="$(confluex_config_dir)"
+  config_file="$(confluex_config_file)"
+
+  mkdir -p "$config_dir"
+  printf 'encryption_key=%s\n' "$key" > "$config_file"
+}
+
+confluex_clear_config_encryption_key() {
+  local config_file
+  config_file="$(confluex_config_file)"
+  rm -f "$config_file"
+}
