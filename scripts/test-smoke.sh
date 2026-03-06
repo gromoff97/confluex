@@ -485,6 +485,10 @@ test_basic_export_downloads_tree_and_linked_page() {
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "basic processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "basic resolved_links"
+  assert_path_exists "$out_dir/summary.txt"
+  assert_contains 'downloaded_total_bytes=' "$out_dir/summary.txt"
+  assert_contains 'downloaded_content_bytes=' "$out_dir/summary.txt"
+  assert_contains 'downloaded_metadata_bytes=' "$out_dir/summary.txt"
 }
 
 test_linked_page_does_not_pull_its_descendants() {
