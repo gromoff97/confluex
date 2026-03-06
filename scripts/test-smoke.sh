@@ -36,13 +36,13 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100)
       emit_info 100 "Root Page" "ENG"
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200)
       emit_info 200 "Child Page" "ENG"
       ;;
-    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300)
+    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300)
       emit_info 300 "Linked Page" "ENG"
       ;;
     linked_no_descendants:400)
@@ -65,6 +65,15 @@ scenario_info() {
       ;;
     fail_fast:900|no_fail_fast:900)
       emit_info 900 "Later Page" "ENG"
+      ;;
+    title_with_colon:800)
+      emit_info 800 "API: Overview" "ENG"
+      ;;
+    find_output_without_ids:850)
+      emit_info 850 "Numeric Noise Page" "ENG"
+      ;;
+    find_candidate_limit:860|find_candidate_limit:861|find_candidate_limit:862|find_candidate_limit:863)
+      emit_info "$page_id" "Popular Page" "ENG"
       ;;
     *)
       exit 1
@@ -92,9 +101,14 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
       ;;
-    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100)
+    self_link:700|ambiguous_title:100|cross_space:100|link_forms:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100)
       cat <<'JSON'
 {"results":[]}
+JSON
+      ;;
+    non_page_child_ids:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]}],"metadata":{"id":"999","title":"Not A Page","url":"/metadata/999"}}
 JSON
       ;;
     linked_no_descendants:300)
@@ -116,17 +130,17 @@ scenario_edit() {
   local output="$3"
 
   case "$scenario:$page_id" in
-    basic:100|linked_no_descendants:100|cycle_links:100|duplicate_paths:100)
+    basic:100|linked_no_descendants:100|cycle_links:100|duplicate_paths:100|non_page_child_ids:100)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
 XML
       ;;
-    basic:200|linked_no_descendants:200)
+    basic:200|linked_no_descendants:200|non_page_child_ids:200)
       cat > "$output" <<'XML'
 <p>child page</p>
 XML
       ;;
-    basic:300|linked_no_descendants:300)
+    basic:300|linked_no_descendants:300|non_page_child_ids:300)
       cat > "$output" <<'XML'
 <p>linked page</p>
 XML
@@ -207,6 +221,36 @@ XML
 <p>export test</p>
 XML
       ;;
+    title_with_colon:100)
+      cat > "$output" <<'XML'
+<ac:parameter ac:name="page">API: Overview</ac:parameter>
+XML
+      ;;
+    title_with_colon:800)
+      cat > "$output" <<'XML'
+<p>api overview</p>
+XML
+      ;;
+    find_output_without_ids:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Numeric Noise Page" /></ac:link>
+XML
+      ;;
+    find_output_without_ids:850)
+      cat > "$output" <<'XML'
+<p>numeric noise page</p>
+XML
+      ;;
+    find_candidate_limit:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Popular Page" /></ac:link>
+XML
+      ;;
+    find_candidate_limit:860|find_candidate_limit:861|find_candidate_limit:862|find_candidate_limit:863)
+      cat > "$output" <<'XML'
+<p>popular page</p>
+XML
+      ;;
     fail_fast:200|no_fail_fast:200)
       cat > "$output" <<'XML'
 <p>will fail on export</p>
@@ -238,7 +282,7 @@ scenario_find() {
   local space_key="${3:-}"
 
   case "$scenario:$title:$space_key" in
-    basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG)
+    basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|non_page_child_ids:Linked\ Page:ENG)
       printf 'ID: 300\n'
       ;;
     cross_space:Shared\ Page:OTHER)
@@ -252,6 +296,15 @@ scenario_find() {
       ;;
     self_link:Self\ Page:ENG)
       printf 'ID: 700\n'
+      ;;
+    title_with_colon:API:\ Overview:ENG)
+      printf 'ID: 800\n'
+      ;;
+    find_output_without_ids:Numeric\ Noise\ Page:ENG)
+      printf 'Found 123 results on 2024-01-01\n'
+      ;;
+    find_candidate_limit:Popular\ Page:ENG)
+      printf 'ID: 860\nID: 861\nID: 862\nID: 863\n'
       ;;
     *)
       exit 1
@@ -549,6 +602,44 @@ test_cross_space_title_link_resolves_correctly() {
   assert_equal "2" "$(manifest_row_count "$out_dir/manifest.tsv")" "cross-space manifest rows"
 }
 
+test_children_parser_ignores_non_page_ids() {
+  local out_dir="$WORK_DIR/non-page-child-ids"
+  local log_file="$TEST_ROOT/non-page-child-ids.log"
+  run_cmd "$log_file" non_page_child_ids "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_path_missing "$out_dir/pages/NO_SPACE/Not_A_Page__999"
+  assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "non-page-child-ids processed_pages"
+}
+
+test_page_param_with_colon_space_stays_same_space_title() {
+  local out_dir="$WORK_DIR/title-with-colon"
+  local log_file="$TEST_ROOT/title-with-colon.log"
+  run_cmd "$log_file" title_with_colon "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "title-with-colon resolved_links"
+  assert_file_exists "$out_dir/pages/ENG/API_Overview__800/page.html"
+}
+
+test_find_output_without_explicit_ids_is_skipped() {
+  local out_dir="$WORK_DIR/find-output-without-ids"
+  local log_file="$TEST_ROOT/find-output-without-ids.log"
+  run_cmd "$log_file" find_output_without_ids "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "find-output-without-ids unresolved_links"
+  assert_path_missing "$out_dir/pages/ENG/Numeric_Noise_Page__850"
+  assert_contains 'could not parse explicit page ids from find results' "$log_file"
+}
+
+test_find_candidate_limit_skips_wide_matches() {
+  local out_dir="$WORK_DIR/find-candidate-limit"
+  local log_file="$TEST_ROOT/find-candidate-limit.log"
+  run_cmd "$log_file" find_candidate_limit "$CONFLUEX_BIN" --page-id 100 --max-find-candidates 3 --out "$out_dir"
+
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "find-candidate-limit unresolved_links"
+  assert_path_missing "$out_dir/pages/ENG/Popular_Page__860"
+  assert_contains 'returned 4 candidates; limit is 3, skipping' "$log_file"
+}
+
 test_mixed_link_forms_are_detected() {
   local out_dir="$WORK_DIR/link-forms"
   local log_file="$TEST_ROOT/link-forms.log"
@@ -627,6 +718,10 @@ test_cycle_links_do_not_loop
 test_self_link_does_not_duplicate_page
 test_ambiguous_title_stays_unresolved
 test_cross_space_title_link_resolves_correctly
+test_children_parser_ignores_non_page_ids
+test_page_param_with_colon_space_stays_same_space_title
+test_find_output_without_explicit_ids_is_skipped
+test_find_candidate_limit_skips_wide_matches
 test_mixed_link_forms_are_detected
 test_dry_run_minimal_artifacts
 test_dry_run_keep_metadata

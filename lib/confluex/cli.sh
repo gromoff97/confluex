@@ -4,7 +4,7 @@ confluex_usage() {
   cat <<'USAGE'
 Usage:
   confluex --page-id <id> [--dry-run] [--out DIR] [--no-fail-fast]
-           [--keep-metadata] [--log-file FILE]
+           [--keep-metadata] [--log-file FILE] [--max-find-candidates N]
   confluex --install [--install-dir DIR]
 
 What it does:
@@ -22,6 +22,9 @@ Options:
   --no-fail-fast     Continue on runtime errors (best-effort export).
   --keep-metadata    Persist page metadata files such as _info.txt and _storage.xml.
   --log-file FILE    Write a persistent log file. By default logs go only to stderr.
+  --max-find-candidates N
+                     Maximum number of `confluence find` candidates to inspect per title link.
+                     Default: 10.
   --install          Install this script for global use.
   --install-dir DIR  Custom install directory (default: ~/.local/bin).
   -h, --help         Show this help.
@@ -51,6 +54,9 @@ confluex_suggest_option() {
       ;;
     --log|--logfile|--log-file=*|--logs)
       printf '%s\n' "--log-file"
+      ;;
+    --max-find|--max-find-candidate|--max-find-results|--max-candidates)
+      printf '%s\n' "--max-find-candidates"
       ;;
     --install-dir=*|--instal|--instal-dir|--installdir)
       printf '%s\n' "--install-dir"
@@ -127,6 +133,7 @@ confluex_parse_args() {
   CFG_KEEP_METADATA=0
   CFG_LOG_FILE=""
   CFG_LOG_FILE_SET=0
+  CFG_MAX_FIND_CANDIDATES=10
 
   while (($# > 0)); do
     case "$1" in
@@ -173,6 +180,17 @@ confluex_parse_args() {
         # shellcheck disable=SC2034
         CFG_LOG_FILE="${1#*=}"
         CFG_LOG_FILE_SET=1
+        shift
+        ;;
+      --max-find-candidates)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --max-find-candidates requires a number\n' >&2; return 1; }
+        # shellcheck disable=SC2034
+        CFG_MAX_FIND_CANDIDATES="$2"
+        shift 2
+        ;;
+      --max-find-candidates=*)
+        # shellcheck disable=SC2034
+        CFG_MAX_FIND_CANDIDATES="${1#*=}"
         shift
         ;;
       --install)
@@ -242,6 +260,11 @@ confluex_parse_args() {
 
   if [[ ! "$CFG_ROOT_ID" =~ ^[0-9]+$ ]]; then
     printf 'ERROR: --page-id must be numeric, got: %s\n' "$CFG_ROOT_ID" >&2
+    return 1
+  fi
+
+  if [[ ! "$CFG_MAX_FIND_CANDIDATES" =~ ^[0-9]+$ ]] || (( CFG_MAX_FIND_CANDIDATES == 0 )); then
+    printf 'ERROR: --max-find-candidates must be a positive integer, got: %s\n' "$CFG_MAX_FIND_CANDIDATES" >&2
     return 1
   fi
 
