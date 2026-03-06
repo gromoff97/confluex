@@ -929,6 +929,51 @@ assert_equal() {
   fi
 }
 
+assert_standard_report_files() {
+  local out_dir="$1"
+  assert_file_exists "$out_dir/manifest.tsv"
+  assert_file_exists "$out_dir/resolved-links.tsv"
+  assert_file_exists "$out_dir/unresolved-links.tsv"
+  assert_file_exists "$out_dir/failed-pages.tsv"
+  assert_file_exists "$out_dir/summary.txt"
+}
+
+assert_no_default_output_dirs() {
+  local work_dir="$1"
+  if compgen -G "$work_dir/confluence_dump_*" >/dev/null; then
+    printf 'ASSERT FAILED: unexpected dump directory created in %s\n' "$work_dir" >&2
+    exit 1
+  fi
+  if compgen -G "$work_dir/confluence_plan_*" >/dev/null; then
+    printf 'ASSERT FAILED: unexpected dry-run directory created in %s\n' "$work_dir" >&2
+    exit 1
+  fi
+}
+
+assert_page_exported() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+  assert_file_exists "$out_dir/pages/$space_key/${folder_name}__${page_id}/page.html"
+}
+
+assert_page_missing() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+  assert_path_missing "$out_dir/pages/$space_key/${folder_name}__${page_id}"
+}
+
+assert_page_html_missing() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+  assert_path_missing "$out_dir/pages/$space_key/${folder_name}__${page_id}/page.html"
+}
+
 summary_value() {
   local file="$1"
   local key="$2"
@@ -987,6 +1032,7 @@ test_unknown_option_suggestion() {
     exit 1
   fi
   assert_contains 'Did you mean: --page-id ?' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_install_conflict_rejected() {
@@ -996,6 +1042,7 @@ test_install_conflict_rejected() {
     exit 1
   fi
   assert_contains '--install cannot be combined with --page-id' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_install_dir_requires_install() {
@@ -1005,6 +1052,7 @@ test_install_dir_requires_install() {
     exit 1
   fi
   assert_contains '--install-dir requires --install' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_empty_log_file_rejected() {
@@ -1014,12 +1062,15 @@ test_empty_log_file_rejected() {
     exit 1
   fi
   assert_contains '--log-file requires a non-empty file path' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_basic_export_downloads_tree_and_linked_page() {
   local out_dir="$WORK_DIR/basic-export"
   local log_file="$TEST_ROOT/basic-export.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
   assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
@@ -1037,6 +1088,8 @@ test_linked_page_does_not_pull_its_descendants() {
   local log_file="$TEST_ROOT/no-descendants.log"
   run_cmd "$log_file" linked_no_descendants "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
   assert_path_missing "$out_dir/pages/ENG/Linked_Descendant__400"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "no-descendants processed_pages"
@@ -1047,6 +1100,11 @@ test_duplicate_paths_do_not_duplicate_exports() {
   local log_file="$TEST_ROOT/duplicate-paths.log"
   run_cmd "$log_file" duplicate_paths "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(manifest_row_count "$out_dir/manifest.tsv")" "duplicate-paths manifest rows"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "duplicate-paths page 300 count"
 }
@@ -1056,6 +1114,11 @@ test_cycle_links_do_not_loop() {
   local log_file="$TEST_ROOT/cycle-links.log"
   run_cmd "$log_file" cycle_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "cycle-links processed_pages"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "cycle-links root count"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "cycle-links linked count"
@@ -1066,6 +1129,9 @@ test_self_link_does_not_duplicate_page() {
   local log_file="$TEST_ROOT/self-link.log"
   run_cmd "$log_file" self_link "$CONFLUEX_BIN" --page-id 700 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Self_Page 700
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "self-link processed_pages"
   assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "self-link manifest rows"
 }
@@ -1074,6 +1140,8 @@ test_ambiguous_title_stays_unresolved() {
   local out_dir="$WORK_DIR/ambiguous"
   local log_file="$TEST_ROOT/ambiguous.log"
   run_cmd "$log_file" ambiguous_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "ambiguous unresolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "ambiguous resolved_links"
@@ -1086,6 +1154,8 @@ test_cross_space_title_link_resolves_correctly() {
   local log_file="$TEST_ROOT/cross-space.log"
   run_cmd "$log_file" cross_space "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_file_exists "$out_dir/pages/OTHER/Shared_Page__500/page.html"
   assert_equal "2" "$(manifest_row_count "$out_dir/manifest.tsv")" "cross-space manifest rows"
 }
@@ -1094,6 +1164,8 @@ test_children_parser_ignores_non_page_ids() {
   local out_dir="$WORK_DIR/non-page-child-ids"
   local log_file="$TEST_ROOT/non-page-child-ids.log"
   run_cmd "$log_file" non_page_child_ids "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_path_missing "$out_dir/pages/NO_SPACE/Not_A_Page__999"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "non-page-child-ids processed_pages"
@@ -1104,6 +1176,8 @@ test_page_param_with_colon_space_stays_same_space_title() {
   local log_file="$TEST_ROOT/title-with-colon.log"
   run_cmd "$log_file" title_with_colon "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "title-with-colon resolved_links"
   assert_file_exists "$out_dir/pages/ENG/API_Overview__800/page.html"
 }
@@ -1112,6 +1186,8 @@ test_title_resolution_is_case_sensitive() {
   local out_dir="$WORK_DIR/case-sensitive-title"
   local log_file="$TEST_ROOT/case-sensitive-title.log"
   run_cmd "$log_file" case_sensitive_title_match "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "case-sensitive-title unresolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "case-sensitive-title resolved_links"
@@ -1123,6 +1199,8 @@ test_title_resolution_does_not_normalize_internal_whitespace() {
   local log_file="$TEST_ROOT/whitespace-variant-title.log"
   run_cmd "$log_file" whitespace_variant_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "whitespace-variant-title unresolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "whitespace-variant-title resolved_links"
   assert_path_missing "$out_dir/pages/ENG/Linked_Page__991"
@@ -1132,6 +1210,8 @@ test_title_without_space_key_and_unknown_current_space_stays_unresolved() {
   local out_dir="$WORK_DIR/empty-current-space-title"
   local log_file="$TEST_ROOT/empty-current-space-title.log"
   run_cmd "$log_file" empty_current_space_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "empty-current-space-title unresolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "empty-current-space-title resolved_links"
@@ -1144,6 +1224,8 @@ test_candidate_info_title_mismatch_stays_unresolved() {
   local log_file="$TEST_ROOT/candidate-info-title-mismatch.log"
   run_cmd "$log_file" candidate_info_title_mismatch "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "candidate-info-title-mismatch unresolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "candidate-info-title-mismatch resolved_links"
   assert_path_missing "$out_dir/pages/ENG/Actually_Different_Page__993"
@@ -1153,6 +1235,8 @@ test_invalid_content_id_takes_priority_over_valid_title() {
   local out_dir="$WORK_DIR/invalid-content-id-valid-title"
   local log_file="$TEST_ROOT/invalid-content-id-valid-title.log"
   run_cmd "$log_file" invalid_content_id_valid_title "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "invalid-content-id-valid-title processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "invalid-content-id-valid-title resolved_links"
@@ -1166,6 +1250,11 @@ test_duplicate_child_entries_do_not_duplicate_queueing() {
   local log_file="$TEST_ROOT/duplicate-child-entries.log"
   run_cmd "$log_file" duplicate_child_entries "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "duplicate-child-entries processed_pages"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 200)" "duplicate-child-entries manifest page 200 count"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t200($|\t)')" "duplicate-child-entries export page 200 count"
@@ -1176,6 +1265,11 @@ test_title_link_to_page_already_in_tree_is_not_reexported() {
   local log_file="$TEST_ROOT/title-link-to-tree-page.log"
   run_cmd "$log_file" title_link_to_tree_page "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "title-link-to-tree-page processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "title-link-to-tree-page resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "title-link-to-tree-page export count"
@@ -1186,6 +1280,12 @@ test_shared_linked_page_from_two_sources_is_exported_once() {
   local log_file="$TEST_ROOT/shared-linked-page-two-sources.log"
   run_cmd "$log_file" shared_linked_page_two_sources "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Second_Child 201
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "4" "$(summary_value "$out_dir/summary.txt" processed_pages)" "shared-linked-page-two-sources processed_pages"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "shared-linked-page-two-sources resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "shared-linked-page-two-sources export count"
@@ -1197,6 +1297,10 @@ test_same_page_found_through_four_forms_exports_once() {
   local log_file="$TEST_ROOT/same-page-four-forms.log"
   run_cmd "$log_file" same_page_four_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "same-page-four-forms processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "same-page-four-forms manifest page 300 count"
@@ -1209,6 +1313,12 @@ test_pageid_text_inside_code_blocks_is_ignored() {
   local log_file="$TEST_ROOT/code-block-pageid.log"
   run_cmd "$log_file" code_block_pageid_text "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_missing "$out_dir" NO_SPACE page_887 887
+  assert_page_missing "$out_dir" NO_SPACE page_888 888
+  assert_page_missing "$out_dir" NO_SPACE page_889 889
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "code-block-pageid processed_pages"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "code-block-pageid resolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "code-block-pageid unresolved_links"
@@ -1221,6 +1331,8 @@ test_children_command_failure_falls_back_to_root_only() {
   local log_file="$TEST_ROOT/children-command-fails.log"
   run_cmd "$log_file" children_command_fails "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-command-fails processed_pages"
   assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "children-command-fails manifest rows"
   assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
@@ -1231,6 +1343,8 @@ test_children_malformed_json_falls_back_to_root_only() {
   local out_dir="$WORK_DIR/children-malformed-json"
   local log_file="$TEST_ROOT/children-malformed-json.log"
   run_cmd "$log_file" children_malformed_json "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-malformed-json processed_pages"
   assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "children-malformed-json manifest rows"
@@ -1243,6 +1357,8 @@ test_find_output_without_explicit_ids_is_skipped() {
   local log_file="$TEST_ROOT/find-output-without-ids.log"
   run_cmd "$log_file" find_output_without_ids "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "find-output-without-ids unresolved_links"
   assert_path_missing "$out_dir/pages/ENG/Numeric_Noise_Page__850"
   assert_contains 'could not parse explicit page ids from find results' "$log_file"
@@ -1252,6 +1368,8 @@ test_find_candidate_limit_skips_wide_matches() {
   local out_dir="$WORK_DIR/find-candidate-limit"
   local log_file="$TEST_ROOT/find-candidate-limit.log"
   run_cmd "$log_file" find_candidate_limit "$CONFLUEX_BIN" --page-id 100 --max-find-candidates 3 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "find-candidate-limit unresolved_links"
   assert_path_missing "$out_dir/pages/ENG/Popular_Page__860"
@@ -1264,6 +1382,8 @@ test_find_resolution_survives_partial_candidate_info_failure() {
   local log_file="$TEST_ROOT/find-partial-candidate-info-failure.log"
   run_cmd "$log_file" find_partial_candidate_info_failure "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "find-partial-candidate-info-failure resolved_links"
   assert_file_exists "$out_dir/pages/ENG/Exact_Match_Page__961/page.html"
   assert_equal "1" "$(mock_call_count "$log_file" '^info\t960($|\t)')" "find-partial-candidate-info-failure bad candidate info count"
@@ -1275,6 +1395,10 @@ test_repeated_title_links_use_single_find_resolution() {
   local log_file="$TEST_ROOT/repeated-title-links.log"
   run_cmd "$log_file" repeated_title_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Repeated_Page 910
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "repeated-title-links processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "repeated-title-links resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^find\tRepeated Page\t--space\tENG$')" "repeated-title-links find count"
@@ -1286,6 +1410,12 @@ test_find_cache_is_reused_across_pages() {
   local log_file="$TEST_ROOT/shared-find-cache.log"
   run_cmd "$log_file" shared_find_cache_across_pages "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Second_Child 201
+  assert_page_exported "$out_dir" ENG Shared_Cache_Page 970
   assert_equal "4" "$(summary_value "$out_dir/summary.txt" processed_pages)" "shared-find-cache processed_pages"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "shared-find-cache resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^find\tShared Cache Page\t--space\tENG$')" "shared-find-cache find count"
@@ -1298,6 +1428,8 @@ test_content_id_only_page_link_is_downloaded() {
   local log_file="$TEST_ROOT/content-id-only-link.log"
   run_cmd "$log_file" content_id_only_link "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "content-id-only-link processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "content-id-only-link resolved_links"
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
@@ -1309,6 +1441,8 @@ test_mixed_valid_and_broken_links_still_download_valid_target() {
   local log_file="$TEST_ROOT/mixed-valid-and-broken-links.log"
   run_cmd "$log_file" mixed_valid_and_broken_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "mixed-valid-and-broken-links resolved_links"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "mixed-valid-and-broken-links unresolved_links"
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
@@ -1318,6 +1452,8 @@ test_mixed_valid_broken_and_ambiguous_links_behave_independently() {
   local out_dir="$WORK_DIR/mixed-valid-broken-ambiguous-links"
   local log_file="$TEST_ROOT/mixed-valid-broken-ambiguous-links.log"
   run_cmd "$log_file" mixed_valid_broken_ambiguous_links "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "mixed-valid-broken-ambiguous-links resolved_links"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "mixed-valid-broken-ambiguous-links unresolved_links"
@@ -1331,6 +1467,8 @@ test_conflicting_content_id_and_title_prefers_content_id() {
   local log_file="$TEST_ROOT/conflicting-content-id-and-title.log"
   run_cmd "$log_file" conflicting_content_id_and_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "conflicting-content-id-and-title resolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "conflicting-content-id-and-title unresolved_links"
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
@@ -1341,6 +1479,8 @@ test_linked_page_edit_failure_after_resolution_is_reported() {
   local out_dir="$WORK_DIR/linked-page-edit-failure-after-resolution"
   local log_file="$TEST_ROOT/linked-page-edit-failure-after-resolution.log"
   run_cmd "$log_file" linked_page_edit_failure_after_resolution "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "linked-page-edit-failure-after-resolution processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "linked-page-edit-failure-after-resolution resolved_links"
@@ -1353,6 +1493,10 @@ test_root_referenced_again_via_title_and_id_is_not_reexported() {
   local log_file="$TEST_ROOT/root-referenced-again.log"
   run_cmd "$log_file" root_referenced_again "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "root-referenced-again processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "root-referenced-again resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root-referenced-again root manifest count"
@@ -1364,6 +1508,8 @@ test_unicode_and_entities_titles_resolve_correctly() {
   local log_file="$TEST_ROOT/unicode-entity-title.log"
   run_cmd "$log_file" unicode_entity_title "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "unicode-entity-title resolved_links"
   assert_file_exists "$out_dir/pages/ENG/R&D_Привет__930/page.html"
 }
@@ -1372,6 +1518,8 @@ test_single_quoted_multiline_page_link_resolves() {
   local out_dir="$WORK_DIR/single-quote-multiline-page-link"
   local log_file="$TEST_ROOT/single-quote-multiline-page-link.log"
   run_cmd "$log_file" single_quote_multiline_page_link "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "single-quote-multiline-page-link resolved_links"
   assert_file_exists "$out_dir/pages/ENG/Single_Quote_Page__980/page.html"
@@ -1382,6 +1530,8 @@ test_broken_storage_xml_does_not_abort_run() {
   local log_file="$TEST_ROOT/broken-storage-xml.log"
   run_cmd "$log_file" broken_storage_xml "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "broken-storage-xml processed_pages"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "broken-storage-xml resolved_links"
   assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
@@ -1391,6 +1541,8 @@ test_mixed_link_forms_are_detected() {
   local out_dir="$WORK_DIR/link-forms"
   local log_file="$TEST_ROOT/link-forms.log"
   run_cmd "$log_file" link_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
   assert_file_exists "$out_dir/pages/OTHER/Param_Linked__501/page.html"
@@ -1404,6 +1556,13 @@ test_external_pageid_like_href_does_not_trigger_download() {
   local log_file="$TEST_ROOT/external-pageid-href.log"
   run_cmd "$log_file" link_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Linked_Page 300
+  assert_page_exported "$out_dir" OTHER Param_Linked 501
+  assert_page_exported "$out_dir" ENG Href_Linked 502
+  assert_page_missing "$out_dir" NO_SPACE page_999 999
   assert_equal "0" "$(mock_call_count "$log_file" '^info\t999($|\t)')" "external-pageid-href info count"
   assert_equal "0" "$(mock_call_count "$log_file" '^export\t999($|\t)')" "external-pageid-href export count"
 }
@@ -1413,6 +1572,11 @@ test_rediscovered_already_visited_page_is_not_reexported() {
   local log_file="$TEST_ROOT/rediscovered-after-visit.log"
   run_cmd "$log_file" rediscovered_after_visit "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "rediscovered-after-visit processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "rediscovered-after-visit resolved_links"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "rediscovered-after-visit export count"
@@ -1424,6 +1588,10 @@ test_root_page_repeated_in_children_is_ignored() {
   local log_file="$TEST_ROOT/root-repeated-in-children.log"
   run_cmd "$log_file" root_repeated_in_children "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "root-repeated-in-children processed_pages"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root-repeated-in-children root manifest count"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t100($|\t)')" "root-repeated-in-children root export count"
@@ -1433,6 +1601,8 @@ test_children_title_is_ignored_in_favor_of_info_title() {
   local out_dir="$WORK_DIR/children-title-mismatch"
   local log_file="$TEST_ROOT/children-title-mismatch.log"
   run_cmd "$log_file" children_title_mismatch "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-title-mismatch processed_pages"
   assert_file_exists "$out_dir/pages/ENG/Actual_Child_Page__200/page.html"
@@ -1444,6 +1614,8 @@ test_empty_title_in_info_uses_fallback_folder_name() {
   local log_file="$TEST_ROOT/empty-title-info.log"
   run_cmd "$log_file" empty_title_info "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "empty-title-info processed_pages"
   assert_file_exists "$out_dir/pages/ENG/page_992__992/page.html"
 }
@@ -1453,6 +1625,8 @@ test_space_key_is_recovered_from_url_when_missing_in_info() {
   local log_file="$TEST_ROOT/space-from-url-only.log"
   run_cmd "$log_file" space_from_url_only "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "space-from-url-only processed_pages"
   assert_file_exists "$out_dir/pages/OPS/URL_Space_Page__994/page.html"
 }
@@ -1461,6 +1635,8 @@ test_multiple_broken_links_including_invalid_id_are_handled_independently() {
   local out_dir="$WORK_DIR/broken-links-with-invalid-id"
   local log_file="$TEST_ROOT/broken-links-with-invalid-id.log"
   run_cmd "$log_file" broken_links_with_invalid_id "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "broken-links-with-invalid-id unresolved_links"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "broken-links-with-invalid-id failed_operations"
@@ -1474,6 +1650,8 @@ test_dry_run_minimal_artifacts() {
   local log_file="$TEST_ROOT/dry-run-minimal.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_file_exists "$out_dir/manifest.tsv"
   assert_file_exists "$out_dir/summary.txt"
   assert_path_missing "$out_dir/run.log"
@@ -1484,6 +1662,8 @@ test_dry_run_keep_metadata() {
   local out_dir="$WORK_DIR/dry-run-keep"
   local log_file="$TEST_ROOT/dry-run-keep.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --dry-run --keep-metadata --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_file_exists "$out_dir/pages/ENG/Root_Page__100/_info.txt"
   assert_file_exists "$out_dir/pages/ENG/Root_Page__100/_storage.xml"
@@ -1496,6 +1676,11 @@ test_log_file_opt_in() {
   local log_file="$TEST_ROOT/export-with-log.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --page-id 100 --out "$out_dir" --log-file "$explicit_log"
 
+  assert_standard_report_files "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_file_exists "$explicit_log"
   assert_contains 'starting' "$explicit_log"
 }
@@ -1508,6 +1693,9 @@ test_fail_fast_stops_after_first_page_failure() {
     exit 1
   fi
 
+  assert_standard_report_files "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_html_missing "$out_dir" ENG Child_Page 200
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "fail-fast incomplete"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "fail-fast processed_pages"
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
@@ -1521,6 +1709,9 @@ test_fail_fast_stops_after_edit_failure() {
     exit 1
   fi
 
+  assert_standard_report_files "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_html_missing "$out_dir" ENG Child_Page 200
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "edit-fail-fast incomplete"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "edit-fail-fast processed_pages"
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
@@ -1535,6 +1726,9 @@ test_fail_fast_stops_after_info_failure() {
     exit 1
   fi
 
+  assert_standard_report_files "$out_dir"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_missing "$out_dir" ENG Child_Page 200
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "info-fail-fast incomplete"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "info-fail-fast processed_pages"
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
@@ -1546,6 +1740,8 @@ test_no_fail_fast_continues_after_failure() {
   local log_file="$TEST_ROOT/no-fail-fast.log"
   run_cmd "$log_file" no_fail_fast "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
 
+  assert_standard_report_files "$out_dir"
+
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" incomplete)" "no-fail-fast incomplete"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "no-fail-fast processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "no-fail-fast failed_operations"
@@ -1556,6 +1752,8 @@ test_no_fail_fast_continues_after_inaccessible_tree_page() {
   local out_dir="$WORK_DIR/inaccessible-tree-page"
   local log_file="$TEST_ROOT/inaccessible-tree-page.log"
   run_cmd "$log_file" inaccessible_tree_page "$CONFLUEX_BIN" --page-id 100 --no-fail-fast --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
 
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" incomplete)" "inaccessible-tree-page incomplete"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "inaccessible-tree-page processed_pages"
