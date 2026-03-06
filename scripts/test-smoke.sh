@@ -890,7 +890,7 @@ test_same_page_found_through_four_forms_exports_once() {
   run_cmd "$log_file" same_page_four_forms "$CONFLUEX_BIN" --page-id 100 --out "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "same-page-four-forms processed_pages"
-  assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "same-page-four-forms manifest page 300 count"
   assert_equal "1" "$(mock_call_count "$log_file" '^find\tLinked Page\t--space\tENG$')" "same-page-four-forms find count"
   assert_equal "1" "$(mock_call_count "$log_file" '^export\t300($|\t)')" "same-page-four-forms export page 300 count"

@@ -34,6 +34,7 @@ declare -A FIND_CACHE=()
 declare -A DISCOVERED_BY=()
 declare -A TITLE_BY_ID=()
 declare -A SPACE_BY_ID=()
+declare -A RECORDED_RESOLVED_LINKS=()
 CONFLUEX_LAST_RESOLVED_ID=""
 
 confluex_reset_state() {
@@ -44,6 +45,7 @@ confluex_reset_state() {
   DISCOVERED_BY=()
   TITLE_BY_ID=()
   SPACE_BY_ID=()
+  RECORDED_RESOLVED_LINKS=()
   CONFLUEX_LAST_RESOLVED_ID=""
   downloaded_metadata_bytes=0
   downloaded_content_bytes=0
@@ -110,6 +112,32 @@ confluex_enqueue() {
   QUEUED["$id"]=1
   DISCOVERED_BY["$id"]="$reason"
   log_info "queued page $id (reason: $reason)"
+}
+
+confluex_record_resolved_link() {
+  local from_page_id="$1"
+  local from_title="$2"
+  local link_type="$3"
+  local link_value="$4"
+  local resolved_page_id="$5"
+  local resolved_title="$6"
+  local resolved_space="$7"
+  local key="${from_page_id}|${resolved_page_id}"
+
+  if [[ -n "${RECORDED_RESOLVED_LINKS[$key]+x}" ]]; then
+    return 1
+  fi
+
+  RECORDED_RESOLVED_LINKS["$key"]=1
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$from_page_id" \
+    "$(escape_tsv "$from_title")" \
+    "$link_type" \
+    "$(escape_tsv "$link_value")" \
+    "$resolved_page_id" \
+    "$(escape_tsv "$resolved_title")" \
+    "$(escape_tsv "$resolved_space")" >> "$LINKS_FILE"
+  return 0
 }
 
 confluex_log_attachments_from_export() {
@@ -386,14 +414,7 @@ confluex_process_links_for_page() {
 
     if [[ "$ref_type" == "id" ]]; then
       log_info "  found internal link by pageId: $ref_a"
-      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$page_id" \
-        "$(escape_tsv "$title")" \
-        "id" \
-        "$ref_a" \
-        "$ref_a" \
-        "" \
-        "" >> "$LINKS_FILE"
+      confluex_record_resolved_link "$page_id" "$title" "id" "$ref_a" "$ref_a" "${TITLE_BY_ID[$ref_a]:-}" "${SPACE_BY_ID[$ref_a]:-}" || true
       confluex_enqueue "$ref_a" "link-id:$page_id"
       continue
     fi
@@ -405,14 +426,14 @@ confluex_process_links_for_page() {
       if confluex_resolve_by_title "$ref_b" "$ref_a"; then
         resolved_id="$CONFLUEX_LAST_RESOLVED_ID"
         log_info "    resolved link -> pageId $resolved_id"
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        confluex_record_resolved_link \
           "$page_id" \
-          "$(escape_tsv "$title")" \
+          "$title" \
           "title" \
-          "$(escape_tsv "${ref_a:+$ref_a:}$ref_b")" \
+          "${ref_a:+$ref_a:}$ref_b" \
           "$resolved_id" \
-          "$(escape_tsv "${TITLE_BY_ID[$resolved_id]:-}")" \
-          "$(escape_tsv "${SPACE_BY_ID[$resolved_id]:-$ref_a}")" >> "$LINKS_FILE"
+          "${TITLE_BY_ID[$resolved_id]:-}" \
+          "${SPACE_BY_ID[$resolved_id]:-$ref_a}" || true
         confluex_enqueue "$resolved_id" "link-title:$page_id"
       else
         log_warn "    could not resolve link: [${ref_a:-same-space}] $ref_b"
