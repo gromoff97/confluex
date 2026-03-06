@@ -17,6 +17,7 @@ SUMMARY=""
 PREFLIGHT_INFO_FILE=""
 ENCRYPTED_ARCHIVE=""
 ENCRYPTION_HINT_FILE=""
+CFG_ENCRYPTION_KEY_SOURCE="none"
 
 # Counters (filled by confluex_compute_counts).
 processed_count=0
@@ -65,6 +66,28 @@ confluex_reset_state() {
   CONFLUEX_STOP_REASON=""
   ENCRYPTED_ARCHIVE=""
   ENCRYPTION_HINT_FILE=""
+  CFG_ENCRYPTION_KEY_SOURCE="none"
+}
+
+confluex_apply_default_config() {
+  local configured_key=""
+
+  CFG_ENCRYPTION_KEY_SOURCE="none"
+
+  if [[ "$CFG_COMMAND" != "export" && "$CFG_COMMAND" != "plan" ]]; then
+    return 0
+  fi
+
+  if (( CFG_ENCRYPTION_KEY_SET )); then
+    CFG_ENCRYPTION_KEY_SOURCE="cli"
+    return 0
+  fi
+
+  configured_key="$(confluex_read_config_encryption_key)"
+  if [[ -n "$configured_key" ]]; then
+    CFG_ENCRYPTION_KEY="$configured_key"
+    CFG_ENCRYPTION_KEY_SOURCE="config"
+  fi
 }
 
 confluex_parse_info_file() {
@@ -643,7 +666,8 @@ confluex_write_summary() {
     printf 'root_page_id=%s\n' "$CFG_ROOT_ID"
     printf 'dry_run=%s\n' "$CFG_DRY_RUN"
     printf 'safe_mode=%s\n' "$CFG_SAFE_MODE"
-    printf 'encrypt_for=%s\n' "$CFG_ENCRYPT_FOR"
+    printf 'encryption_key=%s\n' "$CFG_ENCRYPTION_KEY"
+    printf 'encryption_key_source=%s\n' "$CFG_ENCRYPTION_KEY_SOURCE"
     printf 'encrypted_archive=%s\n' "$(confluex_archive_path_for_out_dir)"
     printf 'output_dir=%s\n' "$OUT_DIR"
     printf 'max_pages=%s\n' "$CFG_MAX_PAGES"
@@ -835,7 +859,7 @@ confluex_write_encryption_instructions() {
 
   {
     printf 'Encrypted archive: %s\n' "$archive_name"
-    printf 'Recipient: %s\n' "$CFG_ENCRYPT_FOR"
+    printf 'GPG key identity: %s\n' "$CFG_ENCRYPTION_KEY"
     printf '\n'
     printf 'Decrypt:\n'
     printf '  gpg --output %s --decrypt %s\n' "$tar_name" "$archive_name"
@@ -861,7 +885,7 @@ confluex_encrypt_output_dir() {
   archive_tar="${OUT_DIR}.tar.gz"
   archive_gpg="$(confluex_archive_path_for_out_dir)"
 
-  log_info "encrypting output directory for GPG recipient: $CFG_ENCRYPT_FOR"
+  log_info "encrypting output directory for GPG key identity: $CFG_ENCRYPTION_KEY"
 
   rm -f "$archive_tar" "$archive_gpg" "${archive_gpg}.txt"
 
@@ -871,8 +895,8 @@ confluex_encrypt_output_dir() {
     return 1
   fi
 
-  if ! gpg --batch --yes --trust-model always --recipient "$CFG_ENCRYPT_FOR" --output "$archive_gpg" --encrypt "$archive_tar"; then
-    log_error "failed to encrypt archive for recipient $CFG_ENCRYPT_FOR"
+  if ! gpg --batch --yes --trust-model always --recipient "$CFG_ENCRYPTION_KEY" --output "$archive_gpg" --encrypt "$archive_tar"; then
+    log_error "failed to encrypt archive for GPG key identity $CFG_ENCRYPTION_KEY"
     rm -f "$archive_tar" "$archive_gpg"
     return 1
   fi
@@ -887,6 +911,35 @@ confluex_encrypt_output_dir() {
   log_info "extract with: tar -xzf ${out_name}.tar.gz"
   log_info "instructions file: ${archive_gpg}.txt"
   return 0
+}
+
+confluex_run_config() {
+  local config_file
+  local current_key=""
+
+  config_file="$(confluex_config_file)"
+
+  if (( CFG_CLEAR_ENCRYPTION_KEY )); then
+    confluex_clear_config_encryption_key
+    printf 'Cleared default encryption key from %s\n' "$config_file"
+    return 0
+  fi
+
+  if (( CFG_ENCRYPTION_KEY_SET )); then
+    confluex_write_config_encryption_key "$CFG_ENCRYPTION_KEY"
+    printf 'Saved default encryption key to %s\n' "$config_file"
+    printf 'Default encryption key: %s\n' "$CFG_ENCRYPTION_KEY"
+    return 0
+  fi
+
+  current_key="$(confluex_read_config_encryption_key)"
+  printf 'confluex config\n'
+  printf '  config file: %s\n' "$config_file"
+  if [[ -n "$current_key" ]]; then
+    printf '  default encryption key: %s\n' "$current_key"
+  else
+    printf '  default encryption key: <not set>\n'
+  fi
 }
 
 confluex_run_doctor() {
@@ -979,7 +1032,7 @@ confluex_main() {
     return 0
   fi
 
-  if (( CFG_INSTALL )); then
+  if [[ "$CFG_COMMAND" == "install" ]]; then
     confluex_install "$script_path" "$script_lib_dir"
     return 0
   fi
@@ -994,8 +1047,15 @@ confluex_main() {
     return $?
   fi
 
+  if [[ "$CFG_COMMAND" == "config" ]]; then
+    confluex_run_config
+    return $?
+  fi
+
+  confluex_apply_default_config
+
   required_cmds=(bash node confluence sed awk grep sort find tr wc)
-  if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+  if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
     required_cmds+=(tar gpg)
   fi
   confluex_require_cmds "${required_cmds[@]}" || return 1
@@ -1018,6 +1078,12 @@ confluex_main() {
   log_info "max-pages: $CFG_MAX_PAGES"
   log_info "max-download-mib: $CFG_MAX_DOWNLOAD_MIB"
   log_info "sleep-ms: $CFG_SLEEP_MS"
+  log_info "encryption-key-source: $CFG_ENCRYPTION_KEY_SOURCE"
+  if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
+    log_info "encryption-key: $CFG_ENCRYPTION_KEY"
+  else
+    log_info "encryption-key: disabled"
+  fi
   if [[ -n "$LOG_FILE" ]]; then
     log_info "log-file: $LOG_FILE"
   else
@@ -1043,7 +1109,7 @@ confluex_main() {
 
   confluex_write_summary 0 ""
 
-  if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
+  if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
     if ! confluex_encrypt_output_dir; then
       return 1
     fi

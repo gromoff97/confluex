@@ -6,9 +6,9 @@ Usage:
   confluex export --page-id <id> [OPTIONS]
   confluex plan --page-id <id> [OPTIONS]
   confluex doctor [--page-id <id>]
+  confluex config [--encryption-key KEY | --clear-encryption-key]
   confluex install [--install-dir DIR]
   confluex uninstall [--install-dir DIR]
-  confluex --page-id <id> [OPTIONS]
 
 What it does:
   - walks the full child tree of <page_id>
@@ -28,8 +28,13 @@ Options:
   --no-fail-fast     Continue on runtime errors (best-effort export).
   --keep-metadata    Persist page metadata files such as _info.txt and _storage.xml.
   --log-file FILE    Write a persistent log file. By default logs go only to stderr.
-  --encrypt-for KEY  Encrypt the final output as <out>.tar.gz.gpg for GPG recipient KEY.
-                     After successful encryption the plain output directory is removed.
+  --encryption-key KEY
+                     Encrypt the final output as <out>.tar.gz.gpg for GPG key identity KEY.
+                     KEY may be a fingerprint, long key id, or other GPG recipient specifier.
+                     Recommended: use a full fingerprint. If a default key is saved via
+                     `confluex config`, this option overrides it for the current run.
+  --clear-encryption-key
+                     Only for `confluex config`: remove the saved default encryption key.
   --max-pages N      Stop after N processed pages.
   --max-download-mib N
                      Stop after downloading N MiB in total.
@@ -37,15 +42,15 @@ Options:
   --max-find-candidates N
                      Maximum number of `confluence find` candidates to inspect per title link.
                      Default: 10.
-  --install          Install this script for global use.
-  --uninstall        Uninstall a prior self-installation.
   --install-dir DIR  Custom install directory (default: ~/.local/bin).
   -h, --help         Show this help.
 
 Examples:
   confluex plan --page-id 12345
   confluex export --page-id 12345 --out ./dump --safe
-  confluex export --page-id 12345 --out ./dump --encrypt-for you@example.com
+  confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+  confluex export --page-id 12345 --out ./dump
+  confluex export --page-id 12345 --out ./dump --encryption-key 89ABCDEF0123456789ABCDEF0123456789ABCDEF
   confluex doctor --page-id 12345
   confluex install
   confluex uninstall
@@ -76,8 +81,8 @@ confluex_suggest_option() {
     --log|--logfile|--log-file=*|--logs)
       printf '%s\n' "--log-file"
       ;;
-    --encrypt|--encrypt-recipient|--encrypt_to|--recipient)
-      printf '%s\n' "--encrypt-for"
+    --encrypt|--encrypt-recipient|--encrypt_to|--recipient|--encrypt-for|--encrypt-for=*|--encryption)
+      printf '%s\n' "--encryption-key"
       ;;
     --max-find|--max-find-candidate|--max-find-results|--max-candidates)
       printf '%s\n' "--max-find-candidates"
@@ -96,6 +101,9 @@ confluex_suggest_option() {
       ;;
     --install-dir=*|--instal|--instal-dir|--installdir)
       printf '%s\n' "--install-dir"
+      ;;
+    --clear-key|--clear-encryption|--remove-encryption-key)
+      printf '%s\n' "--clear-encryption-key"
       ;;
     --unistall|--uninstal|--remove-self)
       printf '%s\n' "--uninstall"
@@ -186,19 +194,19 @@ confluex_uninstall() {
 confluex_parse_args() {
   # shellcheck disable=SC2034
   CFG_DRY_RUN=0
-  CFG_COMMAND="export"
+  CFG_COMMAND=""
   CFG_OUT_DIR=""
   CFG_ROOT_ID=""
   CFG_FAIL_FAST=1
-  CFG_INSTALL=0
   CFG_INSTALL_DIR="${HOME}/.local/bin"
   CFG_INSTALL_DIR_SET=0
   CFG_HELP_ONLY=0
   CFG_KEEP_METADATA=0
   CFG_LOG_FILE=""
   CFG_LOG_FILE_SET=0
-  CFG_ENCRYPT_FOR=""
-  CFG_ENCRYPT_FOR_SET=0
+  CFG_ENCRYPTION_KEY=""
+  CFG_ENCRYPTION_KEY_SET=0
+  CFG_CLEAR_ENCRYPTION_KEY=0
   CFG_MAX_FIND_CANDIDATES=10
   CFG_MAX_FIND_CANDIDATES_SET=0
   CFG_SAFE_MODE=0
@@ -210,9 +218,26 @@ confluex_parse_args() {
   CFG_SLEEP_MS_SET=0
 
   case "${1:-}" in
-    export|plan|doctor|install|uninstall)
+    export|plan|doctor|config|install|uninstall)
       CFG_COMMAND="$1"
       shift
+      ;;
+    -h|--help)
+      confluex_usage
+      CFG_HELP_ONLY=1
+      return 0
+      ;;
+    "")
+      printf 'ERROR: missing command\n' >&2
+      return 1
+      ;;
+    --*)
+      confluex_print_unknown_option "$1"
+      return 1
+      ;;
+    *)
+      printf 'ERROR: unknown command: %s\n' "$1" >&2
+      return 1
       ;;
   esac
 
@@ -222,8 +247,7 @@ confluex_parse_args() {
       ;;
     doctor)
       ;;
-    install)
-      CFG_INSTALL=1
+    config)
       ;;
     uninstall)
       ;;
@@ -280,15 +304,19 @@ confluex_parse_args() {
         CFG_LOG_FILE_SET=1
         shift
         ;;
-      --encrypt-for)
-        [[ $# -ge 2 ]] || { printf 'ERROR: --encrypt-for requires a recipient\n' >&2; return 1; }
-        CFG_ENCRYPT_FOR="$2"
-        CFG_ENCRYPT_FOR_SET=1
+      --encryption-key)
+        [[ $# -ge 2 ]] || { printf 'ERROR: --encryption-key requires a GPG key identity\n' >&2; return 1; }
+        CFG_ENCRYPTION_KEY="$2"
+        CFG_ENCRYPTION_KEY_SET=1
         shift 2
         ;;
-      --encrypt-for=*)
-        CFG_ENCRYPT_FOR="${1#*=}"
-        CFG_ENCRYPT_FOR_SET=1
+      --encryption-key=*)
+        CFG_ENCRYPTION_KEY="${1#*=}"
+        CFG_ENCRYPTION_KEY_SET=1
+        shift
+        ;;
+      --clear-encryption-key)
+        CFG_CLEAR_ENCRYPTION_KEY=1
         shift
         ;;
       --max-find-candidates)
@@ -337,15 +365,6 @@ confluex_parse_args() {
         CFG_SLEEP_MS_SET=1
         shift
         ;;
-      --install)
-        CFG_INSTALL=1
-        CFG_COMMAND="install"
-        shift
-        ;;
-      --uninstall)
-        CFG_COMMAND="uninstall"
-        shift
-        ;;
       --install-dir)
         [[ $# -ge 2 ]] || { printf 'ERROR: --install-dir requires a directory\n' >&2; return 1; }
         CFG_INSTALL_DIR="$2"
@@ -369,53 +388,57 @@ confluex_parse_args() {
     esac
   done
 
-  if (( CFG_INSTALL )); then
+  if [[ "$CFG_COMMAND" == "install" ]]; then
     if [[ -n "$CFG_ROOT_ID" ]]; then
-      printf 'ERROR: --install cannot be combined with --page-id\n' >&2
+      printf 'ERROR: install does not use --page-id\n' >&2
       return 1
     fi
     if [[ -n "$CFG_OUT_DIR" ]]; then
-      printf 'ERROR: --install cannot be combined with --out\n' >&2
+      printf 'ERROR: install does not use --out\n' >&2
       return 1
     fi
     if (( CFG_DRY_RUN )); then
-      printf 'ERROR: --install cannot be combined with --dry-run\n' >&2
+      printf 'ERROR: install does not use --dry-run\n' >&2
       return 1
     fi
     if (( CFG_FAIL_FAST == 0 )); then
-      printf 'ERROR: --install cannot be combined with --no-fail-fast\n' >&2
+      printf 'ERROR: install does not use --no-fail-fast\n' >&2
       return 1
     fi
     if (( CFG_KEEP_METADATA )); then
-      printf 'ERROR: --install cannot be combined with --keep-metadata\n' >&2
+      printf 'ERROR: install does not use --keep-metadata\n' >&2
       return 1
     fi
     if [[ -n "$CFG_LOG_FILE" ]]; then
-      printf 'ERROR: --install cannot be combined with --log-file\n' >&2
+      printf 'ERROR: install does not use --log-file\n' >&2
       return 1
     fi
-    if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
-      printf 'ERROR: --install cannot be combined with --encrypt-for\n' >&2
+    if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
+      printf 'ERROR: install does not use --encryption-key\n' >&2
+      return 1
+    fi
+    if (( CFG_CLEAR_ENCRYPTION_KEY )); then
+      printf 'ERROR: install does not use --clear-encryption-key\n' >&2
       return 1
     fi
     if (( CFG_SAFE_MODE )); then
-      printf 'ERROR: --install cannot be combined with --safe\n' >&2
+      printf 'ERROR: install does not use --safe\n' >&2
       return 1
     fi
     if (( CFG_MAX_PAGES_SET )); then
-      printf 'ERROR: --install cannot be combined with --max-pages\n' >&2
+      printf 'ERROR: install does not use --max-pages\n' >&2
       return 1
     fi
     if (( CFG_MAX_DOWNLOAD_MIB_SET )); then
-      printf 'ERROR: --install cannot be combined with --max-download-mib\n' >&2
+      printf 'ERROR: install does not use --max-download-mib\n' >&2
       return 1
     fi
     if (( CFG_SLEEP_MS_SET )); then
-      printf 'ERROR: --install cannot be combined with --sleep-ms\n' >&2
+      printf 'ERROR: install does not use --sleep-ms\n' >&2
       return 1
     fi
     if (( CFG_MAX_FIND_CANDIDATES_SET )); then
-      printf 'ERROR: --install cannot be combined with --max-find-candidates\n' >&2
+      printf 'ERROR: install does not use --max-find-candidates\n' >&2
       return 1
     fi
     return 0
@@ -446,8 +469,12 @@ confluex_parse_args() {
       printf 'ERROR: uninstall does not use --log-file\n' >&2
       return 1
     fi
-    if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
-      printf 'ERROR: uninstall does not use --encrypt-for\n' >&2
+    if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
+      printf 'ERROR: uninstall does not use --encryption-key\n' >&2
+      return 1
+    fi
+    if (( CFG_CLEAR_ENCRYPTION_KEY )); then
+      printf 'ERROR: uninstall does not use --clear-encryption-key\n' >&2
       return 1
     fi
     if (( CFG_SAFE_MODE )); then
@@ -490,8 +517,12 @@ confluex_parse_args() {
       printf 'ERROR: doctor does not use --keep-metadata\n' >&2
       return 1
     fi
-    if [[ -n "$CFG_ENCRYPT_FOR" ]]; then
-      printf 'ERROR: doctor does not use --encrypt-for\n' >&2
+    if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
+      printf 'ERROR: doctor does not use --encryption-key\n' >&2
+      return 1
+    fi
+    if (( CFG_CLEAR_ENCRYPTION_KEY )); then
+      printf 'ERROR: doctor does not use --clear-encryption-key\n' >&2
       return 1
     fi
     if (( CFG_SAFE_MODE )); then
@@ -515,7 +546,7 @@ confluex_parse_args() {
       return 1
     fi
     if (( CFG_INSTALL_DIR_SET )); then
-      printf 'ERROR: --install-dir requires --install\n' >&2
+      printf 'ERROR: doctor does not use --install-dir\n' >&2
       return 1
     fi
     if [[ -n "$CFG_ROOT_ID" && ! "$CFG_ROOT_ID" =~ ^[0-9]+$ ]]; then
@@ -529,13 +560,73 @@ confluex_parse_args() {
     return 0
   fi
 
+  if [[ "$CFG_COMMAND" == "config" ]]; then
+    if [[ -n "$CFG_ROOT_ID" ]]; then
+      printf 'ERROR: config does not use --page-id\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_OUT_DIR" ]]; then
+      printf 'ERROR: config does not use --out\n' >&2
+      return 1
+    fi
+    if (( CFG_DRY_RUN )); then
+      printf 'ERROR: config does not use --dry-run\n' >&2
+      return 1
+    fi
+    if (( CFG_FAIL_FAST == 0 )); then
+      printf 'ERROR: config does not use --no-fail-fast\n' >&2
+      return 1
+    fi
+    if (( CFG_KEEP_METADATA )); then
+      printf 'ERROR: config does not use --keep-metadata\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_LOG_FILE" ]]; then
+      printf 'ERROR: config does not use --log-file\n' >&2
+      return 1
+    fi
+    if (( CFG_SAFE_MODE )); then
+      printf 'ERROR: config does not use --safe\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_PAGES_SET )); then
+      printf 'ERROR: config does not use --max-pages\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_DOWNLOAD_MIB_SET )); then
+      printf 'ERROR: config does not use --max-download-mib\n' >&2
+      return 1
+    fi
+    if (( CFG_SLEEP_MS_SET )); then
+      printf 'ERROR: config does not use --sleep-ms\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_FIND_CANDIDATES_SET )); then
+      printf 'ERROR: config does not use --max-find-candidates\n' >&2
+      return 1
+    fi
+    if (( CFG_INSTALL_DIR_SET )); then
+      printf 'ERROR: config does not use --install-dir\n' >&2
+      return 1
+    fi
+    if (( CFG_ENCRYPTION_KEY_SET )) && [[ -z "$CFG_ENCRYPTION_KEY" ]]; then
+      printf 'ERROR: --encryption-key requires a non-empty GPG key identity\n' >&2
+      return 1
+    fi
+    if (( CFG_ENCRYPTION_KEY_SET )) && (( CFG_CLEAR_ENCRYPTION_KEY )); then
+      printf 'ERROR: config cannot combine --encryption-key with --clear-encryption-key\n' >&2
+      return 1
+    fi
+    return 0
+  fi
+
   if [[ -z "$CFG_ROOT_ID" ]]; then
     printf 'ERROR: --page-id is required\n' >&2
     return 1
   fi
 
   if (( CFG_INSTALL_DIR_SET )); then
-    printf 'ERROR: --install-dir requires --install\n' >&2
+    printf 'ERROR: export and plan do not use --install-dir\n' >&2
     return 1
   fi
 
@@ -569,8 +660,13 @@ confluex_parse_args() {
     return 1
   fi
 
-  if (( CFG_ENCRYPT_FOR_SET )) && [[ -z "$CFG_ENCRYPT_FOR" ]]; then
-    printf 'ERROR: --encrypt-for requires a non-empty recipient\n' >&2
+  if (( CFG_ENCRYPTION_KEY_SET )) && [[ -z "$CFG_ENCRYPTION_KEY" ]]; then
+    printf 'ERROR: --encryption-key requires a non-empty GPG key identity\n' >&2
+    return 1
+  fi
+
+  if (( CFG_CLEAR_ENCRYPTION_KEY )); then
+    printf 'ERROR: --clear-encryption-key is only valid with confluex config\n' >&2
     return 1
   fi
 
