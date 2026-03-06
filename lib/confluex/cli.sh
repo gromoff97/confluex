@@ -7,6 +7,7 @@ Usage:
   confluex plan --page-id <id> [OPTIONS]
   confluex doctor [--page-id <id>]
   confluex install [--install-dir DIR]
+  confluex uninstall [--install-dir DIR]
   confluex --page-id <id> [OPTIONS]
 
 What it does:
@@ -35,6 +36,7 @@ Options:
                      Maximum number of `confluence find` candidates to inspect per title link.
                      Default: 10.
   --install          Install this script for global use.
+  --uninstall        Uninstall a prior self-installation.
   --install-dir DIR  Custom install directory (default: ~/.local/bin).
   -h, --help         Show this help.
 
@@ -43,6 +45,7 @@ Examples:
   confluex export --page-id 12345 --out ./dump --safe
   confluex doctor --page-id 12345
   confluex install
+  confluex uninstall
 
 Requirements:
   - bash (Git Bash is fine)
@@ -87,6 +90,9 @@ confluex_suggest_option() {
       ;;
     --install-dir=*|--instal|--instal-dir|--installdir)
       printf '%s\n' "--install-dir"
+      ;;
+    --unistall|--uninstal|--remove-self)
+      printf '%s\n' "--uninstall"
       ;;
     --nofailfast|--no-failfast|--no_fail_fast|--fail-slow)
       printf '%s\n' "--no-fail-fast"
@@ -147,6 +153,30 @@ confluex_install() {
   fi
 }
 
+confluex_uninstall() {
+  local install_dir="$CFG_INSTALL_DIR"
+  local install_script="$install_dir/confluex"
+  local install_lib_dir
+  local removed_any=0
+  install_lib_dir="$(confluex_default_install_lib_dir "$install_dir")"
+
+  if [[ -f "$install_script" ]]; then
+    rm -f "$install_script"
+    printf 'Removed %s\n' "$install_script"
+    removed_any=1
+  fi
+
+  if [[ -d "$install_lib_dir" ]]; then
+    rm -rf "$install_lib_dir"
+    printf 'Removed %s\n' "$install_lib_dir"
+    removed_any=1
+  fi
+
+  if (( removed_any == 0 )); then
+    printf 'Nothing to uninstall from %s\n' "$install_dir"
+  fi
+}
+
 confluex_parse_args() {
   # shellcheck disable=SC2034
   CFG_DRY_RUN=0
@@ -172,7 +202,7 @@ confluex_parse_args() {
   CFG_SLEEP_MS_SET=0
 
   case "${1:-}" in
-    export|plan|doctor|install)
+    export|plan|doctor|install|uninstall)
       CFG_COMMAND="$1"
       shift
       ;;
@@ -186,6 +216,8 @@ confluex_parse_args() {
       ;;
     install)
       CFG_INSTALL=1
+      ;;
+    uninstall)
       ;;
   esac
 
@@ -291,6 +323,10 @@ confluex_parse_args() {
         CFG_COMMAND="install"
         shift
         ;;
+      --uninstall)
+        CFG_COMMAND="uninstall"
+        shift
+        ;;
       --install-dir)
         [[ $# -ge 2 ]] || { printf 'ERROR: --install-dir requires a directory\n' >&2; return 1; }
         CFG_INSTALL_DIR="$2"
@@ -357,6 +393,54 @@ confluex_parse_args() {
     fi
     if (( CFG_MAX_FIND_CANDIDATES_SET )); then
       printf 'ERROR: --install cannot be combined with --max-find-candidates\n' >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  if [[ "$CFG_COMMAND" == "uninstall" ]]; then
+    if [[ -n "$CFG_ROOT_ID" ]]; then
+      printf 'ERROR: uninstall does not use --page-id\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_OUT_DIR" ]]; then
+      printf 'ERROR: uninstall does not use --out\n' >&2
+      return 1
+    fi
+    if (( CFG_DRY_RUN )); then
+      printf 'ERROR: uninstall does not use --dry-run\n' >&2
+      return 1
+    fi
+    if (( CFG_FAIL_FAST == 0 )); then
+      printf 'ERROR: uninstall does not use --no-fail-fast\n' >&2
+      return 1
+    fi
+    if (( CFG_KEEP_METADATA )); then
+      printf 'ERROR: uninstall does not use --keep-metadata\n' >&2
+      return 1
+    fi
+    if [[ -n "$CFG_LOG_FILE" ]]; then
+      printf 'ERROR: uninstall does not use --log-file\n' >&2
+      return 1
+    fi
+    if (( CFG_SAFE_MODE )); then
+      printf 'ERROR: uninstall does not use --safe\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_PAGES_SET )); then
+      printf 'ERROR: uninstall does not use --max-pages\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_DOWNLOAD_MIB_SET )); then
+      printf 'ERROR: uninstall does not use --max-download-mib\n' >&2
+      return 1
+    fi
+    if (( CFG_SLEEP_MS_SET )); then
+      printf 'ERROR: uninstall does not use --sleep-ms\n' >&2
+      return 1
+    fi
+    if (( CFG_MAX_FIND_CANDIDATES_SET )); then
+      printf 'ERROR: uninstall does not use --max-find-candidates\n' >&2
       return 1
     fi
     return 0
