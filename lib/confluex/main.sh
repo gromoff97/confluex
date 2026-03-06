@@ -22,6 +22,9 @@ failed_count=0
 unresolved_count=0
 resolved_count=0
 manifest_count=0
+downloaded_metadata_bytes=0
+downloaded_content_bytes=0
+downloaded_total_bytes=0
 
 # Crawl state.
 declare -a QUEUE=()
@@ -40,6 +43,9 @@ confluex_reset_state() {
   DISCOVERED_BY=()
   TITLE_BY_ID=()
   SPACE_BY_ID=()
+  downloaded_metadata_bytes=0
+  downloaded_content_bytes=0
+  downloaded_total_bytes=0
 }
 
 confluex_parse_info_file() {
@@ -155,6 +161,59 @@ confluex_temp_file() {
   printf '%s/%s\n' "$TMP_DIR" "$name"
 }
 
+confluex_file_size_bytes() {
+  local path="$1"
+  if [[ -f "$path" ]]; then
+    wc -c < "$path" | tr -d ' '
+  else
+    printf '0\n'
+  fi
+}
+
+confluex_dir_size_bytes() {
+  local dir_path="$1"
+  local total=0
+  local file=""
+
+  if [[ ! -d "$dir_path" ]]; then
+    printf '0\n'
+    return 0
+  fi
+
+  while IFS= read -r -d '' file; do
+    total=$((total + $(confluex_file_size_bytes "$file")))
+  done < <(find "$dir_path" -type f -print0)
+
+  printf '%s\n' "$total"
+}
+
+confluex_bytes_to_mib() {
+  local bytes="$1"
+  awk -v bytes="$bytes" 'BEGIN { printf "%.2f", bytes / 1048576 }'
+}
+
+confluex_track_download_bytes() {
+  local kind="$1"
+  local bytes="${2:-0}"
+
+  [[ "$bytes" =~ ^[0-9]+$ ]] || bytes=0
+  downloaded_total_bytes=$((downloaded_total_bytes + bytes))
+
+  case "$kind" in
+    metadata)
+      downloaded_metadata_bytes=$((downloaded_metadata_bytes + bytes))
+      ;;
+    content)
+      downloaded_content_bytes=$((downloaded_content_bytes + bytes))
+      ;;
+  esac
+}
+
+confluex_log_download_progress() {
+  local label="$1"
+  log_info "  download progress (${label}): total=$(confluex_bytes_to_mib "$downloaded_total_bytes") MiB, content=$(confluex_bytes_to_mib "$downloaded_content_bytes") MiB, metadata=$(confluex_bytes_to_mib "$downloaded_metadata_bytes") MiB"
+}
+
 confluex_capture_stdout() {
   local out_file="$1"
   shift
@@ -199,6 +258,7 @@ confluex_cache_page_info_if_missing() {
   if ! confluex_capture_stdout "$info_tmp" confluence info "$page_id"; then
     return 1
   fi
+  confluex_track_download_bytes metadata "$(confluex_file_size_bytes "$info_tmp")"
 
   local parsed
   local title
@@ -235,6 +295,7 @@ confluex_resolve_by_title() {
       return 1
     fi
   fi
+  confluex_track_download_bytes metadata "$(confluex_file_size_bytes "$out_file")"
 
   local ids=()
   local id
@@ -355,6 +416,8 @@ confluex_process_links_for_page() {
 confluex_process_page() {
   local page_id="$1"
   local info_tmp
+  local page_metadata_bytes=0
+  local page_content_bytes=0
   info_tmp="$(confluex_temp_file "info_${page_id}.txt")"
 
   log_info "------------------------------------------------------------"
@@ -370,6 +433,7 @@ confluex_process_page() {
       printf '%s\tinfo\n' "$page_id" >> "$FAILED"
       return 1
     fi
+    page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$info_tmp")))
   fi
 
   local parsed
@@ -401,6 +465,7 @@ confluex_process_page() {
   local storage_file
   storage_file="$(confluex_page_metadata_path "$page_dir" "_storage.xml")"
   if confluex_run_with_optional_log confluence edit "$page_id" --output "$storage_file"; then
+    page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$storage_file")))
     log_info "  saved storage XML: $storage_file"
     confluex_process_links_for_page "$page_id" "$title" "$space_key" "$storage_file"
   else
@@ -417,6 +482,10 @@ confluex_process_page() {
     attachments_preview_file="$(confluex_page_metadata_path "$page_dir" "_attachments_preview.txt")"
     log_info "  DRY-RUN: page content and attachments will NOT be downloaded"
     attachment_count="$(confluex_log_attachments_preview "$page_id" "$attachments_preview_file")"
+    page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$attachments_preview_file")))
+    confluex_track_download_bytes metadata "$page_metadata_bytes"
+    log_info "  page download total: $(confluex_bytes_to_mib "$page_metadata_bytes") MiB metadata"
+    confluex_log_download_progress "page $page_id"
     log_info "  DRY-RUN: would export page to $page_dir/page.html"
     log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
     confluex_record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
@@ -434,6 +503,12 @@ confluex_process_page() {
     fi
   fi
 
+  page_content_bytes=$((page_content_bytes + $(confluex_file_size_bytes "$page_dir/page.html")))
+  page_content_bytes=$((page_content_bytes + $(confluex_dir_size_bytes "$page_dir/attachments")))
+  confluex_track_download_bytes metadata "$page_metadata_bytes"
+  confluex_track_download_bytes content "$page_content_bytes"
+  log_info "  page download total: total=$(confluex_bytes_to_mib "$((page_metadata_bytes + page_content_bytes))") MiB, content=$(confluex_bytes_to_mib "$page_content_bytes") MiB, metadata=$(confluex_bytes_to_mib "$page_metadata_bytes") MiB"
+  confluex_log_download_progress "page $page_id"
   attachment_count="$(confluex_log_attachments_from_export "$page_dir/attachments")"
   confluex_record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "export" "$attachment_count"
   return 0
@@ -462,6 +537,12 @@ confluex_write_summary() {
     printf 'resolved_links=%s\n' "$resolved_count"
     printf 'unresolved_links=%s\n' "$unresolved_count"
     printf 'failed_operations=%s\n' "$failed_count"
+    printf 'downloaded_total_bytes=%s\n' "$downloaded_total_bytes"
+    printf 'downloaded_total_mib=%s\n' "$(confluex_bytes_to_mib "$downloaded_total_bytes")"
+    printf 'downloaded_content_bytes=%s\n' "$downloaded_content_bytes"
+    printf 'downloaded_content_mib=%s\n' "$(confluex_bytes_to_mib "$downloaded_content_bytes")"
+    printf 'downloaded_metadata_bytes=%s\n' "$downloaded_metadata_bytes"
+    printf 'downloaded_metadata_mib=%s\n' "$(confluex_bytes_to_mib "$downloaded_metadata_bytes")"
     printf 'incomplete=%s\n' "$incomplete"
     if [[ -n "$reason" ]]; then
       printf 'interrupt_reason=%s\n' "$reason"
@@ -580,6 +661,7 @@ confluex_collect_initial_queue() {
     confluex_enqueue "$CFG_ROOT_ID" root
     return 0
   fi
+  confluex_track_download_bytes metadata "$(confluex_file_size_bytes "$root_children_json")"
 
   confluex_enqueue "$CFG_ROOT_ID" root
 
@@ -599,6 +681,8 @@ confluex_collect_initial_queue() {
 confluex_preflight() {
   log_info "preflight: checking confluence-cli access"
   if confluex_capture_stdout "$PREFLIGHT_INFO_FILE" confluence info "$CFG_ROOT_ID"; then
+    confluex_track_download_bytes metadata "$(confluex_file_size_bytes "$PREFLIGHT_INFO_FILE")"
+    confluex_log_download_progress "preflight"
     return 0
   fi
 
@@ -692,6 +776,9 @@ confluex_main() {
   log_info "manifest: $MANIFEST"
   log_info "resolved links: $LINKS_FILE"
   log_info "unresolved links: $UNRESOLVED"
+  log_info "downloaded total: $(confluex_bytes_to_mib "$downloaded_total_bytes") MiB"
+  log_info "downloaded content: $(confluex_bytes_to_mib "$downloaded_content_bytes") MiB"
+  log_info "downloaded metadata: $(confluex_bytes_to_mib "$downloaded_metadata_bytes") MiB"
   if [[ -n "$LOG_FILE" ]]; then
     log_info "run log: $LOG_FILE"
   fi
