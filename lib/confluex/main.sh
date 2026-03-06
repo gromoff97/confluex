@@ -25,6 +25,12 @@ manifest_count=0
 downloaded_metadata_bytes=0
 downloaded_content_bytes=0
 downloaded_total_bytes=0
+root_count=0
+tree_count=0
+linked_count=0
+other_count=0
+CONFLUEX_STOP_REASON=""
+CFG_MAX_DOWNLOAD_BYTES=0
 
 # Crawl state.
 declare -a QUEUE=()
@@ -50,6 +56,11 @@ confluex_reset_state() {
   downloaded_metadata_bytes=0
   downloaded_content_bytes=0
   downloaded_total_bytes=0
+  root_count=0
+  tree_count=0
+  linked_count=0
+  other_count=0
+  CONFLUEX_STOP_REASON=""
 }
 
 confluex_parse_info_file() {
@@ -222,6 +233,11 @@ confluex_bytes_to_mib() {
   awk -v bytes="$bytes" 'BEGIN { printf "%.2f", bytes / 1048576 }'
 }
 
+confluex_ms_to_seconds() {
+  local ms="$1"
+  awk -v ms="$ms" 'BEGIN { printf "%.3f", ms / 1000 }'
+}
+
 confluex_track_download_bytes() {
   local kind="$1"
   local bytes="${2:-0}"
@@ -239,9 +255,59 @@ confluex_track_download_bytes() {
   esac
 }
 
+confluex_compute_breakdown() {
+  local page_id=""
+  local reason=""
+
+  root_count=0
+  tree_count=0
+  linked_count=0
+  other_count=0
+
+  for page_id in "${!VISITED[@]}"; do
+    reason="${DISCOVERED_BY[$page_id]:-unknown}"
+    case "$reason" in
+      root)
+        root_count=$((root_count + 1))
+        ;;
+      child:*)
+        tree_count=$((tree_count + 1))
+        ;;
+      link-*)
+        linked_count=$((linked_count + 1))
+        ;;
+      *)
+        other_count=$((other_count + 1))
+        ;;
+    esac
+  done
+}
+
 confluex_log_download_progress() {
   local label="$1"
   log_info "  download progress (${label}): total=$(confluex_bytes_to_mib "$downloaded_total_bytes") MiB, content=$(confluex_bytes_to_mib "$downloaded_content_bytes") MiB, metadata=$(confluex_bytes_to_mib "$downloaded_metadata_bytes") MiB"
+}
+
+confluex_sleep_between_pages_if_needed() {
+  if (( CFG_SLEEP_MS > 0 )); then
+    sleep "$(confluex_ms_to_seconds "$CFG_SLEEP_MS")"
+  fi
+}
+
+confluex_limits_reached() {
+  if (( CFG_MAX_PAGES > 0 )) && (( ${#VISITED[@]} >= CFG_MAX_PAGES )); then
+    CONFLUEX_STOP_REASON="max_pages_reached"
+    log_warn "stopping early: reached --max-pages=$CFG_MAX_PAGES"
+    return 0
+  fi
+
+  if (( CFG_MAX_DOWNLOAD_BYTES > 0 )) && (( downloaded_total_bytes >= CFG_MAX_DOWNLOAD_BYTES )); then
+    CONFLUEX_STOP_REASON="max_download_mib_reached"
+    log_warn "stopping early: reached --max-download-mib=$CFG_MAX_DOWNLOAD_MIB"
+    return 0
+  fi
+
+  return 1
 }
 
 confluex_capture_stdout() {
@@ -555,6 +621,7 @@ confluex_compute_counts() {
   unresolved_count="$(count_minus_header "$UNRESOLVED")"
   resolved_count="$(count_minus_header "$LINKS_FILE")"
   manifest_count="$(count_minus_header "$MANIFEST")"
+  confluex_compute_breakdown
 }
 
 confluex_write_summary() {
@@ -564,10 +631,19 @@ confluex_write_summary() {
   confluex_compute_counts
 
   {
+    printf 'command=%s\n' "$CFG_COMMAND"
     printf 'root_page_id=%s\n' "$CFG_ROOT_ID"
     printf 'dry_run=%s\n' "$CFG_DRY_RUN"
+    printf 'safe_mode=%s\n' "$CFG_SAFE_MODE"
     printf 'output_dir=%s\n' "$OUT_DIR"
+    printf 'max_pages=%s\n' "$CFG_MAX_PAGES"
+    printf 'max_download_mib=%s\n' "$CFG_MAX_DOWNLOAD_MIB"
+    printf 'sleep_ms=%s\n' "$CFG_SLEEP_MS"
     printf 'processed_pages=%s\n' "$processed_count"
+    printf 'root_pages=%s\n' "$root_count"
+    printf 'tree_pages=%s\n' "$tree_count"
+    printf 'linked_pages=%s\n' "$linked_count"
+    printf 'other_pages=%s\n' "$other_count"
     printf 'manifest_rows=%s\n' "$manifest_count"
     printf 'resolved_links=%s\n' "$resolved_count"
     printf 'unresolved_links=%s\n' "$unresolved_count"
@@ -648,16 +724,28 @@ confluex_on_exit() {
 
 confluex_init_runtime_paths() {
   local timestamp
+  local base_out_dir
+  local suffix=2
   timestamp="$(date +%Y%m%d_%H%M%S)"
 
   if [[ -z "$CFG_OUT_DIR" ]]; then
     if (( CFG_DRY_RUN )); then
-      OUT_DIR="confluence_plan_${CFG_ROOT_ID}_${timestamp}"
+      base_out_dir="confluence_plan_${CFG_ROOT_ID}_${timestamp}"
     else
-      OUT_DIR="confluence_dump_${CFG_ROOT_ID}_${timestamp}"
+      base_out_dir="confluence_dump_${CFG_ROOT_ID}_${timestamp}"
     fi
+
+    OUT_DIR="$base_out_dir"
+    while [[ -e "$OUT_DIR" ]]; do
+      OUT_DIR="${base_out_dir}_${suffix}"
+      suffix=$((suffix + 1))
+    done
   else
     OUT_DIR="$CFG_OUT_DIR"
+    if [[ -e "$OUT_DIR" ]]; then
+      log_error "output directory already exists: $OUT_DIR"
+      return 1
+    fi
   fi
 
   PAGES_DIR="$OUT_DIR/pages"
@@ -725,6 +813,49 @@ confluex_preflight() {
   return 1
 }
 
+confluex_run_doctor() {
+  local ok=1
+  local info_file=""
+  local parsed=""
+  local title=""
+  local space_key=""
+  local cmd=""
+
+  printf 'confluex doctor\n'
+  for cmd in bash node confluence sed awk grep sort find tr wc; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      printf '  [OK] %s: %s\n' "$cmd" "$(command -v "$cmd")"
+    else
+      printf '  [FAIL] %s not found\n' "$cmd"
+      ok=0
+    fi
+  done
+
+  if (( ok == 0 )); then
+    return 1
+  fi
+
+  if [[ -z "$CFG_ROOT_ID" ]]; then
+    printf '  [WARN] auth check skipped (no --page-id)\n'
+    return 0
+  fi
+
+  info_file="$(mktemp "${TMPDIR:-/tmp}/confluex.doctor.${CFG_ROOT_ID}.XXXXXX")"
+  if confluex_capture_stdout "$info_file" confluence info "$CFG_ROOT_ID"; then
+    parsed="$(confluex_parse_info_file "$info_file")"
+    IFS=$'\x1f' read -r title space_key _ <<< "$parsed"
+    printf '  [OK] access to page %s\n' "$CFG_ROOT_ID"
+    printf '       title: %s\n' "${title:-<unknown>}"
+    printf '       space: %s\n' "${space_key:-<unknown>}"
+    rm -f "$info_file"
+    return 0
+  fi
+
+  rm -f "$info_file"
+  printf '  [FAIL] cannot access page %s via confluence-cli\n' "$CFG_ROOT_ID"
+  return 1
+}
+
 confluex_run_export() {
   local q_idx=0
   local page_id=""
@@ -743,6 +874,14 @@ confluex_run_export() {
     fi
 
     VISITED["$page_id"]=1
+
+    if confluex_limits_reached; then
+      return 2
+    fi
+
+    if (( q_idx < ${#QUEUE[@]} )); then
+      confluex_sleep_between_pages_if_needed
+    fi
   done
 
   return 0
@@ -768,20 +907,31 @@ confluex_main() {
     return 0
   fi
 
+  if [[ "$CFG_COMMAND" == "doctor" ]]; then
+    confluex_run_doctor
+    return $?
+  fi
+
   confluex_require_cmds bash node confluence sed awk grep sort find tr wc || return 1
 
   confluex_reset_state
-  confluex_init_runtime_paths
+  CFG_MAX_DOWNLOAD_BYTES=$((CFG_MAX_DOWNLOAD_MIB * 1048576))
+  confluex_init_runtime_paths || return 1
   trap 'confluex_on_interrupt' INT TERM
   trap 'confluex_on_exit $?' EXIT
 
   log_info "starting"
+  log_info "command: $CFG_COMMAND"
   log_info "root page id: $CFG_ROOT_ID"
   log_info "output dir: $OUT_DIR"
   log_info "dry-run: $CFG_DRY_RUN"
+  log_info "safe-mode: $CFG_SAFE_MODE"
   log_info "fail-fast: $CFG_FAIL_FAST"
   log_info "keep-metadata: $CFG_KEEP_METADATA"
   log_info "max-find-candidates: $CFG_MAX_FIND_CANDIDATES"
+  log_info "max-pages: $CFG_MAX_PAGES"
+  log_info "max-download-mib: $CFG_MAX_DOWNLOAD_MIB"
+  log_info "sleep-ms: $CFG_SLEEP_MS"
   if [[ -n "$LOG_FILE" ]]; then
     log_info "log-file: $LOG_FILE"
   else
@@ -795,6 +945,11 @@ confluex_main() {
   confluex_collect_initial_queue
 
   if ! confluex_run_export; then
+    if [[ -n "$CONFLUEX_STOP_REASON" ]]; then
+      confluex_write_summary 1 "$CONFLUEX_STOP_REASON"
+      log_warn "stopped early: $CONFLUEX_STOP_REASON"
+      return 1
+    fi
     confluex_write_summary 1 "runtime_error"
     log_error "aborted due to fail-fast mode"
     return 1
@@ -804,6 +959,8 @@ confluex_main() {
 
   log_info "done"
   log_info "processed pages: $processed_count"
+  log_info "tree pages: $tree_count"
+  log_info "linked pages: $linked_count"
   log_info "manifest rows: $manifest_count"
   log_info "resolved links: $resolved_count"
   log_info "unresolved links: $unresolved_count"
