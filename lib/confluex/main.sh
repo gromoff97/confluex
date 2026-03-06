@@ -907,6 +907,11 @@ confluex_main() {
     return 0
   fi
 
+  if [[ "$CFG_COMMAND" == "uninstall" ]]; then
+    confluex_uninstall
+    return 0
+  fi
+
   if [[ "$CFG_COMMAND" == "doctor" ]]; then
     confluex_run_doctor
     return $?

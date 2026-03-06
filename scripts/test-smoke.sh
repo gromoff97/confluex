@@ -1373,6 +1373,63 @@ test_install_rejects_export_only_options() {
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
+test_uninstall_subcommand_works() {
+  local install_dir="$WORK_DIR/uninstall-bin"
+  local install_lib_dir="$install_dir/lib/confluex"
+  local install_log="$TEST_ROOT/uninstall-install.log"
+  local uninstall_log="$TEST_ROOT/uninstall.log"
+  run_cmd "$install_log" basic "$CONFLUEX_BIN" install --install-dir "$install_dir"
+
+  assert_file_exists "$install_dir/confluex"
+  assert_path_exists "$install_lib_dir"
+
+  run_cmd "$uninstall_log" basic "$CONFLUEX_BIN" uninstall --install-dir "$install_dir"
+
+  assert_path_missing "$install_dir/confluex"
+  assert_path_missing "$install_lib_dir"
+  assert_contains "Removed $install_dir/confluex" "$uninstall_log"
+}
+
+test_uninstall_flag_works() {
+  local install_dir="$WORK_DIR/uninstall-flag-bin"
+  local install_lib_dir="$install_dir/lib/confluex"
+  local install_log="$TEST_ROOT/uninstall-flag-install.log"
+  local uninstall_log="$TEST_ROOT/uninstall-flag.log"
+  run_cmd "$install_log" basic "$CONFLUEX_BIN" install --install-dir "$install_dir"
+
+  assert_file_exists "$install_dir/confluex"
+  assert_path_exists "$install_lib_dir"
+
+  run_cmd "$uninstall_log" basic "$CONFLUEX_BIN" --uninstall --install-dir "$install_dir"
+
+  assert_path_missing "$install_dir/confluex"
+  assert_path_missing "$install_lib_dir"
+  assert_contains "Removed $install_dir/confluex" "$uninstall_log"
+}
+
+test_uninstall_is_idempotent() {
+  local install_dir="$WORK_DIR/uninstall-idempotent-bin"
+  local install_log="$TEST_ROOT/uninstall-idempotent-install.log"
+  local uninstall_log="$TEST_ROOT/uninstall-idempotent.log"
+  local uninstall_again_log="$TEST_ROOT/uninstall-idempotent-again.log"
+  run_cmd "$install_log" basic "$CONFLUEX_BIN" install --install-dir "$install_dir"
+  run_cmd "$uninstall_log" basic "$CONFLUEX_BIN" uninstall --install-dir "$install_dir"
+  run_cmd "$uninstall_again_log" basic "$CONFLUEX_BIN" uninstall --install-dir "$install_dir"
+
+  assert_contains "Nothing to uninstall from $install_dir" "$uninstall_again_log"
+}
+
+test_uninstall_rejects_export_only_options() {
+  local log_file="$TEST_ROOT/uninstall-rejects-safe.log"
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" uninstall --safe; then
+    printf 'ASSERT FAILED: uninstall should reject --safe\n' >&2
+    exit 1
+  fi
+
+  assert_contains 'uninstall does not use --safe' "$log_file"
+  assert_no_default_output_dirs "$WORK_DIR"
+}
+
 test_basic_export_downloads_tree_and_linked_page() {
   local out_dir="$WORK_DIR/basic-export"
   local log_file="$TEST_ROOT/basic-export.log"
@@ -2540,6 +2597,10 @@ test_help_mentions_subcommands_and_safe_mode
 test_install_writes_executable_to_requested_dir
 test_install_subcommand_works
 test_install_rejects_export_only_options
+test_uninstall_subcommand_works
+test_uninstall_flag_works
+test_uninstall_is_idempotent
+test_uninstall_rejects_export_only_options
 test_doctor_without_page_id_reports_skipped_auth
 test_doctor_with_page_id_succeeds
 test_doctor_with_inaccessible_page_fails

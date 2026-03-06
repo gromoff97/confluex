@@ -16,19 +16,23 @@ Each requirement is written to satisfy `CIRCUS MATTA`:
 ## CLI Contract
 
 ### UX-CLI-001
-The CLI shall support explicit subcommands `export`, `plan`, `doctor`, and `install`.
+The CLI shall support explicit subcommands `export`, `plan`, `doctor`, `install`, and `uninstall`.
 
 Acceptance:
 - `export` performs a real export
 - `plan` performs a dry-run
 - `doctor` performs environment and access diagnostics
 - `install` installs the tool
+- `uninstall` removes a prior self-installation
+- `--install` and `--uninstall` remain accepted as direct command aliases
 
 Traceability:
 - `test_export_subcommand_works`
 - `test_plan_subcommand_works`
 - `test_doctor_without_page_id_reports_skipped_auth`
 - `test_install_subcommand_works`
+- `test_uninstall_subcommand_works`
+- `test_uninstall_flag_works`
 
 ### UX-CLI-002
 The legacy invocation `confluex --page-id <id>` shall remain supported as an alias for `export`.
@@ -48,13 +52,26 @@ The CLI shall reject options that do not make sense for the selected command.
 
 Acceptance:
 - `install` rejects export-only and safety-only options
+- `uninstall` rejects export-only and safety-only options
 - `doctor` rejects export-only options
 
 Traceability:
 - `test_install_conflict_rejected`
 - `test_install_dir_requires_install`
 - `test_install_rejects_export_only_options`
+- `test_uninstall_rejects_export_only_options`
 - `test_doctor_rejects_export_only_options`
+
+### UX-CLI-006
+`uninstall` shall be idempotent.
+
+Acceptance:
+- if an installed binary and library exist, they are removed
+- if they do not exist, the command still succeeds and reports that nothing was removed
+
+Traceability:
+- `test_uninstall_subcommand_works`
+- `test_uninstall_is_idempotent`
 
 ### UX-CLI-005
 The CLI shall suggest likely intended options for common typos.
