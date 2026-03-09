@@ -17,6 +17,7 @@ SUMMARY=""
 PREFLIGHT_INFO_FILE=""
 ENCRYPTED_ARCHIVE=""
 ENCRYPTION_HINT_FILE=""
+ENCRYPTION_SUCCESSFUL=0
 CFG_ENCRYPTION_KEY_SOURCE="none"
 
 # Counters (filled by confluex_compute_counts).
@@ -66,6 +67,7 @@ confluex_reset_state() {
   CONFLUEX_STOP_REASON=""
   ENCRYPTED_ARCHIVE=""
   ENCRYPTION_HINT_FILE=""
+  ENCRYPTION_SUCCESSFUL=0
   CFG_ENCRYPTION_KEY_SOURCE="none"
 }
 
@@ -135,6 +137,22 @@ confluex_record_manifest() {
     "$(escape_tsv "$discovered_by")" \
     "$mode" \
     "$attachment_count" >> "$MANIFEST"
+}
+
+confluex_manifest_folder_value() {
+  local folder="$1"
+  local out_basename
+  local relative_inside_out
+
+  out_basename="$(basename "$OUT_DIR")"
+  relative_inside_out="${folder#"$OUT_DIR"/}"
+
+  if [[ "$relative_inside_out" != "$folder" && -n "$relative_inside_out" ]]; then
+    printf '%s/%s\n' "$out_basename" "$relative_inside_out"
+    return 0
+  fi
+
+  printf '%s\n' "$folder"
 }
 
 confluex_enqueue() {
@@ -613,15 +631,15 @@ confluex_process_page() {
     local attachments_preview_file
     attachments_preview_file="$(confluex_page_metadata_path "$page_dir" "_attachments_preview.txt")"
     log_info "  DRY-RUN: page content and attachments will NOT be downloaded"
-    attachment_count="$(confluex_log_attachments_preview "$page_id" "$attachments_preview_file")"
-    page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$attachments_preview_file")))
-    confluex_track_download_bytes metadata "$page_metadata_bytes"
-    log_info "  page download total: $(confluex_bytes_to_mib "$page_metadata_bytes") MiB metadata"
-    confluex_log_download_progress "page $page_id"
-    log_info "  DRY-RUN: would export page to $page_dir/page.html"
-    log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
-    confluex_record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
-    return 0
+  attachment_count="$(confluex_log_attachments_preview "$page_id" "$attachments_preview_file")"
+  page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$attachments_preview_file")))
+  confluex_track_download_bytes metadata "$page_metadata_bytes"
+  log_info "  page download total: $(confluex_bytes_to_mib "$page_metadata_bytes") MiB metadata"
+  confluex_log_download_progress "page $page_id"
+  log_info "  DRY-RUN: would export page to $page_dir/page.html"
+  log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
+  confluex_record_manifest "$page_id" "$space_key" "$title" "$(confluex_manifest_folder_value "$page_dir")" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
+  return 0
   fi
 
   log_info "  exporting page HTML + attachments"
@@ -642,7 +660,7 @@ confluex_process_page() {
   log_info "  page download total: total=$(confluex_bytes_to_mib "$((page_metadata_bytes + page_content_bytes))") MiB, content=$(confluex_bytes_to_mib "$page_content_bytes") MiB, metadata=$(confluex_bytes_to_mib "$page_metadata_bytes") MiB"
   confluex_log_download_progress "page $page_id"
   attachment_count="$(confluex_log_attachments_from_export "$page_dir/attachments")"
-  confluex_record_manifest "$page_id" "$space_key" "$title" "$page_dir" "${DISCOVERED_BY[$page_id]:-unknown}" "export" "$attachment_count"
+  confluex_record_manifest "$page_id" "$space_key" "$title" "$(confluex_manifest_folder_value "$page_dir")" "${DISCOVERED_BY[$page_id]:-unknown}" "export" "$attachment_count"
   return 0
 }
 
@@ -658,17 +676,23 @@ confluex_compute_counts() {
 confluex_write_summary() {
   local incomplete="$1"
   local reason="${2:-}"
+  local encryption_enabled=0
 
   confluex_compute_counts
+  if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
+    encryption_enabled=1
+  fi
 
   {
     printf 'command=%s\n' "$CFG_COMMAND"
     printf 'root_page_id=%s\n' "$CFG_ROOT_ID"
     printf 'dry_run=%s\n' "$CFG_DRY_RUN"
     printf 'safe_mode=%s\n' "$CFG_SAFE_MODE"
+    printf 'encryption_enabled=%s\n' "$encryption_enabled"
+    printf 'encryption_successful=%s\n' "$ENCRYPTION_SUCCESSFUL"
     printf 'encryption_key=%s\n' "$CFG_ENCRYPTION_KEY"
     printf 'encryption_key_source=%s\n' "$CFG_ENCRYPTION_KEY_SOURCE"
-    printf 'encrypted_archive=%s\n' "$(confluex_archive_path_for_out_dir)"
+    printf 'encrypted_archive=%s\n' "$ENCRYPTED_ARCHIVE"
     printf 'output_dir=%s\n' "$OUT_DIR"
     printf 'max_pages=%s\n' "$CFG_MAX_PAGES"
     printf 'max_download_mib=%s\n' "$CFG_MAX_DOWNLOAD_MIB"
@@ -888,15 +912,24 @@ confluex_encrypt_output_dir() {
   log_info "encrypting output directory for GPG key identity: $CFG_ENCRYPTION_KEY"
 
   rm -f "$archive_tar" "$archive_gpg" "${archive_gpg}.txt"
+  ENCRYPTED_ARCHIVE="$archive_gpg"
+  ENCRYPTION_SUCCESSFUL=1
+  confluex_write_summary 0 ""
 
   if ! tar -C "$out_parent" -czf "$archive_tar" "$out_name"; then
     log_error "failed to create tar archive for $OUT_DIR"
+    ENCRYPTED_ARCHIVE=""
+    ENCRYPTION_SUCCESSFUL=0
+    confluex_write_summary 0 ""
     rm -f "$archive_tar"
     return 1
   fi
 
   if ! gpg --batch --yes --trust-model always --recipient "$CFG_ENCRYPTION_KEY" --output "$archive_gpg" --encrypt "$archive_tar"; then
     log_error "failed to encrypt archive for GPG key identity $CFG_ENCRYPTION_KEY"
+    ENCRYPTED_ARCHIVE=""
+    ENCRYPTION_SUCCESSFUL=0
+    confluex_write_summary 0 ""
     rm -f "$archive_tar" "$archive_gpg"
     return 1
   fi
@@ -905,7 +938,6 @@ confluex_encrypt_output_dir() {
   confluex_write_encryption_instructions "$archive_gpg"
   rm -rf "$OUT_DIR"
 
-  ENCRYPTED_ARCHIVE="$archive_gpg"
   log_info "encrypted archive: $archive_gpg"
   log_info "decrypt with: gpg --output ${out_name}.tar.gz --decrypt $archive_gpg"
   log_info "extract with: tar -xzf ${out_name}.tar.gz"
@@ -1107,12 +1139,12 @@ confluex_main() {
     return 1
   fi
 
-  confluex_write_summary 0 ""
-
   if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
     if ! confluex_encrypt_output_dir; then
       return 1
     fi
+  else
+    confluex_write_summary 0 ""
   fi
 
   log_info "done"
