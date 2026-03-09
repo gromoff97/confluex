@@ -13,22 +13,44 @@ emit_info() {
   printf 'URL: https://example.invalid/spaces/%s/pages/%s\n' "$space_key" "$page_id"
 }
 
+emit_info_variant() {
+  local page_id="$1"
+  local title="$2"
+  local space_key="$3"
+  printf 'ID: %s\n' "$page_id"
+  printf 'Page Title: %s\n' "$title"
+  printf 'SpaceKey: %s\n' "$space_key"
+  printf 'URL: https://example.invalid/spaces/%s/pages/%s\n' "$space_key" "$page_id"
+}
+
 scenario_info() {
   local scenario="$1"
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|cycle_links:100|ambiguous_title:100|linked_no_descendants:100|link_forms:100|fail_fast:100|no_fail_fast:100|partial_export_failure:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100|code_block_pageid_text:100|invalid_content_id_valid_title:100|root_referenced_again:100)
+    basic:100|duplicate_paths:100|cycle_links:100|ambiguous_title:100|linked_no_descendants:100|link_forms:100|fail_fast:100|no_fail_fast:100|partial_export_failure:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100|code_block_pageid_text:100|invalid_content_id_valid_title:100|root_referenced_again:100|children_unavailable:100|unsupported_internal_url:100|ri_url_pageid:100|display_url_title:100|paged_children:100|partially_visible_title_resolution:100)
       emit_info 100 "Root Page" "ENG"
+      ;;
+    info_variant:100)
+      emit_info_variant 100 "Root Page" "ENG"
+      ;;
+    long_unicode_title:100)
+      emit_info 100 "Очень длинный заголовок / с символами : * ? < > и повтором ОченьДлинныйОченьДлинныйОченьДлинныйОченьДлинныйОченьДлинный" "ENG"
+      ;;
+    partially_visible_title_resolution:700)
+      exit 1
       ;;
     preflight_failure:100)
       exit 1
       ;;
-    basic:200|duplicate_paths:200|cycle_links:200|linked_no_descendants:200|fail_fast:200|no_fail_fast:200|partial_export_failure:200|root_referenced_again:200)
+    basic:200|duplicate_paths:200|cycle_links:200|linked_no_descendants:200|fail_fast:200|no_fail_fast:200|partial_export_failure:200|root_referenced_again:200|paged_children:200)
       emit_info 200 "Child Page" "ENG"
       ;;
-    basic:300|duplicate_paths:300|cycle_links:300|linked_no_descendants:300|link_forms:300|invalid_content_id_valid_title:300)
+    basic:300|duplicate_paths:300|cycle_links:300|linked_no_descendants:300|link_forms:300|invalid_content_id_valid_title:300|ri_url_pageid:300|display_url_title:300)
       emit_info 300 "Linked Page" "ENG"
+      ;;
+    partially_visible_title_resolution:701)
+      emit_info 701 "Hidden Page" "ENG"
       ;;
     link_forms:501)
       emit_info 501 "Param Linked" "OTHER"
@@ -73,6 +95,14 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]}]}
 JSON
       ;;
+    children_unavailable:100)
+      exit 1
+      ;;
+    paged_children:100)
+      cat <<'JSON'
+{"results":[{"id":"200","title":"Child Page","children":[]}],"hasMore":true,"_links":{"next":"/rest/api/content/100/child/page?start=1"}}
+JSON
+      ;;
     *)
       cat <<'JSON'
 {"results":[]}
@@ -115,7 +145,7 @@ XML
 <a href="/pages/viewpage.action?pageId=100">root href</a>
 XML
       ;;
-    basic:200|linked_no_descendants:200|root_referenced_again:200)
+    basic:200|linked_no_descendants:200)
       cat > "$output" <<'XML'
 <p>child page</p>
 XML
@@ -175,6 +205,32 @@ XML
 <p>linked by content</p>
 XML
       ;;
+    unsupported_internal_url:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:url ri:value="/spaces/ENG/overview" /></ac:link>
+XML
+      ;;
+    ri_url_pageid:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:url ri:value="/pages/viewpage.action?pageId=300" /></ac:link>
+XML
+      ;;
+    display_url_title:100)
+      cat > "$output" <<'XML'
+<a href="/display/ENG/Linked+Page">display link</a>
+<ac:link><ri:url ri:value="/display/ENG/Linked+Page" /></ac:link>
+XML
+      ;;
+    partially_visible_title_resolution:100)
+      cat > "$output" <<'XML'
+<ac:link><ri:page ri:space-key="ENG" ri:content-title="Hidden Page" /></ac:link>
+XML
+      ;;
+    ri_url_pageid:300|display_url_title:300|info_variant:100|children_unavailable:100|long_unicode_title:100|paged_children:100|paged_children:200|partially_visible_title_resolution:701)
+      cat > "$output" <<'XML'
+<p>page body</p>
+XML
+      ;;
     fail_fast:100|no_fail_fast:100|fail_fast:200|no_fail_fast:200|fail_fast:900|no_fail_fast:900|partial_export_failure:100|partial_export_failure:200|partial_export_failure:900)
       cat > "$output" <<'XML'
 <p>export test</p>
@@ -219,8 +275,14 @@ scenario_find() {
     link_forms:Param\ Linked:OTHER)
       printf 'ID: 501\n'
       ;;
+    display_url_title:Linked\ Page:ENG)
+      printf 'ID: 300\n'
+      ;;
     ambiguous_title:Common\ Page:ENG)
       printf 'ID: 600\nID: 601\n'
+      ;;
+    partially_visible_title_resolution:Hidden\ Page:ENG)
+      printf 'ID: 700\nID: 701\n'
       ;;
     root_referenced_again:Root\ Page:ENG)
       printf 'ID: 100\n'

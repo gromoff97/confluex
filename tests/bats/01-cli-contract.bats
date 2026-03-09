@@ -22,12 +22,15 @@ teardown() {
   assert_output_contains 'confluex install [--install-dir DIR]'
   assert_output_contains 'confluex uninstall [--install-dir DIR]'
   assert_output_contains '--safe'
+  assert_output_contains '--critical'
+  assert_output_contains '--confidential'
   assert_output_contains '--max-pages N'
   assert_output_contains '--max-download-mib N'
   assert_output_contains '--sleep-ms N'
   assert_output_contains '--max-find-candidates N'
   assert_output_contains '--keep-metadata'
   assert_output_contains '--encryption-key KEY'
+  assert_output_contains '--verify-encryption'
   assert_no_default_output_dirs
 }
 
@@ -78,6 +81,16 @@ teardown() {
   assert_output_contains 'ERROR: --encryption-key requires a non-empty GPG key identity'
   assert_no_default_output_dirs
 
+  run_confluex basic export --page-id 100 --critical --no-fail-fast
+  assert_failure
+  assert_output_contains 'ERROR: --critical cannot be combined with --no-fail-fast'
+  assert_no_default_output_dirs
+
+  run_confluex basic export --page-id 100 --confidential
+  assert_failure
+  assert_output_contains '--confidential requires an explicit or saved encryption key'
+  assert_no_default_output_dirs
+
   mkdir -p "$CONFLUEX_WORK_DIR/existing-out"
   run_confluex basic export --page-id 100 --out "$CONFLUEX_WORK_DIR/existing-out"
   assert_failure
@@ -95,7 +108,12 @@ teardown() {
 
   run_confluex basic doctor --encryption-key TESTKEY
   assert_failure
-  assert_output_contains 'ERROR: doctor does not use --encryption-key'
+  assert_output_contains 'ERROR: doctor only uses --encryption-key together with --verify-encryption'
+  assert_no_default_output_dirs
+
+  run_confluex basic doctor --critical
+  assert_failure
+  assert_output_contains 'ERROR: doctor does not use --critical'
   assert_no_default_output_dirs
 
   run_confluex basic config --page-id 100
@@ -113,6 +131,11 @@ teardown() {
   assert_output_contains 'ERROR: install does not use --safe'
   assert_no_default_output_dirs
 
+  run_confluex basic install --verify-encryption
+  assert_failure
+  assert_output_contains 'ERROR: install does not use --verify-encryption'
+  assert_no_default_output_dirs
+
   run_confluex basic uninstall --encryption-key TESTKEY
   assert_failure
   assert_output_contains 'ERROR: uninstall does not use --encryption-key'
@@ -124,6 +147,8 @@ teardown() {
   run_confluex basic doctor
   assert_success
   assert_output_contains 'confluex doctor'
+  assert_output_contains '[INFO] support profile: bounded_confluence_storage_v1'
+  assert_output_contains 'supported link forms: child tree, ri:content-entity, ri:page, ri:url(pageId), ri:url(space/title), ac:parameter(page), href(pageId), href(space/title)'
   assert_output_contains '[OK] bash:'
   assert_output_contains '[OK] node:'
   assert_output_contains '[OK] confluence:'
@@ -134,6 +159,15 @@ teardown() {
   assert_output_contains '[OK] access to page 100'
   assert_output_contains 'title: Root Page'
   assert_output_contains 'space: ENG'
+
+  run_confluex basic doctor --verify-encryption
+  assert_failure
+  assert_output_contains '[FAIL] no encryption key provided and no saved default encryption key is configured'
+
+  run_confluex basic doctor --verify-encryption --encryption-key READYKEY
+  assert_success
+  assert_output_contains '[OK] encryption recipient available: READYKEY'
+  assert_output_contains 'source: cli'
 
   run_confluex preflight_failure doctor --page-id 100
   assert_failure
@@ -151,6 +185,13 @@ teardown() {
   assert_output_contains '[WARN] auth check skipped (no --page-id)'
   assert_output_not_contains 'default encryption key'
   assert_output_not_contains 'NOT-A-REAL-GPG-IDENTITY'
+
+  export MOCK_GPG_MISSING_KEY=NOT-A-REAL-GPG-IDENTITY
+  run_confluex basic doctor --verify-encryption
+  unset MOCK_GPG_MISSING_KEY
+  assert_failure
+  assert_output_contains '[FAIL] encryption recipient not available: NOT-A-REAL-GPG-IDENTITY'
+  assert_output_contains 'source: config'
 }
 
 # Covers: FR-CONF-001

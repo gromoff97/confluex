@@ -38,12 +38,14 @@ teardown() {
   assert_file_contains $'200\texport' "$partial_out/failed-pages.tsv"
   assert_failed_pages_two_columns "$partial_out/failed-pages.tsv"
   assert_summary_value "$partial_out/summary.txt" incomplete 1
+  assert_summary_value "$partial_out/summary.txt" final_status incomplete
   assert_summary_value "$partial_out/summary.txt" interrupt_reason runtime_error
   assert_summary_has_keys "$partial_out/summary.txt" command root_page_id output_dir failed_operations downloaded_total_bytes interrupt_reason
 
   run_confluex basic export --page-id 100 --out "$max_pages_out" --max-pages 1
   assert_failure
   assert_summary_value "$max_pages_out/summary.txt" incomplete 1
+  assert_summary_value "$max_pages_out/summary.txt" final_status incomplete
   assert_summary_value "$max_pages_out/summary.txt" interrupt_reason max_pages_reached
   assert_equal "1" "$(manifest_row_count "$max_pages_out/manifest.tsv")" "manifest row count for max-pages"
   assert_report_invariants "$max_pages_out"
@@ -51,6 +53,7 @@ teardown() {
   run_confluex max_download_limit export --page-id 100 --out "$limited_out" --max-download-mib 1
   assert_failure
   assert_summary_value "$limited_out/summary.txt" incomplete 1
+  assert_summary_value "$limited_out/summary.txt" final_status incomplete
   assert_summary_value "$limited_out/summary.txt" interrupt_reason max_download_mib_reached
   assert_report_invariants "$limited_out"
 }
@@ -65,6 +68,7 @@ teardown() {
   assert_file_exists "$export_out/INCOMPLETE"
   assert_file_exists "$export_out/pages/ENG/Root_Page__100/page.html"
   assert_summary_value "$export_out/summary.txt" incomplete 1
+  assert_summary_value "$export_out/summary.txt" final_status interrupted
   assert_summary_value "$export_out/summary.txt" interrupt_reason SIGINT
   assert_summary_has_keys "$export_out/summary.txt" command root_page_id output_dir processed_pages downloaded_total_bytes interrupt_reason
 
@@ -95,6 +99,7 @@ teardown() {
   assert_path_missing "$failing_out.tar.gz.gpg"
   assert_summary_value "$failing_out/summary.txt" encryption_enabled 1
   assert_summary_value "$failing_out/summary.txt" encryption_successful 0
+  assert_summary_value "$failing_out/summary.txt" final_status encryption_failed
 }
 
 # Covers: FR-CONF-001, FR-SEC-001
@@ -139,10 +144,31 @@ teardown() {
   assert_file_exists "$restore_dir/roundtrip-encrypted-export/resolved-links.tsv"
   assert_file_exists "$restore_dir/roundtrip-encrypted-export/unresolved-links.tsv"
   assert_file_exists "$restore_dir/roundtrip-encrypted-export/failed-pages.tsv"
+  assert_file_exists "$restore_dir/roundtrip-encrypted-export/scope-findings.tsv"
   assert_page_exported "$restore_dir/roundtrip-encrypted-export" ENG Root_Page 100
   assert_page_exported "$restore_dir/roundtrip-encrypted-export" ENG Child_Page 200
   assert_page_exported "$restore_dir/roundtrip-encrypted-export" ENG Linked_Page 300
   assert_report_invariants "$restore_dir/roundtrip-encrypted-export"
+  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" critical_mode 0
+  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" support_profile bounded_confluence_storage_v1
+  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" scope_trust trusted
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" encryption_enabled 1
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" encryption_successful 1
+  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" final_status success
+}
+
+# Covers: FR-SEC-001, FR-OBS-001
+@test "confidential mode removes plain output when encryption fails" {
+  local confidential_out="$CONFLUEX_WORK_DIR/confidential-export"
+
+  export MOCK_GPG_FAIL=1
+  run_confluex basic export --page-id 100 --out "$confidential_out" --confidential --encryption-key LOCKED-KEY
+  unset MOCK_GPG_FAIL
+  assert_failure
+  assert_path_missing "$confidential_out"
+  assert_path_missing "$confidential_out.tar.gz.gpg"
+  assert_file_exists "$confidential_out.status.txt"
+  assert_summary_value "$confidential_out.status.txt" confidential_mode 1
+  assert_summary_value "$confidential_out.status.txt" final_status encryption_failed
+  assert_summary_value "$confidential_out.status.txt" blocking_reasons encryption_failed
 }

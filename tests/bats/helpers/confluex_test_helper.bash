@@ -36,7 +36,6 @@ confluex_setup() {
 
   CONFLUEX_LAST_STATUS=0
   CONFLUEX_LAST_OUTPUT=""
-  CONFLUEX_LAST_LOG=""
 }
 
 confluex_teardown() {
@@ -63,7 +62,6 @@ run_command() {
   fi
 
   CONFLUEX_LAST_OUTPUT="$(cat "$log_file")"
-  CONFLUEX_LAST_LOG="$log_file"
 }
 
 run_confluex() {
@@ -193,6 +191,7 @@ assert_standard_report_files() {
   assert_file_exists "$out_dir/resolved-links.tsv"
   assert_file_exists "$out_dir/unresolved-links.tsv"
   assert_file_exists "$out_dir/failed-pages.tsv"
+  assert_file_exists "$out_dir/scope-findings.tsv"
   assert_file_exists "$out_dir/summary.txt"
 }
 
@@ -214,6 +213,11 @@ assert_summary_is_key_value_file() {
 assert_failed_pages_two_columns() {
   local file="$1"
   awk -F'\t' 'NF != 2 { exit 1 }' "$file" || fail_test "expected failed-pages.tsv to have exactly 2 tab-separated columns in every row"
+}
+
+assert_scope_findings_four_columns() {
+  local file="$1"
+  awk -F'\t' 'NF != 4 { exit 1 }' "$file" || fail_test "expected scope-findings.tsv to have exactly 4 tab-separated columns in every row"
 }
 
 assert_manifest_folders_relative() {
@@ -243,6 +247,26 @@ assert_page_html_missing() {
   local folder_name="$3"
   local page_id="$4"
   assert_path_missing "$out_dir/pages/$space_key/${folder_name}__${page_id}/page.html"
+}
+
+page_dir_for_id() {
+  local out_dir="$1"
+  local page_id="$2"
+  local match
+
+  match="$(find "$out_dir/pages" -mindepth 2 -maxdepth 2 -type d -name "*__${page_id}" | sort | head -n 1)"
+  [[ -n "$match" ]] || fail_test "expected to find page directory for page id $page_id under $out_dir/pages"
+  printf '%s\n' "$match"
+}
+
+assert_page_dir_component_length_at_most() {
+  local out_dir="$1"
+  local page_id="$2"
+  local max_len="$3"
+  local dir_name
+
+  dir_name="$(basename "$(page_dir_for_id "$out_dir" "$page_id")")"
+  (( ${#dir_name} <= max_len )) || fail_test "expected page dir component for $page_id to be at most $max_len chars, got ${#dir_name}: $dir_name"
 }
 
 assert_report_invariants() {
