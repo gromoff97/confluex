@@ -22,6 +22,15 @@ Options:
   --safe             Conservative profile for production usage.
                      Defaults: --max-find-candidates 5 --max-pages 200
                      --max-download-mib 256 --sleep-ms 200
+                     This reduces risk; it is not a correctness guarantee.
+  --critical         Fail-closed mode for critical usage.
+                     Implies --safe, forbids --no-fail-fast, and fails the run if
+                     unresolved links, scope findings, recorded page-local failures,
+                     or incomplete stop conditions remain in the final result.
+  --confidential     Confidentiality-first mode for encrypted runs.
+                     Implies --critical and requires an effective encryption key.
+                     If encryption fails, plain run artifacts are removed instead
+                     of being left on disk for recovery.
   --dry-run          Do not export page HTML or download attachments.
                      Still reads page metadata and storage XML to build the full plan.
   --out DIR          Output directory. Default is generated automatically.
@@ -33,6 +42,9 @@ Options:
                      KEY may be a fingerprint, long key id, or other GPG recipient specifier.
                      Recommended: use a full fingerprint. If a default key is saved via
                      `confluex config`, this option overrides it for the current run.
+  --verify-encryption
+                     Only for `confluex doctor`: validate that the effective or explicit
+                     encryption recipient is available in the local GPG keyring.
   --clear-encryption-key
                      Only for `confluex config`: remove the saved default encryption key.
   --max-pages N      Stop after N processed pages.
@@ -48,10 +60,12 @@ Options:
 Examples:
   confluex plan --page-id 12345
   confluex export --page-id 12345 --out ./dump --safe
+  confluex export --page-id 12345 --out ./dump --critical
   confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
   confluex export --page-id 12345 --out ./dump
   confluex export --page-id 12345 --out ./dump --encryption-key 89ABCDEF0123456789ABCDEF0123456789ABCDEF
-  confluex doctor --page-id 12345
+  confluex export --page-id 12345 --out ./dump --confidential --encryption-key 89ABCDEF0123456789ABCDEF0123456789ABCDEF
+  confluex doctor --page-id 12345 --verify-encryption --encryption-key 89ABCDEF0123456789ABCDEF0123456789ABCDEF
   confluex install
   confluex uninstall
 
@@ -90,6 +104,12 @@ confluex_suggest_option() {
     --safe-mode|--safe_export|--cautious|--guarded)
       printf '%s\n' "--safe"
       ;;
+    --strict|--strict-mode|--critical-mode|--critical_run)
+      printf '%s\n' "--critical"
+      ;;
+    --private|--confidential-mode|--encrypted-only)
+      printf '%s\n' "--confidential"
+      ;;
     --max-page|--page-limit|--max-items)
       printf '%s\n' "--max-pages"
       ;;
@@ -104,6 +124,9 @@ confluex_suggest_option() {
       ;;
     --clear-key|--clear-encryption|--remove-encryption-key)
       printf '%s\n' "--clear-encryption-key"
+      ;;
+    --verify-gpg|--verify-encryption-key|--check-encryption|--check-gpg)
+      printf '%s\n' "--verify-encryption"
       ;;
     --unistall|--uninstal|--remove-self)
       printf '%s\n' "--uninstall"
@@ -216,6 +239,9 @@ confluex_parse_args() {
   CFG_MAX_DOWNLOAD_MIB_SET=0
   CFG_SLEEP_MS=0
   CFG_SLEEP_MS_SET=0
+  CFG_CRITICAL_MODE=0
+  CFG_CONFIDENTIAL_MODE=0
+  CFG_VERIFY_ENCRYPTION=0
 
   case "${1:-}" in
     export|plan|doctor|config|install|uninstall)
@@ -275,6 +301,14 @@ confluex_parse_args() {
         CFG_SAFE_MODE=1
         shift
         ;;
+      --critical)
+        CFG_CRITICAL_MODE=1
+        shift
+        ;;
+      --confidential)
+        CFG_CONFIDENTIAL_MODE=1
+        shift
+        ;;
       --out)
         [[ $# -ge 2 ]] || { printf 'ERROR: --out requires a directory\n' >&2; return 1; }
         # shellcheck disable=SC2034
@@ -317,6 +351,10 @@ confluex_parse_args() {
         ;;
       --clear-encryption-key)
         CFG_CLEAR_ENCRYPTION_KEY=1
+        shift
+        ;;
+      --verify-encryption)
+        CFG_VERIFY_ENCRYPTION=1
         shift
         ;;
       --max-find-candidates)
@@ -425,6 +463,18 @@ confluex_parse_args() {
       printf 'ERROR: install does not use --safe\n' >&2
       return 1
     fi
+    if (( CFG_CRITICAL_MODE )); then
+      printf 'ERROR: install does not use --critical\n' >&2
+      return 1
+    fi
+    if (( CFG_CONFIDENTIAL_MODE )); then
+      printf 'ERROR: install does not use --confidential\n' >&2
+      return 1
+    fi
+    if (( CFG_VERIFY_ENCRYPTION )); then
+      printf 'ERROR: install does not use --verify-encryption\n' >&2
+      return 1
+    fi
     if (( CFG_MAX_PAGES_SET )); then
       printf 'ERROR: install does not use --max-pages\n' >&2
       return 1
@@ -481,6 +531,18 @@ confluex_parse_args() {
       printf 'ERROR: uninstall does not use --safe\n' >&2
       return 1
     fi
+    if (( CFG_CRITICAL_MODE )); then
+      printf 'ERROR: uninstall does not use --critical\n' >&2
+      return 1
+    fi
+    if (( CFG_CONFIDENTIAL_MODE )); then
+      printf 'ERROR: uninstall does not use --confidential\n' >&2
+      return 1
+    fi
+    if (( CFG_VERIFY_ENCRYPTION )); then
+      printf 'ERROR: uninstall does not use --verify-encryption\n' >&2
+      return 1
+    fi
     if (( CFG_MAX_PAGES_SET )); then
       printf 'ERROR: uninstall does not use --max-pages\n' >&2
       return 1
@@ -517,10 +579,6 @@ confluex_parse_args() {
       printf 'ERROR: doctor does not use --keep-metadata\n' >&2
       return 1
     fi
-    if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
-      printf 'ERROR: doctor does not use --encryption-key\n' >&2
-      return 1
-    fi
     if (( CFG_CLEAR_ENCRYPTION_KEY )); then
       printf 'ERROR: doctor does not use --clear-encryption-key\n' >&2
       return 1
@@ -549,12 +607,28 @@ confluex_parse_args() {
       printf 'ERROR: doctor does not use --install-dir\n' >&2
       return 1
     fi
+    if (( CFG_CRITICAL_MODE )); then
+      printf 'ERROR: doctor does not use --critical\n' >&2
+      return 1
+    fi
+    if (( CFG_CONFIDENTIAL_MODE )); then
+      printf 'ERROR: doctor does not use --confidential\n' >&2
+      return 1
+    fi
     if [[ -n "$CFG_ROOT_ID" && ! "$CFG_ROOT_ID" =~ ^[0-9]+$ ]]; then
       printf 'ERROR: --page-id must be numeric, got: %s\n' "$CFG_ROOT_ID" >&2
       return 1
     fi
     if (( CFG_LOG_FILE_SET )) && [[ -z "$CFG_LOG_FILE" ]]; then
       printf 'ERROR: --log-file requires a non-empty file path\n' >&2
+      return 1
+    fi
+    if (( CFG_VERIFY_ENCRYPTION == 0 )) && (( CFG_ENCRYPTION_KEY_SET )); then
+      printf 'ERROR: doctor only uses --encryption-key together with --verify-encryption\n' >&2
+      return 1
+    fi
+    if (( CFG_VERIFY_ENCRYPTION )) && (( CFG_ENCRYPTION_KEY_SET )) && [[ -z "$CFG_ENCRYPTION_KEY" ]]; then
+      printf 'ERROR: --encryption-key requires a non-empty GPG key identity\n' >&2
       return 1
     fi
     return 0
@@ -587,6 +661,18 @@ confluex_parse_args() {
     fi
     if (( CFG_SAFE_MODE )); then
       printf 'ERROR: config does not use --safe\n' >&2
+      return 1
+    fi
+    if (( CFG_CRITICAL_MODE )); then
+      printf 'ERROR: config does not use --critical\n' >&2
+      return 1
+    fi
+    if (( CFG_CONFIDENTIAL_MODE )); then
+      printf 'ERROR: config does not use --confidential\n' >&2
+      return 1
+    fi
+    if (( CFG_VERIFY_ENCRYPTION )); then
+      printf 'ERROR: config does not use --verify-encryption\n' >&2
       return 1
     fi
     if (( CFG_MAX_PAGES_SET )); then
@@ -668,6 +754,24 @@ confluex_parse_args() {
   if (( CFG_CLEAR_ENCRYPTION_KEY )); then
     printf 'ERROR: --clear-encryption-key is only valid with confluex config\n' >&2
     return 1
+  fi
+
+  if (( CFG_VERIFY_ENCRYPTION )); then
+    printf 'ERROR: --verify-encryption is only valid with confluex doctor\n' >&2
+    return 1
+  fi
+
+  if (( CFG_CONFIDENTIAL_MODE )); then
+    CFG_CRITICAL_MODE=1
+  fi
+
+  if (( CFG_CRITICAL_MODE )) && (( CFG_FAIL_FAST == 0 )); then
+    printf 'ERROR: --critical cannot be combined with --no-fail-fast\n' >&2
+    return 1
+  fi
+
+  if (( CFG_CRITICAL_MODE )); then
+    CFG_SAFE_MODE=1
   fi
 
   if (( CFG_SAFE_MODE )); then

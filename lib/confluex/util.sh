@@ -50,6 +50,24 @@ sanitize_name() {
   printf '%s' "$s"
 }
 
+truncate_name() {
+  local s="$1"
+  local max_len="$2"
+
+  if [[ ! "$max_len" =~ ^[0-9]+$ ]] || (( max_len <= 0 )); then
+    printf '%s' "$s"
+    return 0
+  fi
+
+  if (( ${#s} > max_len )); then
+    s="${s:0:max_len}"
+    s="$(printf '%s' "$s" | sed -E 's/[_ .]+$//')"
+  fi
+
+  [[ -z "$s" ]] && s="untitled"
+  printf '%s' "$s"
+}
+
 escape_tsv() {
   printf '%s' "$1" | tr '\t\r\n' '   '
 }

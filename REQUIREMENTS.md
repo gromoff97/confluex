@@ -46,7 +46,10 @@ These requirements are written from the product interface and the apparent user 
 1. `--page-id` identifies the root page for `export` and `plan`, and optionally for access diagnosis in `doctor`.
 2. `--out` controls the root result location.
 3. `--safe`, `--max-pages`, `--max-download-mib`, `--sleep-ms`, and `--max-find-candidates` control run risk and traversal breadth.
-4. `--no-fail-fast`, `--keep-metadata`, `--log-file`, and `--encryption-key` change run behavior or output materialization.
+4. `--critical` expresses fail-closed critical-use intent for `export` and `plan`.
+5. `--confidential` expresses confidentiality-first intent for encrypted `export` and `plan`.
+6. `--no-fail-fast`, `--keep-metadata`, `--log-file`, and `--encryption-key` change run behavior or output materialization.
+7. `--verify-encryption` expresses encryption-recipient preflight intent for `doctor`.
 
 **Traceability**:
 - Area: option semantics
@@ -61,7 +64,10 @@ These requirements are written from the product interface and the apparent user 
 1. `doctor` checks required local command availability for the public product workflow, including the parser runtime and the external Confluence CLI dependency.
 2. `doctor` without `--page-id` explicitly reports that page-access verification was skipped.
 3. `doctor --page-id <id>` either confirms access and reports page identity information or explicitly reports access failure.
-4. `doctor` does not claim to validate that a saved encryption key identity exists in the local GPG keyring.
+4. `doctor --verify-encryption` validates the effective encryption recipient when one is provided explicitly or saved by configuration.
+5. If `doctor --verify-encryption` is requested with no explicit or saved encryption key identity available, the command reports that condition explicitly.
+6. `doctor` does not claim to validate a saved encryption key identity unless encryption verification was requested explicitly.
+7. `doctor` reports the current product support profile so operators do not have to infer it from code or tests.
 
 **Traceability**:
 - Area: diagnostics
@@ -142,6 +148,7 @@ These requirements are written from the product interface and the apparent user 
 2. The run reads storage XML needed for link discovery.
 3. The run reads recursive child-listing data needed to include the full root child tree in scope.
 4. Title-based link resolution may read search results and candidate page identity data needed to resolve an internal link conservatively.
+5. When candidate inspection or child-tree knowledge is only partial, the run records that condition as a scope finding instead of silently treating scope as fully trusted.
 5. `export` additionally materializes page HTML and attachments.
 6. `plan` may gather attachment-list preview data without downloading attachment payloads.
 
@@ -156,6 +163,7 @@ These requirements are written from the product interface and the apparent user 
 1. The root page is always part of run scope after successful preflight.
 2. Child-tree traversal is recursive from the root page.
 3. Failure to fully enumerate descendants does not invalidate the root page itself as part of the run.
+4. If child-tree data indicates pagination or otherwise incomplete recursive knowledge, that condition is recorded as a scope finding.
 
 **Traceability**:
 - Area: tree traversal
@@ -181,6 +189,8 @@ These requirements are written from the product interface and the apparent user 
 2. Supported discovery sources include internal content-id references.
 3. Supported discovery sources include page references by page identity or title.
 4. Supported discovery sources include macro page parameters and internal links carrying a page identifier.
+5. Supported discovery sources include `ri:url` references when they carry a resolvable internal page identifier or a resolvable internal page title/space path.
+6. Supported discovery sources include internal `href` forms when they carry a resolvable page identifier or a resolvable internal page title/space path.
 
 **Traceability**:
 - Area: supported link forms
@@ -222,6 +232,19 @@ These requirements are written from the product interface and the apparent user 
 - Area: traversal stability
 - Related: `FR-GRAPH-001`, `FR-GRAPH-002`
 
+### FR-LINK-005
+**Requirement**: When the product encounters internal-reference patterns that are plausibly relevant to scope but outside the supported discovery profile, it shall surface that fact explicitly rather than silently treating the run as fully trusted.
+
+**Acceptance**:
+1. The product may keep a bounded support profile instead of claiming universal Confluence markup support.
+2. Unsupported but internal-looking reference forms detected during parsing are recorded as machine-readable scope findings.
+3. Scope findings degrade operator trust in semantic completeness even if the run remains otherwise successful.
+4. Partially inspectable title-resolution outcomes are also recorded as scope findings when candidate visibility is incomplete.
+
+**Traceability**:
+- Area: support profile and unsupported reference handling
+- Related: `FR-LINK-001`, `FR-REP-001`, `FR-OBS-001`
+
 ## Output and Artifact Model
 
 ### FR-OUT-001
@@ -258,6 +281,7 @@ These requirements are written from the product interface and the apparent user 
 4. Attachments for a page are persisted beneath that page's payload location.
 5. Page naming in persisted payload remains unique and operator-readable.
 6. The manifest `folder` value points to the persisted payload location for that page.
+7. Page-folder path components are bounded so unusually long page titles or space keys do not create unbounded page-directory names.
 
 **Traceability**:
 - Area: page payload
@@ -282,7 +306,7 @@ These requirements are written from the product interface and the apparent user 
 **Requirement**: Every successful or partially successful run shall produce a standard report set sufficient to interpret the run.
 
 **Acceptance**:
-1. The standard report set includes `manifest.tsv`, `resolved-links.tsv`, `unresolved-links.tsv`, `failed-pages.tsv`, and `summary.txt`.
+1. The standard report set includes `manifest.tsv`, `resolved-links.tsv`, `unresolved-links.tsv`, `failed-pages.tsv`, `scope-findings.tsv`, and `summary.txt`.
 2. The report set exists for successful runs and for partially successful runs that still yield interpretable results.
 3. If the final result is converted into an encrypted artifact, the report set remains part of that result.
 
@@ -298,7 +322,8 @@ These requirements are written from the product interface and the apparent user 
 2. The resolved-link report identifies successful source-to-target link resolution outcomes.
 3. The unresolved-link report identifies discovered links that remained unresolved.
 4. The failed-pages report identifies page-local failures.
-5. The summary identifies run mode, main counts, limits, and completion state.
+5. The scope-findings report identifies conditions that degrade trust in scope completeness or support-profile confidence, including unsupported references, partial graph knowledge, and partially inspectable title resolution.
+6. The summary identifies run mode, main counts, limits, support-profile state, and completion state.
 
 **Traceability**:
 - Area: report semantics
@@ -312,7 +337,8 @@ These requirements are written from the product interface and the apparent user 
 2. `resolved-links.tsv` contains a header and one row per unique resolved source-to-target page dependency, including source page, source title, link kind, raw link value, and resolved target identity.
 3. `unresolved-links.tsv` contains a header and one row per unresolved discovered link, including source page context, link kind, and raw link value.
 4. `failed-pages.tsv` records the affected page and the failed page-local operation.
-5. `summary.txt` uses stable `key=value` style lines rather than prose-only output.
+5. `scope-findings.tsv` contains a header and one row per scope-relevant finding, including page context, finding area, finding type, and detail.
+6. `summary.txt` uses stable `key=value` style lines rather than prose-only output.
 
 **Traceability**:
 - Area: report schema
@@ -326,10 +352,11 @@ These requirements are written from the product interface and the apparent user 
 **Acceptance**:
 1. `--safe` applies conservative defaults for discovery breadth, page count, total download volume, and inter-page delay.
 2. Explicit operator-specified values override safe-profile defaults.
+3. `--safe` is a conservative profile rather than a guarantee of semantic completeness, dependency correctness, or confidentiality.
 
 **Traceability**:
 - Area: safe profile
-- Related: `FR-SAFE-002`
+- Related: `FR-SAFE-002`, `FR-SAFE-006`
 
 ### FR-SAFE-002
 **Requirement**: The product shall provide explicit run-limiting controls.
@@ -383,6 +410,20 @@ These requirements are written from the product interface and the apparent user 
 - Area: partial result semantics
 - Related: `FR-SAFE-002`, `FR-SAFE-003`, `FR-OBS-001`
 
+### FR-SAFE-006
+**Requirement**: The product shall provide an explicit fail-closed critical-use mode for `export` and `plan`.
+
+**Acceptance**:
+1. `--critical` implies the conservative safe profile unless explicit operator-specified limits override those defaults.
+2. `--critical` cannot be combined with best-effort behavior.
+3. In `--critical` mode, a completed run with unresolved links or recorded page-local failures is not presented as an acceptable success outcome.
+4. In `--critical` mode, a completed run with recorded scope findings is also not presented as an acceptable success outcome.
+5. In `--critical` mode, the result remains interpretable for inspection, but the command exits non-zero and `summary.txt` records a blocking final status.
+
+**Traceability**:
+- Area: critical policy
+- Related: `FR-SAFE-001`, `FR-SAFE-003`, `FR-OBS-001`
+
 ## Security and Observability
 
 ### FR-SEC-001
@@ -395,6 +436,9 @@ These requirements are written from the product interface and the apparent user 
 4. An explicit encryption key identity overrides a saved default encryption key identity for that run.
 5. If no explicit encryption key identity is provided, a saved default encryption key identity is used automatically when present.
 6. If encryption fails, the plain result remains available and the failed encryption path is not presented as a successful encrypted completion.
+7. `--confidential` is available as a confidentiality-first mode for encrypted runs and implies critical-use behavior.
+8. In `--confidential` mode, an effective encryption key identity is required before the run proceeds.
+9. In `--confidential` mode, encryption failure does not leave plain run payload artifacts on disk as a recovery result.
 
 **Traceability**:
 - Area: encrypted results
@@ -404,12 +448,14 @@ These requirements are written from the product interface and the apparent user 
 **Requirement**: The product shall leave enough observability for an operator to interpret the run without inspecting internal implementation.
 
 **Acceptance**:
-1. `summary.txt` reports the command, root page, run mode, completion state, output location, and encryption state.
+1. `summary.txt` reports the command, root page, run mode, completion state, output location, path provenance, support profile, scope trust state, and encryption state.
 2. `summary.txt` reports relevant configured limits and the processed-page breakdown across root, tree, linked, and other pages.
-3. `summary.txt` reports manifest, resolved-link, unresolved-link, and failed-operation counts.
+3. `summary.txt` reports manifest, resolved-link, unresolved-link, scope-finding, and failed-operation counts.
 4. `summary.txt` reports downloaded total, content, and metadata volume.
-5. `summary.txt` reports the reason for early or incomplete termination when applicable.
-6. If persistent logging is requested, the run leaves a separate persistent log artifact.
+5. `summary.txt` reports a machine-readable final status that distinguishes at least clean success, success with findings, policy failure, incomplete outcome, interruption, and encryption failure when those states are applicable.
+6. `summary.txt` reports the blocking or warning reasons that explain why the final status is not clean success when such reasons exist.
+7. `summary.txt` reports the reason for early or incomplete termination when applicable.
+8. If persistent logging is requested, the run leaves a separate persistent log artifact.
 
 **Traceability**:
 - Area: observability

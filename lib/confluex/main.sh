@@ -13,12 +13,15 @@ MANIFEST=""
 LINKS_FILE=""
 UNRESOLVED=""
 FAILED=""
+SCOPE_FINDINGS=""
 SUMMARY=""
 PREFLIGHT_INFO_FILE=""
 ENCRYPTED_ARCHIVE=""
 ENCRYPTION_HINT_FILE=""
 ENCRYPTION_SUCCESSFUL=0
 CFG_ENCRYPTION_KEY_SOURCE="none"
+RUN_BLOCKING_REASONS=""
+CONFLUEX_SUPPORT_PROFILE="bounded_confluence_storage_v1"
 
 # Counters (filled by confluex_compute_counts).
 processed_count=0
@@ -26,6 +29,7 @@ failed_count=0
 unresolved_count=0
 resolved_count=0
 manifest_count=0
+scope_findings_count=0
 downloaded_metadata_bytes=0
 downloaded_content_bytes=0
 downloaded_total_bytes=0
@@ -45,6 +49,7 @@ declare -A DISCOVERED_BY=()
 declare -A TITLE_BY_ID=()
 declare -A SPACE_BY_ID=()
 declare -A RECORDED_RESOLVED_LINKS=()
+declare -A RECORDED_SCOPE_FINDINGS=()
 CONFLUEX_LAST_RESOLVED_ID=""
 
 confluex_reset_state() {
@@ -56,6 +61,7 @@ confluex_reset_state() {
   TITLE_BY_ID=()
   SPACE_BY_ID=()
   RECORDED_RESOLVED_LINKS=()
+  RECORDED_SCOPE_FINDINGS=()
   CONFLUEX_LAST_RESOLVED_ID=""
   downloaded_metadata_bytes=0
   downloaded_content_bytes=0
@@ -69,6 +75,8 @@ confluex_reset_state() {
   ENCRYPTION_HINT_FILE=""
   ENCRYPTION_SUCCESSFUL=0
   CFG_ENCRYPTION_KEY_SOURCE="none"
+  RUN_BLOCKING_REASONS=""
+  scope_findings_count=0
 }
 
 confluex_apply_default_config() {
@@ -102,6 +110,11 @@ confluex_extract_children_ids() {
   node "$CONFLUEX_LIB_DIR/parsers.js" extract-children "$json_file"
 }
 
+confluex_inspect_children_payload() {
+  local json_file="$1"
+  node "$CONFLUEX_LIB_DIR/parsers.js" inspect-children "$json_file"
+}
+
 confluex_extract_link_refs() {
   local xml_file="$1"
   local current_space="$2"
@@ -115,8 +128,8 @@ confluex_page_folder_for() {
   local safe_space
   local safe_title
 
-  safe_space="$(sanitize_name "${space_key:-NO_SPACE}")"
-  safe_title="$(sanitize_name "${title:-page_$page_id}")"
+  safe_space="$(truncate_name "$(sanitize_name "${space_key:-NO_SPACE}")" 40)"
+  safe_title="$(truncate_name "$(sanitize_name "${title:-page_$page_id}")" 80)"
   printf '%s/%s/%s__%s\n' "$PAGES_DIR" "$safe_space" "$safe_title" "$page_id"
 }
 
@@ -196,6 +209,34 @@ confluex_record_resolved_link() {
   return 0
 }
 
+confluex_record_scope_finding() {
+  local page_id="$1"
+  local scope_area="$2"
+  local finding_type="$3"
+  local detail="$4"
+  local key="${page_id}|${scope_area}|${finding_type}|${detail}"
+
+  if [[ -n "${RECORDED_SCOPE_FINDINGS[$key]+x}" ]]; then
+    return 0
+  fi
+
+  RECORDED_SCOPE_FINDINGS["$key"]=1
+  printf '%s\t%s\t%s\t%s\n' \
+    "$page_id" \
+    "$(escape_tsv "$scope_area")" \
+    "$(escape_tsv "$finding_type")" \
+    "$(escape_tsv "$detail")" >> "$SCOPE_FINDINGS"
+}
+
+confluex_scope_trust_state() {
+  if (( scope_findings_count > 0 )); then
+    printf 'degraded\n'
+    return 0
+  fi
+
+  printf 'trusted\n'
+}
+
 confluex_log_attachments_from_export() {
   local attachments_dir="$1"
 
@@ -227,6 +268,7 @@ confluex_log_attachments_preview() {
 
   if ! confluex_capture_stdout "$out_file" confluence attachments "$page_id"; then
     log_warn "    could not list attachments for dry-run preview"
+    confluex_record_scope_finding "$page_id" "attachments" "attachments_preview_failed" "attachment preview unavailable"
     printf '0\n'
     return 0
   fi
@@ -249,6 +291,10 @@ confluex_temp_file() {
 
 confluex_archive_path_for_out_dir() {
   printf '%s.tar.gz.gpg\n' "$OUT_DIR"
+}
+
+confluex_status_path_for_out_dir() {
+  printf '%s.status.txt\n' "$OUT_DIR"
 }
 
 confluex_file_size_bytes() {
@@ -417,8 +463,9 @@ confluex_cache_page_info_if_missing() {
 }
 
 confluex_resolve_by_title() {
-  local title="$1"
-  local space_key="$2"
+  local from_page_id="$1"
+  local title="$2"
+  local space_key="$3"
   local cache_key="${space_key}|${title}"
   CONFLUEX_LAST_RESOLVED_ID=""
 
@@ -433,12 +480,14 @@ confluex_resolve_by_title() {
   local out_file="$TMP_DIR/find_${RANDOM}_${RANDOM}.txt"
   if [[ -n "$space_key" ]]; then
     if ! confluex_capture_stdout "$out_file" confluence find "$title" --space "$space_key"; then
+      confluex_record_scope_finding "$from_page_id" "title_resolution" "find_failed" "[${space_key:-any}] $title"
       FIND_CACHE["$cache_key"]=""
       rm -f "$out_file"
       return 1
     fi
   else
     if ! confluex_capture_stdout "$out_file" confluence find "$title"; then
+      confluex_record_scope_finding "$from_page_id" "title_resolution" "find_failed" "[${space_key:-any}] $title"
       FIND_CACHE["$cache_key"]=""
       rm -f "$out_file"
       return 1
@@ -455,6 +504,7 @@ confluex_resolve_by_title() {
 
   if (( ${#ids[@]} == 0 )); then
     log_warn "could not parse explicit page ids from find results for [${space_key:-any}] $title; skipping"
+    confluex_record_scope_finding "$from_page_id" "title_resolution" "find_output_unparseable" "[${space_key:-any}] $title"
     FIND_CACHE["$cache_key"]=""
     rm -f "$out_file"
     return 1
@@ -462,6 +512,7 @@ confluex_resolve_by_title() {
 
   if (( ${#ids[@]} > CFG_MAX_FIND_CANDIDATES )); then
     log_warn "find results for [${space_key:-any}] $title returned ${#ids[@]} candidates; limit is $CFG_MAX_FIND_CANDIDATES, skipping"
+    confluex_record_scope_finding "$from_page_id" "title_resolution" "candidate_limit_exceeded" "[${space_key:-any}] $title"
     FIND_CACHE["$cache_key"]=""
     rm -f "$out_file"
     return 1
@@ -469,9 +520,11 @@ confluex_resolve_by_title() {
 
   local resolved_id=""
   local ambiguous=0
+  local inaccessible_candidates=0
 
   for id in "${ids[@]}"; do
     if ! confluex_cache_page_info_if_missing "$id"; then
+      inaccessible_candidates=$((inaccessible_candidates + 1))
       continue
     fi
 
@@ -495,6 +548,10 @@ confluex_resolve_by_title() {
   done
 
   rm -f "$out_file"
+
+  if (( inaccessible_candidates > 0 )); then
+    confluex_record_scope_finding "$from_page_id" "title_resolution" "title_candidates_inaccessible" "[${space_key:-any}] $title"
+  fi
 
   if (( ambiguous )); then
     log_warn "ambiguous title resolution for [${space_key:-any}] $title; skipping"
@@ -521,6 +578,7 @@ confluex_process_links_for_page() {
   local refs_file="$TMP_DIR/refs_${page_id}.txt"
   if ! confluex_capture_stdout "$refs_file" confluex_extract_link_refs "$storage_file" "$space_key"; then
     log_warn "  failed to parse links for page $page_id"
+    confluex_record_scope_finding "$page_id" "link_parsing" "storage_parse_failed" "_storage.xml"
     return 0
   fi
 
@@ -534,11 +592,17 @@ confluex_process_links_for_page() {
       continue
     fi
 
+    if [[ "$ref_type" == "unsupported" ]]; then
+      log_warn "  unsupported internal reference detected: $ref_b"
+      confluex_record_scope_finding "$page_id" "link_support" "$ref_a" "$ref_b"
+      continue
+    fi
+
     if [[ "$ref_type" == "title" ]]; then
       local resolved_id=""
       log_info "  found internal link by title: [${ref_a:-same-space}] $ref_b"
 
-      if confluex_resolve_by_title "$ref_b" "$ref_a"; then
+      if confluex_resolve_by_title "$page_id" "$ref_b" "$ref_a"; then
         resolved_id="$CONFLUEX_LAST_RESOLVED_ID"
         log_info "    resolved link -> pageId $resolved_id"
         confluex_record_resolved_link \
@@ -670,30 +734,120 @@ confluex_compute_counts() {
   unresolved_count="$(count_minus_header "$UNRESOLVED")"
   resolved_count="$(count_minus_header "$LINKS_FILE")"
   manifest_count="$(count_minus_header "$MANIFEST")"
+  scope_findings_count="$(count_minus_header "$SCOPE_FINDINGS")"
   confluex_compute_breakdown
+}
+
+confluex_join_csv() {
+  local first=1
+  local item=""
+
+  for item in "$@"; do
+    [[ -z "$item" ]] && continue
+    if (( first )); then
+      printf '%s' "$item"
+      first=0
+    else
+      printf ',%s' "$item"
+    fi
+  done
+}
+
+confluex_collect_blocking_reasons() {
+  local incomplete="$1"
+  local reason="${2:-}"
+  local reasons=()
+
+  if (( failed_count > 0 )); then
+    reasons+=("failed_operations")
+  fi
+
+  if (( unresolved_count > 0 )); then
+    reasons+=("unresolved_links")
+  fi
+
+  if (( scope_findings_count > 0 )); then
+    reasons+=("scope_findings")
+  fi
+
+  if (( incomplete == 1 )); then
+    if [[ -n "$reason" ]]; then
+      reasons+=("$reason")
+    else
+      reasons+=("incomplete")
+    fi
+  fi
+
+  RUN_BLOCKING_REASONS="$(confluex_join_csv "${reasons[@]}")"
+}
+
+confluex_final_status_for_summary() {
+  local incomplete="$1"
+  local reason="${2:-}"
+
+  if [[ "$reason" == "SIGINT" ]]; then
+    printf 'interrupted\n'
+    return 0
+  fi
+
+  if (( incomplete == 1 )); then
+    printf 'incomplete\n'
+    return 0
+  fi
+
+  if [[ -n "$CFG_ENCRYPTION_KEY" && "$ENCRYPTION_SUCCESSFUL" -eq 0 ]]; then
+    printf 'encryption_failed\n'
+    return 0
+  fi
+
+  if (( CFG_CRITICAL_MODE )) && [[ -n "$RUN_BLOCKING_REASONS" ]]; then
+    printf 'policy_failed\n'
+    return 0
+  fi
+
+  if [[ -n "$RUN_BLOCKING_REASONS" ]]; then
+    printf 'success_with_findings\n'
+    return 0
+  fi
+
+  printf 'success\n'
+}
+
+confluex_should_fail_critical_policy() {
+  [[ -n "$RUN_BLOCKING_REASONS" ]] && (( CFG_CRITICAL_MODE ))
 }
 
 confluex_write_summary() {
   local incomplete="$1"
   local reason="${2:-}"
   local encryption_enabled=0
+  local final_status=""
 
   confluex_compute_counts
   if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
     encryption_enabled=1
   fi
+  confluex_collect_blocking_reasons "$incomplete" "$reason"
+  final_status="$(confluex_final_status_for_summary "$incomplete" "$reason")"
 
   {
     printf 'command=%s\n' "$CFG_COMMAND"
     printf 'root_page_id=%s\n' "$CFG_ROOT_ID"
     printf 'dry_run=%s\n' "$CFG_DRY_RUN"
     printf 'safe_mode=%s\n' "$CFG_SAFE_MODE"
+    printf 'critical_mode=%s\n' "$CFG_CRITICAL_MODE"
+    printf 'confidential_mode=%s\n' "$CFG_CONFIDENTIAL_MODE"
+    printf 'support_profile=%s\n' "$CONFLUEX_SUPPORT_PROFILE"
+    printf 'scope_trust=%s\n' "$(confluex_scope_trust_state)"
     printf 'encryption_enabled=%s\n' "$encryption_enabled"
     printf 'encryption_successful=%s\n' "$ENCRYPTION_SUCCESSFUL"
     printf 'encryption_key=%s\n' "$CFG_ENCRYPTION_KEY"
     printf 'encryption_key_source=%s\n' "$CFG_ENCRYPTION_KEY_SOURCE"
     printf 'encrypted_archive=%s\n' "$ENCRYPTED_ARCHIVE"
     printf 'output_dir=%s\n' "$OUT_DIR"
+    printf 'path_provenance=%s\n' "runtime_origin"
+    printf 'final_status=%s\n' "$final_status"
+    printf 'blocking_reasons=%s\n' "$RUN_BLOCKING_REASONS"
     printf 'max_pages=%s\n' "$CFG_MAX_PAGES"
     printf 'max_download_mib=%s\n' "$CFG_MAX_DOWNLOAD_MIB"
     printf 'sleep_ms=%s\n' "$CFG_SLEEP_MS"
@@ -705,6 +859,7 @@ confluex_write_summary() {
     printf 'manifest_rows=%s\n' "$manifest_count"
     printf 'resolved_links=%s\n' "$resolved_count"
     printf 'unresolved_links=%s\n' "$unresolved_count"
+    printf 'scope_findings=%s\n' "$scope_findings_count"
     printf 'failed_operations=%s\n' "$failed_count"
     printf 'downloaded_total_bytes=%s\n' "$downloaded_total_bytes"
     printf 'downloaded_total_mib=%s\n' "$(confluex_bytes_to_mib "$downloaded_total_bytes")"
@@ -717,6 +872,27 @@ confluex_write_summary() {
       printf 'interrupt_reason=%s\n' "$reason"
     fi
   } > "$SUMMARY"
+}
+
+confluex_write_confidential_failure_status() {
+  local status_file
+  status_file="$(confluex_status_path_for_out_dir)"
+
+  {
+    printf 'command=%s\n' "$CFG_COMMAND"
+    printf 'root_page_id=%s\n' "$CFG_ROOT_ID"
+    printf 'critical_mode=%s\n' "$CFG_CRITICAL_MODE"
+    printf 'confidential_mode=%s\n' "$CFG_CONFIDENTIAL_MODE"
+    printf 'support_profile=%s\n' "$CONFLUEX_SUPPORT_PROFILE"
+    printf 'scope_trust=%s\n' "unknown"
+    printf 'encryption_enabled=%s\n' 1
+    printf 'encryption_successful=%s\n' 0
+    printf 'final_status=%s\n' "encryption_failed"
+    printf 'blocking_reasons=%s\n' "encryption_failed"
+    printf 'scope_findings=%s\n' 0
+    printf 'path_provenance=%s\n' "runtime_origin"
+    printf 'output_dir=%s\n' "$OUT_DIR"
+  } > "$status_file"
 }
 
 confluex_mark_incomplete() {
@@ -813,6 +989,7 @@ confluex_init_runtime_paths() {
   LINKS_FILE="$OUT_DIR/resolved-links.tsv"
   UNRESOLVED="$OUT_DIR/unresolved-links.tsv"
   FAILED="$OUT_DIR/failed-pages.tsv"
+  SCOPE_FINDINGS="$OUT_DIR/scope-findings.tsv"
   SUMMARY="$OUT_DIR/summary.txt"
   PREFLIGHT_INFO_FILE="$(confluex_temp_file "preflight_info_${CFG_ROOT_ID}.txt")"
 
@@ -830,15 +1007,20 @@ confluex_init_runtime_paths() {
   printf 'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n' > "$MANIFEST"
   printf 'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space\n' > "$LINKS_FILE"
   printf 'from_page_id\tfrom_title\tspace_key\tlink_type\tlink_value\n' > "$UNRESOLVED"
+  printf 'page_id\tscope_area\tfinding_type\tdetail\n' > "$SCOPE_FINDINGS"
 }
 
 confluex_collect_initial_queue() {
   local root_children_json="$TMP_DIR/root_children.json"
-  local root_children_ids="$TMP_DIR/root_children_ids.txt"
+  local root_children_scan="$TMP_DIR/root_children_scan.txt"
+  local scan_kind=""
+  local scan_a=""
+  local scan_b=""
 
   log_info "collecting recursive children for root page $CFG_ROOT_ID"
   if ! confluex_capture_stdout "$root_children_json" confluence children "$CFG_ROOT_ID" --recursive --format json; then
     log_warn "failed to collect children for root page $CFG_ROOT_ID; continuing with root page only"
+    confluex_record_scope_finding "$CFG_ROOT_ID" "tree_scope" "children_unavailable" "root child traversal unavailable"
     confluex_enqueue "$CFG_ROOT_ID" root
     return 0
   fi
@@ -846,17 +1028,27 @@ confluex_collect_initial_queue() {
 
   confluex_enqueue "$CFG_ROOT_ID" root
 
-  if ! confluex_capture_stdout "$root_children_ids" confluex_extract_children_ids "$root_children_json"; then
+  if ! confluex_capture_stdout "$root_children_scan" confluex_inspect_children_payload "$root_children_json"; then
     log_warn "failed to parse children list for root page $CFG_ROOT_ID; continuing with root page only"
+    confluex_record_scope_finding "$CFG_ROOT_ID" "tree_scope" "children_parse_failed" "recursive children payload unparseable"
     return 0
   fi
 
-  while IFS= read -r child_id; do
-    [[ -z "$child_id" ]] && continue
-    [[ "$child_id" == "$CFG_ROOT_ID" ]] && continue
-    log_info "found child page in tree: $child_id"
-    confluex_enqueue "$child_id" "child:$CFG_ROOT_ID"
-  done < "$root_children_ids"
+  while IFS=$'\x1f' read -r scan_kind scan_a scan_b; do
+    [[ -z "$scan_kind" ]] && continue
+
+    case "$scan_kind" in
+      id)
+        [[ -z "$scan_a" ]] && continue
+        [[ "$scan_a" == "$CFG_ROOT_ID" ]] && continue
+        log_info "found child page in tree: $scan_a"
+        confluex_enqueue "$scan_a" "child:$CFG_ROOT_ID"
+        ;;
+      flag)
+        confluex_record_scope_finding "$CFG_ROOT_ID" "tree_scope" "$scan_a" "$scan_b"
+        ;;
+    esac
+  done < "$root_children_scan"
 }
 
 confluex_preflight() {
@@ -898,6 +1090,16 @@ confluex_write_encryption_instructions() {
   ENCRYPTION_HINT_FILE="$hint_file"
 }
 
+confluex_validate_encryption_recipient() {
+  local key="$1"
+
+  if gpg --list-keys --with-colons "$key" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  return 1
+}
+
 confluex_encrypt_output_dir() {
   local out_parent
   local out_name
@@ -931,6 +1133,10 @@ confluex_encrypt_output_dir() {
     ENCRYPTION_SUCCESSFUL=0
     confluex_write_summary 0 ""
     rm -f "$archive_tar" "$archive_gpg"
+    if (( CFG_CONFIDENTIAL_MODE )); then
+      rm -rf "$OUT_DIR"
+      confluex_write_confidential_failure_status
+    fi
     return 1
   fi
 
@@ -981,8 +1187,12 @@ confluex_run_doctor() {
   local title=""
   local space_key=""
   local cmd=""
+  local effective_key=""
+  local key_source="cli"
 
   printf 'confluex doctor\n'
+  printf '  [INFO] support profile: %s\n' "$CONFLUEX_SUPPORT_PROFILE"
+  printf '  [INFO] supported link forms: child tree, ri:content-entity, ri:page, ri:url(pageId), ri:url(space/title), ac:parameter(page), href(pageId), href(space/title)\n'
   for cmd in bash node confluence sed awk grep sort find tr wc; do
     if command -v "$cmd" >/dev/null 2>&1; then
       printf '  [OK] %s: %s\n' "$cmd" "$(command -v "$cmd")"
@@ -994,6 +1204,33 @@ confluex_run_doctor() {
 
   if (( ok == 0 )); then
     return 1
+  fi
+
+  if (( CFG_VERIFY_ENCRYPTION )); then
+    if ! command -v gpg >/dev/null 2>&1; then
+      printf '  [FAIL] gpg not found\n'
+      return 1
+    fi
+
+    effective_key="$CFG_ENCRYPTION_KEY"
+    if [[ -z "$effective_key" ]]; then
+      effective_key="$(confluex_read_config_encryption_key)"
+      key_source="config"
+    fi
+
+    if [[ -z "$effective_key" ]]; then
+      printf '  [FAIL] no encryption key provided and no saved default encryption key is configured\n'
+      return 1
+    fi
+
+    if confluex_validate_encryption_recipient "$effective_key"; then
+      printf '  [OK] encryption recipient available: %s\n' "$effective_key"
+      printf '       source: %s\n' "$key_source"
+    else
+      printf '  [FAIL] encryption recipient not available: %s\n' "$effective_key"
+      printf '       source: %s\n' "$key_source"
+      return 1
+    fi
   fi
 
   if [[ -z "$CFG_ROOT_ID" ]]; then
@@ -1048,6 +1285,15 @@ confluex_run_export() {
   return 0
 }
 
+confluex_validate_run_configuration() {
+  if (( CFG_CONFIDENTIAL_MODE )) && [[ -z "$CFG_ENCRYPTION_KEY" ]]; then
+    log_error "--confidential requires an explicit or saved encryption key"
+    return 1
+  fi
+
+  return 0
+}
+
 confluex_main() {
   local script_path="$1"
   local script_lib_dir="$2"
@@ -1085,6 +1331,7 @@ confluex_main() {
   fi
 
   confluex_apply_default_config
+  confluex_validate_run_configuration || return 1
 
   required_cmds=(bash node confluence sed awk grep sort find tr wc)
   if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
@@ -1147,6 +1394,11 @@ confluex_main() {
     confluex_write_summary 0 ""
   fi
 
+  if [[ -f "$SUMMARY" ]]; then
+    confluex_compute_counts
+    confluex_collect_blocking_reasons 0 ""
+  fi
+
   log_info "done"
   log_info "processed pages: $processed_count"
   log_info "tree pages: $tree_count"
@@ -1183,6 +1435,11 @@ confluex_main() {
     else
       log_warn "some operations failed; see $FAILED"
     fi
+  fi
+
+  if confluex_should_fail_critical_policy; then
+    log_error "critical policy failed: $RUN_BLOCKING_REASONS"
+    return 1
   fi
 
   return 0
