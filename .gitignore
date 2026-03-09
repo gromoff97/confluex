@@ -1,1 +1,4 @@
 tools/
+
+# Ignore dotfiles and dot-directories whose names contain "ai".
+.*ai*
