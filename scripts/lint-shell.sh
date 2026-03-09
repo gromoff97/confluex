@@ -11,11 +11,14 @@ if [[ ! -x "$SHELLCHECK_BIN" ]]; then
   exit 1
 fi
 
-"$SHELLCHECK_BIN" \
-  "$ROOT_DIR/confluex" \
-  "$ROOT_DIR/lib/confluex/main.sh" \
-  "$ROOT_DIR/lib/confluex/cli.sh" \
-  "$ROOT_DIR/lib/confluex/util.sh" \
-  "$ROOT_DIR/scripts/install-shellcheck.sh" \
-  "$ROOT_DIR/scripts/lint-shell.sh" \
-  "$ROOT_DIR/scripts/test-smoke.sh"
+mapfile -t shell_files < <(git -C "$ROOT_DIR" ls-files '*.sh' '*.bash')
+shell_files=("$ROOT_DIR/confluex" "${shell_files[@]}")
+
+for i in "${!shell_files[@]}"; do
+  if (( i == 0 )); then
+    continue
+  fi
+  shell_files[i]="$ROOT_DIR/${shell_files[i]}"
+done
+
+exec "$SHELLCHECK_BIN" "${shell_files[@]}"

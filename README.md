@@ -1,373 +1,336 @@
 # Confluex
 
-`confluex` exports a Confluence page tree, downloads attachments, parses page storage XML, and pulls in linked Confluence pages that are referenced from page content.
+`confluex` is a safer, more interpretable export wrapper over `confluence-cli`.
 
-## What It Does
+Use it when you want to export a Confluence page tree without manually chaining `confluence` commands, guessing which linked pages were included, or reverse-engineering whether the result is complete enough to trust.
 
-- exports the full child tree of a root page
-- downloads page HTML and attachments
-- follows supported internal page links found in page content
-- writes reports about exported, unresolved, and failed pages
-- supports a safe planning mode before a real export
+## What You Get
 
-## Requirements
+`confluex` can:
 
-- `bash`
-- `node`
-- `confluence` CLI installed and already configured
+- export a root page and its full recursive child tree;
+- follow supported internal page references found in page content;
+- download page HTML and attachments in `export`;
+- build the same scope without HTML and attachment downloads in `plan`;
+- write machine-readable reports about exported pages, unresolved links, failures, and degraded scope;
+- optionally encrypt the final result for a GPG recipient.
 
-`confluex` does not install or configure `confluence` CLI for you.
+What it does not do:
 
-If you want encrypted output, the machine that runs `confluex` must already have the target GPG public key in its keyring. The receiving side must have the matching private key to decrypt.
+- it does not install or configure `confluence-cli`;
+- it does not create or import GPG keys;
+- it does not claim universal support for every possible Confluence storage construct.
 
-`confluex config --encryption-key ...` only saves the key identity to use by default. It does not create, import, or validate GPG keys.
+## Before You Start
 
-## Testing
+You need:
 
-This repository now includes a `bats-core` functional test suite under `tests/bats/`.
+- `bash`;
+- `node`;
+- `confluence` CLI already installed, authenticated, and working;
+- `gpg`, only if you want encrypted output.
 
-`bats-core` is treated as an external dependency. It is not vendored into this repository. To run the suite, install `bats` separately in your environment and make sure it is on `PATH`, or point the wrapper script at it explicitly with `BATS_BIN`.
+`bats-core` is only needed if you want to run this repository's functional test suite. It is an external dependency and is not vendored here.
 
-Run the requirements-driven suite:
+You can use the tool directly from the repository as `./confluex ...`.
+`install` is optional and only needed if you want `confluex` available globally on your shell `PATH`.
 
-```bash
-scripts/test-bats.sh
-```
+## First-Time Setup
 
-Or with an explicit binary path:
-
-```bash
-BATS_BIN="$HOME/.local/bin/bats" scripts/test-bats.sh
-```
-
-The suite uses repository-owned mocks and test helpers, but the `bats` executable itself remains user-managed.
-
-## Before First Run
-
-1. Install `confluence` CLI and make sure it is already authenticated.
-2. Run `confluex doctor`.
-3. If you want encrypted output, import your GPG public key on the machine that will run `confluex`.
-4. If you want that key used by default, run `confluex config --encryption-key <your_fingerprint>`.
-
-## Install
-
-Install to the default user location:
-
-```bash
-./confluex install
-```
-
-Install to a custom directory:
-
-```bash
-./confluex install --install-dir /usr/local/bin
-```
-
-Uninstall:
-
-```bash
-confluex uninstall
-```
-
-Or with an explicit location:
-
-```bash
-confluex uninstall --install-dir /usr/local/bin
-```
-
-`uninstall` is idempotent: if nothing is installed there, it reports that nothing was removed.
-
-## Quick Start
-
-Check your environment:
+1. Verify that the environment is usable:
 
 ```bash
 confluex doctor
 ```
 
-Check access to a specific root page:
+2. Verify access to the root page you care about:
 
 ```bash
 confluex doctor --page-id 12345
 ```
 
-Build a plan without downloading HTML or attachments:
+3. If you plan to encrypt exports, verify the recipient before the first real run:
 
 ```bash
-confluex plan --page-id 12345 --out ./plan
+confluex doctor --verify-encryption --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
-`plan` still talks to Confluence and reads page metadata/storage XML. It only skips HTML export and attachment downloads.
-
-Run a full export:
-
-```bash
-confluex export --page-id 12345 --out ./dump
-```
-
-Save a default encryption key once:
+4. If you want a default encryption recipient, save it once:
 
 ```bash
 confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
-Run an encrypted export for your own GPG key:
+`config` stores only the recipient identity string. It does not import or validate key material by itself.
+
+## Minimal Workflow
+
+If you just want the shortest safe path:
+
+1. Check the environment:
 
 ```bash
-confluex export --page-id 12345 --out ./dump --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+confluex doctor --page-id 12345
 ```
 
-You can also encrypt a plan result:
+2. Build a no-payload preview:
 
 ```bash
-confluex plan --page-id 12345 --out ./plan --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+confluex plan --page-id 12345 --out ./plan --safe
 ```
 
-If a default encryption key is already saved, export and plan will encrypt automatically even without `--encryption-key`.
+3. Inspect `./plan/summary.txt`.
 
-Run a more conservative export:
+Use this quick decision rule:
+
+- continue to `export` if `final_status=success`;
+- inspect `unresolved-links.tsv` and `scope-findings.tsv` before continuing if `final_status=success_with_findings`;
+- stop and fix the situation first if `final_status=policy_failed`, `incomplete`, `interrupted`, or `encryption_failed`.
+
+4. If the plan result looks acceptable, run the real export:
 
 ```bash
 confluex export --page-id 12345 --out ./dump --safe
 ```
 
-## Main Commands
-
-### `export`
-
-Performs a real export:
-
-- exports page HTML
-- downloads attachments
-- follows supported internal links
-- writes reports
-
-Example:
+5. For critical usage, prefer:
 
 ```bash
-confluex export --page-id 12345 --out ./dump
+confluex export --page-id 12345 --out ./dump --critical
 ```
 
-### `plan`
+That path is enough for most normal usage.
 
-Dry-run mode:
-
-- walks the same graph
-- parses storage XML
-- resolves links
-- does not download HTML
-- does not download attachments
-
-Example:
-
-```bash
-confluex plan --page-id 12345 --out ./plan
-```
+## Choosing The Right Mode
 
 ### `doctor`
 
-Checks:
+Use `doctor` before a first run, after environment changes, or before a critical export.
 
-- required local commands
-- `confluence` CLI availability
-- page access, if `--page-id` is provided
+It checks:
 
-`doctor` does not verify that a saved GPG key exists in the local GPG keyring.
+- local command availability;
+- whether `confluence` CLI is reachable;
+- page access, if `--page-id` is given;
+- encryption-recipient availability, if `--verify-encryption` is requested;
+- the current support profile and supported link forms.
 
 Examples:
 
 ```bash
 confluex doctor
 confluex doctor --page-id 12345
+confluex doctor --verify-encryption --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
-### `config`
+### `plan`
 
-Manages the saved default encryption key.
+Use `plan` when you want to understand scope without downloading page HTML or attachment payloads.
 
-This command stores only the key identity string. It does not generate or import keys.
+`plan` still:
 
-Examples:
+- checks the root page;
+- walks the same page graph as `export`;
+- parses storage XML;
+- resolves supported internal links;
+- writes the same run-level reports.
+
+`plan` does not:
+
+- persist `page.html`;
+- download attachments.
+
+Example:
 
 ```bash
-confluex config
-confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
-confluex config --clear-encryption-key
+confluex plan --page-id 12345 --out ./plan --safe
 ```
 
-### `install`
+### `export`
 
-Copies the script and libraries into an install directory.
+Use `export` when you want the actual payload:
 
-Options:
+- exported page HTML;
+- downloaded attachments;
+- report files and `summary.txt`.
 
-- `--install-dir DIR`: target directory for the installed `confluex` binary
+Example:
 
-### `uninstall`
+```bash
+confluex export --page-id 12345 --out ./dump --safe
+```
 
-Removes the installed script and its `lib/confluex` directory from the selected install root.
+## Choosing Safety And Confidentiality Flags
 
-Options:
+### `--safe`
 
-- `--install-dir DIR`: uninstall from a custom install location
+Use `--safe` for routine production work when you want conservative defaults without fully fail-closed behavior.
 
-## Options
-
-### Required For `export` And `plan`
-
-- `--page-id ID`: root Confluence page id to process
-
-### Output
-
-- `--out DIR`: explicit output directory for reports and exported pages
-
-If `--out` is not given, `confluex` generates a directory automatically:
-
-- export: `confluence_dump_<page_id>_<timestamp>`
-- plan: `confluence_plan_<page_id>_<timestamp>`
-
-If the generated name already exists, `confluex` adds a numeric suffix.
-
-If an explicit `--out` already exists, `confluex` stops with an error.
-
-### Safety
-
-- `--safe`: applies conservative defaults for production usage
-- `--max-pages N`: stop after `N` processed pages
-- `--max-download-mib N`: stop after `N` MiB downloaded in total
-- `--sleep-ms N`: sleep `N` milliseconds between processed pages
-- `--max-find-candidates N`: cap title-resolution fan-out for `confluence find`
-
-`--safe` applies these defaults unless you override them explicitly:
+It applies these defaults unless you override them explicitly:
 
 - `--max-find-candidates 5`
 - `--max-pages 200`
 - `--max-download-mib 256`
 - `--sleep-ms 200`
 
-### Behavior
+`--safe` reduces risk. It does not guarantee semantic completeness.
 
-- `--no-fail-fast`: continue after page-local failures instead of aborting the whole run
-- `--keep-metadata`: persist page metadata files in output
-- `--log-file FILE`: write a persistent run log to `FILE`
-- `--encryption-key KEY`: create `<out>.tar.gz.gpg` for GPG key identity `KEY` and remove the plain output directory after successful encryption
-- `--clear-encryption-key`: only for `confluex config`, remove the saved default encryption key
+### `--critical`
 
-For `--encryption-key`, prefer a full GPG fingerprint. `KEY` can be:
+Use `--critical` for fail-closed usage.
 
-- a full fingerprint
-- a long key id
-- another GPG recipient specifier that `gpg --recipient` accepts
+It:
 
-If you do not want to use an email address, use the full fingerprint.
-If a default encryption key is saved with `confluex config`, `export` and `plan` use it automatically. An explicit `--encryption-key` overrides the saved default for the current run.
+- implies `--safe`;
+- forbids `--no-fail-fast`;
+- exits non-zero if unresolved links remain;
+- exits non-zero if scope findings remain;
+- exits non-zero if page-local failures remain;
+- exits non-zero if the run ends incomplete.
 
-### Generic
+Use it when a "usable but imperfect" result is worse than an explicit blocked result.
 
-- `-h`, `--help`: show command usage and examples
+### `--confidential`
 
-`--no-fail-fast`:
+Use `--confidential` when encryption is mandatory and plaintext artifacts must not remain on disk if encryption fails.
 
-- best-effort mode
-- continues after page-local failures
+It:
 
-`--keep-metadata`:
+- implies `--critical`;
+- requires an effective encryption key;
+- removes the plain payload if encryption fails.
 
-- keeps `_info.txt`
-- keeps `_storage.xml`
-- in `plan`, also keeps `_attachments_preview.txt`
+Use it only when the machine already has the target public key in its GPG keyring.
 
-Without `--keep-metadata`, those files are not persisted in output.
+## Common Commands
 
-## Command Reference
+Normal export:
 
-### `confluex export`
+```bash
+confluex export --page-id 12345 --out ./dump
+```
 
-Use when you want a real export.
+Conservative export:
 
-Typical options:
+```bash
+confluex export --page-id 12345 --out ./dump --safe
+```
 
-- `--page-id ID`
-- `--out DIR`
-- `--safe`
-- `--no-fail-fast`
-- `--keep-metadata`
-- `--log-file FILE`
-- `--encryption-key KEY`
+Critical export:
 
-### `confluex plan`
+```bash
+confluex export --page-id 12345 --out ./dump --critical
+```
 
-Use when you want to inspect what would be exported without downloading HTML and attachments.
+Best-effort export:
 
-Typical options:
+```bash
+confluex export --page-id 12345 --out ./dump --no-fail-fast
+```
 
-- `--page-id ID`
-- `--out DIR`
-- `--safe`
-- `--keep-metadata`
-- `--log-file FILE`
-- `--encryption-key KEY`
+Use `--no-fail-fast` only when partial collection is still useful.
+Do not treat it as the normal mode for critical or trust-sensitive exports.
 
-### `confluex doctor`
+Keep metadata files for debugging:
 
-Use when you want to verify the local setup.
+```bash
+confluex export --page-id 12345 --out ./dump --keep-metadata --log-file ./confluex.log
+```
 
-Typical options:
+Encrypted export:
 
-- no options: verify local commands only
-- `--page-id ID`: also verify access to a specific page
+```bash
+confluex export --page-id 12345 --out ./dump --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+```
 
-### `confluex config`
+Confidential encrypted export:
 
-Use when you want to inspect, save, or clear the default encryption key.
+```bash
+confluex export --page-id 12345 --out ./dump --confidential --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+```
 
-Typical options:
+Planning run:
 
-- no options: show the current config state
-- `--encryption-key KEY`: save the default key
-- `--clear-encryption-key`: clear the default key
+```bash
+confluex plan --page-id 12345 --out ./plan --safe
+```
 
-### `confluex install`
+Limit total work explicitly:
 
-Use when you want `confluex` available from anywhere in the shell.
+```bash
+confluex export --page-id 12345 --out ./dump --max-pages 50 --max-download-mib 100 --sleep-ms 500
+```
 
-Typical options:
+Inspect or clear the saved encryption key:
 
-- `--install-dir DIR`
+```bash
+confluex config
+confluex config --clear-encryption-key
+```
 
-### `confluex uninstall`
+Optional self-install:
 
-Use when you want to remove a prior self-installation.
+```bash
+./confluex install
+confluex uninstall
+```
 
-Typical options:
+## Options You Will Actually Care About
 
-- `--install-dir DIR`
+- `--page-id ID`: required for `export` and `plan`, optional for page-access checks in `doctor`.
+- `--out DIR`: explicit output directory. If omitted, `confluex` generates one.
+- `--safe`: conservative defaults.
+- `--critical`: fail-closed mode.
+- `--confidential`: encrypted fail-closed mode that removes plaintext on encryption failure.
+- `--no-fail-fast`: continue after page-local failures.
+- `--keep-metadata`: persist `_info.txt`, `_storage.xml`, and in `plan` also `_attachments_preview.txt`.
+- `--log-file FILE`: write a persistent log file.
+- `--encryption-key KEY`: use this GPG recipient for the current run.
+- `--clear-encryption-key`: only for `config`, remove the saved default encryption key.
+- `--verify-encryption`: only for `doctor`.
+- `--install-dir DIR`: choose a non-default installation target for `install` or `uninstall`.
+- `--max-pages N`: stop after `N` processed pages.
+- `--max-download-mib N`: stop after `N` MiB downloaded in total.
+- `--sleep-ms N`: pause between processed pages.
+- `--max-find-candidates N`: bound title-resolution fan-out.
+
+If you provide `--out`, that path must not already exist.
+
+If you omit `--out`, `confluex` creates:
+
+- `confluence_dump_<page_id>_<timestamp>` for `export`;
+- `confluence_plan_<page_id>_<timestamp>` for `plan`.
 
 ## What Gets Exported
 
-`confluex` exports:
+The run scope includes:
 
-- the root page
-- the full recursive child tree of the root page
-- linked Confluence pages found in supported internal link forms
+- the root page;
+- the full recursive child tree of the root page;
+- linked Confluence pages discovered through supported internal reference forms.
 
-`confluex` does not automatically export:
+The run does not automatically include:
 
-- descendants of a linked page, unless they are also in the root tree or linked independently
-- external links
-- non-page objects that merely contain `id`-like fields
+- descendants of a linked page, unless they are separately discovered;
+- external links;
+- arbitrary internal-looking constructs outside the supported profile.
 
-## Supported Internal Link Forms
+Currently supported internal discovery forms include:
 
-- child tree results from `confluence children`
-- `ri:content-id`
-- `ri:page` title links
-- macro page parameters
-- internal `href` links containing `pageId`
+- child tree results from `confluence children`;
+- `ri:content-id`;
+- `ri:page` title references;
+- macro page parameters;
+- internal `href` references carrying `pageId`;
+- internal `href` references carrying a resolvable `space/title` path;
+- `ri:url` references carrying a resolvable `pageId`;
+- `ri:url` references carrying a resolvable `space/title` path.
 
-## Output Structure
+When the tool sees an internal-looking construct outside this profile, or when scope knowledge is only partial, it records that explicitly instead of pretending the run is fully trusted.
 
-Typical export output:
+## Output Layout
+
+Typical `export` result:
 
 ```text
 dump/
@@ -380,168 +343,111 @@ dump/
   resolved-links.tsv
   unresolved-links.tsv
   failed-pages.tsv
+  scope-findings.tsv
   summary.txt
 ```
 
-If `--encryption-key` is used, or a default encryption key is configured, and encryption succeeds:
+Typical `plan` result has the same top-level reports, but no `page.html` and no downloaded attachments.
 
-- `dump/` is removed
-- `dump.tar.gz.gpg` is created
-- `dump.tar.gz.gpg.txt` is created with decrypt/unpack commands
+By default metadata files are not persisted. With `--keep-metadata`, page folders also include:
 
-## Reports
+- `_info.txt`
+- `_storage.xml`
+- `_attachments_preview.txt` in `plan`
 
-### `manifest.tsv`
+If encryption succeeds:
 
-One row per processed page:
+- the plain output directory is removed;
+- `<out>.tar.gz.gpg` is created;
+- `<out>.tar.gz.gpg.txt` is created with decrypt/extract commands.
 
-- page id
-- space
-- title
-- folder relative to the parent of the run root, so the manifest stays portable after encrypted archive restore
-- discovery source
-- mode
-- attachment count
+## How To Read The Result
 
-### `resolved-links.tsv`
+### Start With `summary.txt`
 
-Resolved semantic dependencies between pages.
+This is the first file to check after every run.
 
-### `unresolved-links.tsv`
+Important fields:
 
-Links that were detected but could not be resolved safely.
+- `final_status`
+- `blocking_reasons`
+- `scope_trust`
+- `scope_findings`
+- `processed_pages`
+- `resolved_links`
+- `unresolved_links`
+- `failed_operations`
+- `incomplete`
+- `interrupt_reason`
+- `encryption_enabled`
+- `encryption_successful`
+- `support_profile`
 
-### `failed-pages.tsv`
+### `final_status`
 
-Page-local failures such as:
+The important values are:
 
-- `info`
-- `edit`
-- `export`
+- `success`: no blocking condition was recorded.
+- `success_with_findings`: the run finished, but unresolved links or scope findings remain.
+- `policy_failed`: the run completed enough to be interpretable, but `--critical` blocked it.
+- `incomplete`: the run stopped early because of a runtime limit or error.
+- `interrupted`: the operator interrupted the run.
+- `encryption_failed`: the export finished but final encryption did not succeed.
 
-### `summary.txt`
+### `blocking_reasons`
 
-Operational summary, including:
+This explains why a result is not a clean success.
 
-- command
-- mode
-- output directory
-- processed page counts
-- root/tree/linked breakdown
-- resolved and unresolved link counts
-- failure counts
-- downloaded bytes
-- incomplete status
+Common values:
 
-## Interrupt Behavior
+- `unresolved_links`
+- `scope_findings`
+- `failed_operations`
+- combinations of those
 
-If you interrupt a real export with `Ctrl+C`:
+### `scope_trust`
 
-- already written data stays on disk
-- `INCOMPLETE` is written
-- `summary.txt` marks the run as incomplete
+- `trusted`: no machine-readable reason to doubt the supported-scope interpretation was recorded.
+- `degraded`: the run is still readable, but you should not assume semantic completeness blindly.
 
-If you interrupt a plan run with `Ctrl+C`:
+### Other Important Reports
 
-- the plan output directory is removed
+`manifest.tsv`
 
-## Examples
+- one row per processed page;
+- tells you which pages were included;
+- includes a portable relative folder path.
 
-Export normally:
+`resolved-links.tsv`
 
-```bash
-confluex export --page-id 12345 --out ./dump
-```
+- shows which content references were resolved to actual pages.
 
-Export with best-effort behavior:
+`unresolved-links.tsv`
 
-```bash
-confluex export --page-id 12345 --out ./dump --no-fail-fast
-```
+- shows links that looked relevant but could not be resolved safely.
 
-Export and keep metadata for debugging:
+`failed-pages.tsv`
 
-```bash
-confluex export --page-id 12345 --out ./dump --keep-metadata --log-file ./confluex.log
-```
+- shows page-local operations that failed, such as `info`, `edit`, or `export`.
 
-Export and encrypt for your own GPG key:
+`scope-findings.tsv`
 
-```bash
-confluex export --page-id 12345 --out ./dump --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
-```
+- shows why the run is not fully trusted, for example unsupported internal-looking references, partial title inspection, child traversal uncertainty, or parse failures.
 
-Export using the saved default encryption key:
+## Encryption
 
-```bash
-confluex export --page-id 12345 --out ./dump
-```
+If you use `--encryption-key`, prefer a full fingerprint.
 
-Plan conservatively:
+You can:
 
-```bash
-confluex plan --page-id 12345 --out ./plan --safe
-```
+- save a default key with `confluex config --encryption-key ...`;
+- override that saved key per run with `--encryption-key`;
+- verify recipient availability with `confluex doctor --verify-encryption`.
 
-Limit total work:
-
-```bash
-confluex export --page-id 12345 --out ./dump --max-pages 50 --max-download-mib 100
-```
-
-## Troubleshooting
-
-### `doctor` fails
-
-Run:
-
-```bash
-confluex doctor --page-id 12345
-```
-
-Check:
-
-- `node` is installed
-- `confluence` CLI is installed
-- `confluence` CLI is already authenticated
-- you have access to the selected page
-
-### Export stops early
-
-Check `summary.txt`:
-
-- `interrupt_reason=max_pages_reached`
-- `interrupt_reason=max_download_mib_reached`
-- `interrupt_reason=runtime_error`
-- `interrupt_reason=SIGINT`
-
-### Page was not downloaded
-
-Check:
-
-- `unresolved-links.tsv`
-- `failed-pages.tsv`
-- `summary.txt`
-
-### Decrypt and extract an encrypted export
-
-To find your key fingerprint:
-
-```bash
-gpg --fingerprint
-```
-
-Use the full fingerprint with `--encryption-key` if you want the least ambiguous and most explicit target key.
-
-If the result is `dump.tar.gz.gpg`, decrypt it:
+To decrypt an encrypted result:
 
 ```bash
 gpg --output dump.tar.gz --decrypt dump.tar.gz.gpg
-```
-
-Then extract it:
-
-```bash
 tar -xzf dump.tar.gz
 ```
 
@@ -551,14 +457,122 @@ One-shot variant:
 gpg --decrypt dump.tar.gz.gpg > dump.tar.gz && tar -xzf dump.tar.gz
 ```
 
-If `confluex` created `dump.tar.gz.gpg.txt`, the same commands are written there as a reminder.
+If `--confidential` was used and encryption fails, inspect process stderr, the persistent log file if you used `--log-file`, and `<out>.status.txt` if present. Plain payload artifacts are intentionally removed in that mode.
 
-## Quality
+## Interrupts, Limits, And Early Stops
 
-The functional and UX contract is formalized in:
+If a run hits `--max-pages` or `--max-download-mib`, or if a runtime error stops it, `summary.txt` marks the run as incomplete and sets `interrupt_reason`.
 
-- `REQUIREMENTS.md`
+If you interrupt an `export` with `Ctrl+C`:
 
-Black-box smoke tests live in:
+- already-written artifacts remain on disk;
+- the result is marked incomplete/interrupted.
 
-- `scripts/test-smoke.sh`
+If you interrupt a `plan` with `Ctrl+C`:
+
+- the temporary output directory is removed.
+
+## Running The Functional Test Suite
+
+This repository contains a Bats suite in `tests/bats/`.
+
+`bats-core` itself is external. Install it separately and then run:
+
+```bash
+scripts/test-bats.sh
+```
+
+Or point the wrapper at a specific binary:
+
+```bash
+BATS_BIN="$HOME/.local/bin/bats" scripts/test-bats.sh
+```
+
+Use this if you want to verify that your local environment and the repository-owned mocks still match the documented CLI contract.
+
+## Linting
+
+JavaScript linting uses local `standard`, and shell linting uses a repository-local `shellcheck` binary.
+
+Install the JS linter dependencies once:
+
+```bash
+npm install
+```
+
+Install the repository-local `shellcheck` binary once:
+
+```bash
+scripts/install-shellcheck.sh
+```
+
+Run the linters:
+
+```bash
+npm run lint:js
+npm run lint:shell
+```
+
+Or run both:
+
+```bash
+npm run lint
+```
+
+## Support Boundary
+
+`confluex` is intentionally conservative.
+
+It is designed to be:
+
+- predictable;
+- explicit about degraded trust;
+- safe for critical usage when `--critical` or `--confidential` are chosen appropriately.
+
+It is not designed to promise universal parsing of every possible Confluence storage variation. The supported profile is bounded and intentionally surfaced by `doctor`, `summary.txt`, and `scope-findings.tsv`.
+
+If your workflow cannot tolerate bounded support plus explicit degraded-scope signaling, you should validate the specific target content model before relying on the tool operationally.
+
+## Troubleshooting
+
+### `doctor` fails
+
+Check that:
+
+- `node` is installed;
+- `confluence` CLI is installed and authenticated;
+- the page id is valid and accessible;
+- the GPG recipient exists locally if `--verify-encryption` is requested.
+
+### The run stopped earlier than expected
+
+Open `summary.txt` first and inspect:
+
+- `final_status`
+- `blocking_reasons`
+- `interrupt_reason`
+- `scope_trust`
+
+### The page you expected is missing
+
+Check:
+
+- `manifest.tsv`
+- `unresolved-links.tsv`
+- `scope-findings.tsv`
+- `failed-pages.tsv`
+
+### The export is usable but not clean
+
+If `final_status=success_with_findings`, the run completed but you still need to review the findings before treating it as semantically clean.
+
+For critical workflows, rerun with `--critical` so those conditions become explicit blockers.
+
+## Contract And Tests
+
+The functional contract is formalized in [`REQUIREMENTS.md`](REQUIREMENTS.md).
+
+The main black-box suite lives in:
+
+- `tests/bats/`
+- `scripts/test-bats.sh`

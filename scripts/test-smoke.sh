@@ -1229,11 +1229,18 @@ normalize_report_copy() {
   local out_dir="$2"
   local dest="$3"
   local escaped_out
+  local out_name
+  local escaped_out_name
   escaped_out="$(printf '%s\n' "$out_dir" | sed "s/[.[\\\\*^\\$()+?{|]/\\\\&/g")"
+  out_name="$(basename "$out_dir")"
+  escaped_out_name="$(printf '%s\n' "$out_name" | sed "s/[.[\\\\*^\\$()+?{|]/\\\\&/g")"
 
   case "$(basename "$src")" in
     manifest.tsv)
-      sed -E "s|$escaped_out|__OUT__|g" "$src" > "$dest"
+      sed -E \
+        -e "s|$escaped_out|__OUT__|g" \
+        -e "s|$escaped_out_name/pages/|__OUT__/pages/|g" \
+        "$src" > "$dest"
       ;;
     summary.txt)
       sed -E \
@@ -1622,7 +1629,7 @@ test_doctor_rejects_encryption_key() {
     exit 1
   fi
 
-  assert_contains 'doctor does not use --encryption-key' "$log_file"
+  assert_contains 'doctor only uses --encryption-key together with --verify-encryption' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -2698,7 +2705,7 @@ test_basic_export_reports_match_contract_exactly() {
 
   run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
-  expected_manifest=$'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n100\tENG\tRoot Page\t'"$out_dir"$'/pages/ENG/Root_Page__100\troot\texport\t1\n200\tENG\tChild Page\t'"$out_dir"$'/pages/ENG/Child_Page__200\tchild:100\texport\t1\n300\tENG\tLinked Page\t'"$out_dir"$'/pages/ENG/Linked_Page__300\tlink-title:100\texport\t1\n'
+  expected_manifest=$'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n100\tENG\tRoot Page\t'"$(basename "$out_dir")"$'/pages/ENG/Root_Page__100\troot\texport\t1\n200\tENG\tChild Page\t'"$(basename "$out_dir")"$'/pages/ENG/Child_Page__200\tchild:100\texport\t1\n300\tENG\tLinked Page\t'"$(basename "$out_dir")"$'/pages/ENG/Linked_Page__300\tlink-title:100\texport\t1\n'
   expected_resolved=$'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space\n100\tRoot Page\ttitle\tENG:Linked Page\t300\tLinked Page\tENG\n'
   expected_unresolved=$'from_page_id\tfrom_title\tspace_key\tlink_type\tlink_value\n'
   expected_failed=''
@@ -2872,12 +2879,16 @@ test_interrupt_dry_run_removes_output_dir() {
 }
 
 test_readme_documents_all_public_commands_and_options() {
-  assert_contains "### \`export\`" "$ROOT_DIR/README.md"
-  assert_contains "### \`plan\`" "$ROOT_DIR/README.md"
-  assert_contains "### \`doctor\`" "$ROOT_DIR/README.md"
-  assert_contains "### \`config\`" "$ROOT_DIR/README.md"
-  assert_contains "### \`install\`" "$ROOT_DIR/README.md"
-  assert_contains "### \`uninstall\`" "$ROOT_DIR/README.md"
+  assert_contains '## First-Time Setup' "$ROOT_DIR/README.md"
+  assert_contains '## Minimal Workflow' "$ROOT_DIR/README.md"
+  assert_contains '## Choosing The Right Mode' "$ROOT_DIR/README.md"
+  assert_contains '## Choosing Safety And Confidentiality Flags' "$ROOT_DIR/README.md"
+  assert_contains '## Common Commands' "$ROOT_DIR/README.md"
+  assert_contains '## How To Read The Result' "$ROOT_DIR/README.md"
+  assert_contains '## Support Boundary' "$ROOT_DIR/README.md"
+  assert_contains 'confluex config' "$ROOT_DIR/README.md"
+  assert_contains './confluex install' "$ROOT_DIR/README.md"
+  assert_contains 'confluex uninstall' "$ROOT_DIR/README.md"
   assert_contains "\`--page-id ID\`" "$ROOT_DIR/README.md"
   assert_contains "\`--out DIR\`" "$ROOT_DIR/README.md"
   assert_contains "\`--safe\`" "$ROOT_DIR/README.md"
@@ -2891,14 +2902,12 @@ test_readme_documents_all_public_commands_and_options() {
   assert_contains "\`--encryption-key KEY\`" "$ROOT_DIR/README.md"
   assert_contains "\`--clear-encryption-key\`" "$ROOT_DIR/README.md"
   assert_contains "\`--install-dir DIR\`" "$ROOT_DIR/README.md"
-  assert_contains "\`--help\`" "$ROOT_DIR/README.md"
-  assert_contains 'prefer a full GPG fingerprint' "$ROOT_DIR/README.md"
-  assert_contains 'gpg --fingerprint' "$ROOT_DIR/README.md"
-  assert_contains 'overrides the saved default for the current run' "$ROOT_DIR/README.md"
+  assert_contains 'prefer a full fingerprint' "$ROOT_DIR/README.md"
+  assert_contains 'override that saved key per run with `--encryption-key`' "$ROOT_DIR/README.md"
 }
 
 test_readme_documents_gpg_decrypt_flow() {
-  assert_contains 'Decrypt and extract an encrypted export' "$ROOT_DIR/README.md"
+  assert_contains 'To decrypt an encrypted result:' "$ROOT_DIR/README.md"
   assert_contains 'gpg --output dump.tar.gz --decrypt dump.tar.gz.gpg' "$ROOT_DIR/README.md"
   assert_contains 'tar -xzf dump.tar.gz' "$ROOT_DIR/README.md"
   assert_contains 'gpg --decrypt dump.tar.gz.gpg > dump.tar.gz && tar -xzf dump.tar.gz' "$ROOT_DIR/README.md"
