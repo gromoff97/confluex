@@ -1,0 +1,13 @@
+{
+  "name": "confluex",
+  "private": true,
+  "description": "Linting helpers for the Confluex repository",
+  "scripts": {
+    "lint:js": "scripts/lint-js.sh",
+    "lint:shell": "scripts/lint-shell.sh",
+    "lint": "npm run lint:js && npm run lint:shell"
+  },
+  "devDependencies": {
+    "standard": "^17.1.2"
+  }
+}
