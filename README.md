@@ -22,6 +22,26 @@ If you want encrypted output, the machine that runs `confluex` must already have
 
 `confluex config --encryption-key ...` only saves the key identity to use by default. It does not create, import, or validate GPG keys.
 
+## Testing
+
+This repository now includes a `bats-core` functional test suite under `tests/bats/`.
+
+`bats-core` is treated as an external dependency. It is not vendored into this repository. To run the suite, install `bats` separately in your environment and make sure it is on `PATH`, or point the wrapper script at it explicitly with `BATS_BIN`.
+
+Run the requirements-driven suite:
+
+```bash
+scripts/test-bats.sh
+```
+
+Or with an explicit binary path:
+
+```bash
+BATS_BIN="$HOME/.local/bin/bats" scripts/test-bats.sh
+```
+
+The suite uses repository-owned mocks and test helpers, but the `bats` executable itself remains user-managed.
+
 ## Before First Run
 
 1. Install `confluence` CLI and make sure it is already authenticated.
@@ -378,7 +398,7 @@ One row per processed page:
 - page id
 - space
 - title
-- folder
+- folder relative to the parent of the run root, so the manifest stays portable after encrypted archive restore
 - discovery source
 - mode
 - attachment count
