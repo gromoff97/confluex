@@ -323,11 +323,12 @@ The run scope includes:
 
 - the root page;
 - the full recursive child tree of the root page;
-- linked Confluence pages discovered through supported internal reference forms.
+- linked Confluence pages discovered directly through supported internal reference forms in root-tree pages.
 
 The run does not automatically include:
 
 - descendants of a linked page, unless they are separately discovered;
+- pages reachable only through links inside an already linked page;
 - external links;
 - arbitrary internal-looking constructs outside the supported profile.
 

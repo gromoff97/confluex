@@ -474,6 +474,20 @@ confluex_compute_breakdown() {
   done
 }
 
+confluex_page_links_expand_scope() {
+  local page_id="$1"
+  local reason="${DISCOVERED_BY[$page_id]:-unknown}"
+
+  case "$reason" in
+    root|child:*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 confluex_log_download_progress() {
   local label="$1"
   log_info "  download progress (${label}): total=$(confluex_bytes_to_mib "$downloaded_total_bytes") MiB, content=$(confluex_bytes_to_mib "$downloaded_content_bytes") MiB, metadata=$(confluex_bytes_to_mib "$downloaded_metadata_bytes") MiB"
@@ -787,7 +801,11 @@ confluex_process_page() {
   if confluex_run_with_optional_log confluence edit "$page_id" --output "$storage_file"; then
     page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$storage_file")))
     log_info "  saved storage XML: $storage_file"
-    confluex_process_links_for_page "$page_id" "$title" "$space_key" "$storage_file"
+    if confluex_page_links_expand_scope "$page_id"; then
+      confluex_process_links_for_page "$page_id" "$title" "$space_key" "$storage_file"
+    else
+      log_info "  skipping link-driven scope expansion for link-discovered page"
+    fi
   else
     log_warn "  failed to export storage XML for page $page_id"
     printf '%s\tedit\n' "$page_id" >> "$FAILED"
