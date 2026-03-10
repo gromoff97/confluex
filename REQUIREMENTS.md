@@ -193,6 +193,7 @@ These requirements are written from the product interface and the apparent user 
 1. Supported internal links may add linked pages to run scope.
 2. Linked pages are distinct from root-tree pages in run interpretation.
 3. Descendants of a linked page are not automatically added solely because that linked page was discovered.
+4. Links found while processing a linked page do not expand scope further; link-driven expansion is single-hop only from root-tree pages.
 
 **Traceability**:
 - Area: linked discovery

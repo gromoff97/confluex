@@ -85,6 +85,21 @@ teardown() {
   assert_page_missing "$out_dir" ENG Linked_Descendant 400
 }
 
+# Covers: FR-GRAPH-002
+@test "linked pages do not recursively expand scope through their own links" {
+  local out_dir="$CONFLUEX_WORK_DIR/no-link-of-link-expansion"
+
+  run_confluex linked_page_link_chain export --page-id 100 --out "$out_dir"
+
+  assert_success
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
+  assert_equal "3" "$(manifest_row_count "$out_dir/manifest.tsv")" "manifest row count"
+  assert_page_missing "$out_dir" ENG Linked_Of_Linked 400
+  assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 400)" "manifest page count for 400"
+}
+
 # Covers: FR-LINK-002
 @test "ambiguous title links stay unresolved instead of being guessed" {
   local out_dir="$CONFLUEX_WORK_DIR/ambiguous-link"

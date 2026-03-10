@@ -41,7 +41,7 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100|dry_run_attachments_failure:100|linked_page_info_failure_after_resolution:100|child_without_title_in_children:100|sanitize_collision:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|linked_page_link_chain:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100|dry_run_attachments_failure:100|linked_page_info_failure_after_resolution:100|child_without_title_in_children:100|sanitize_collision:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100)
       emit_info 100 "Root Page" "ENG"
       ;;
     preflight_failure:100)
@@ -53,7 +53,7 @@ scenario_info() {
       printf 'Space Key: \n'
       printf 'URL: https://example.invalid/pages/100\n'
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200|child_without_title_in_children:200|partial_export_failure:200|resume_reuse_fail:200|resume_reuse_success:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|linked_page_link_chain:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200|child_without_title_in_children:200|partial_export_failure:200|resume_reuse_fail:200|resume_reuse_success:200)
       emit_info 200 "Child Page" "ENG"
       ;;
     partial_export_failure:900|resume_reuse_success:900)
@@ -65,8 +65,11 @@ scenario_info() {
     sanitize_collision:1101)
       emit_info 1101 "API:Overview" "ENG"
       ;;
-    basic:300|duplicate_paths:300|linked_no_descendants:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300|rediscovered_after_visit:300|title_link_to_tree_page:300|mixed_valid_broken_ambiguous_links:300|invalid_content_id_valid_title:300|shared_linked_page_two_sources:300)
+    basic:300|duplicate_paths:300|linked_no_descendants:300|linked_page_link_chain:300|cycle_links:300|link_forms:300|non_page_child_ids:300|duplicate_child_entries:300|same_page_four_forms:300|content_id_only_link:300|rediscovered_after_visit:300|title_link_to_tree_page:300|mixed_valid_broken_ambiguous_links:300|invalid_content_id_valid_title:300|shared_linked_page_two_sources:300)
       emit_info 300 "Linked Page" "ENG"
+      ;;
+    linked_page_link_chain:400)
+      emit_info 400 "Linked Of Linked" "ENG"
       ;;
     shared_linked_page_two_sources:201)
       emit_info 201 "Second Child" "ENG"
@@ -196,7 +199,7 @@ scenario_children() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|linked_no_descendants:100|cycle_links:100)
+    basic:100|linked_no_descendants:100|linked_page_link_chain:100|cycle_links:100)
       cat <<'JSON'
 {"results":[{"id":"200","title":"Child Page","children":[]}]}
 JSON
@@ -316,7 +319,7 @@ scenario_edit() {
   local output="$3"
 
   case "$scenario:$page_id" in
-    basic:100|linked_no_descendants:100|cycle_links:100|non_page_child_ids:100|dry_run_attachments_failure:100)
+    basic:100|linked_no_descendants:100|linked_page_link_chain:100|cycle_links:100|non_page_child_ids:100|dry_run_attachments_failure:100)
       cat > "$output" <<'XML'
 <ac:link><ri:page ri:space-key="ENG" ri:content-title="Linked Page" /></ac:link>
 XML
@@ -517,7 +520,7 @@ XML
 <p>root page</p>
 XML
       ;;
-    basic:200|linked_no_descendants:200|non_page_child_ids:200)
+    basic:200|linked_no_descendants:200|linked_page_link_chain:200|non_page_child_ids:200)
       cat > "$output" <<'XML'
 <p>child page</p>
 XML
@@ -530,6 +533,16 @@ XML
     basic:300|linked_no_descendants:300|non_page_child_ids:300)
       cat > "$output" <<'XML'
 <p>linked page</p>
+XML
+      ;;
+    linked_page_link_chain:300)
+      cat > "$output" <<'XML'
+<ri:content-entity ri:content-id="400" />
+XML
+      ;;
+    linked_page_link_chain:400)
+      cat > "$output" <<'XML'
+<p>linked of linked page</p>
 XML
       ;;
     linked_no_descendants:400)
@@ -759,7 +772,7 @@ scenario_find() {
   local space_key="${3:-}"
 
   case "$scenario:$title:$space_key" in
-    basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|non_page_child_ids:Linked\ Page:ENG|rediscovered_after_visit:Linked\ Page:ENG|title_link_to_tree_page:Linked\ Page:ENG|shared_linked_page_two_sources:Linked\ Page:ENG)
+    basic:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|linked_page_link_chain:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|non_page_child_ids:Linked\ Page:ENG|rediscovered_after_visit:Linked\ Page:ENG|title_link_to_tree_page:Linked\ Page:ENG|shared_linked_page_two_sources:Linked\ Page:ENG)
       printf 'ID: 300\n'
       ;;
     same_page_four_forms:Linked\ Page:ENG|content_id_only_link:Linked\ Page:ENG)
@@ -1735,6 +1748,23 @@ test_linked_page_does_not_pull_its_descendants() {
   assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
   assert_path_missing "$out_dir/pages/ENG/Linked_Descendant__400"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "no-descendants processed_pages"
+}
+
+test_linked_pages_do_not_expand_scope_through_their_own_links() {
+  local out_dir="$WORK_DIR/no-link-of-link-expansion"
+  local log_file="$TEST_ROOT/no-link-of-link-expansion.log"
+  run_cmd "$log_file" linked_page_link_chain "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
+  assert_page_missing "$out_dir" ENG Linked_Of_Linked 400
+  assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "no-link-of-link-expansion processed_pages"
+  assert_equal "3" "$(manifest_row_count "$out_dir/manifest.tsv")" "no-link-of-link-expansion manifest rows"
+  assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 400)" "no-link-of-link-expansion manifest page 400 count"
 }
 
 test_duplicate_paths_do_not_duplicate_exports() {
@@ -2994,6 +3024,7 @@ test_export_subcommand_works
 test_plan_subcommand_works
 test_page_id_equals_syntax_works
 test_linked_page_does_not_pull_its_descendants
+test_linked_pages_do_not_expand_scope_through_their_own_links
 test_duplicate_paths_do_not_duplicate_exports
 test_cycle_links_do_not_loop
 test_self_link_does_not_duplicate_page
