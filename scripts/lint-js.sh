@@ -25,7 +25,7 @@ if [[ "${#js_files[@]}" -eq 0 ]]; then
 fi
 
 for i in "${!js_files[@]}"; do
-  js_files[$i]="$ROOT_DIR/${js_files[$i]}"
+  js_files[i]="$ROOT_DIR/${js_files[i]}"
 done
 
 exec "$STANDARD_BIN" "${js_files[@]}"

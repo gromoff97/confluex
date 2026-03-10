@@ -31,6 +31,9 @@ Options:
                      Implies --critical and requires an effective encryption key.
                      If encryption fails, plain run artifacts are removed instead
                      of being left on disk for recovery.
+  --resume           Only for `confluex export`: continue from an existing explicit
+                     output directory and reuse previously completed page payloads
+                     when possible instead of redownloading them.
   --dry-run          Do not export page HTML or download attachments.
                      Still reads page metadata and storage XML to build the full plan.
   --out DIR          Output directory. Default is generated automatically.
@@ -61,6 +64,7 @@ Examples:
   confluex plan --page-id 12345
   confluex export --page-id 12345 --out ./dump --safe
   confluex export --page-id 12345 --out ./dump --critical
+  confluex export --page-id 12345 --out ./dump --resume
   confluex config --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
   confluex export --page-id 12345 --out ./dump
   confluex export --page-id 12345 --out ./dump --encryption-key 89ABCDEF0123456789ABCDEF0123456789ABCDEF
@@ -109,6 +113,9 @@ confluex_suggest_option() {
       ;;
     --private|--confidential-mode|--encrypted-only)
       printf '%s\n' "--confidential"
+      ;;
+    --resume-run|--continue|--continue-run|--reuse-existing|--resume-export)
+      printf '%s\n' "--resume"
       ;;
     --max-page|--page-limit|--max-items)
       printf '%s\n' "--max-pages"
@@ -242,6 +249,7 @@ confluex_parse_args() {
   CFG_CRITICAL_MODE=0
   CFG_CONFIDENTIAL_MODE=0
   CFG_VERIFY_ENCRYPTION=0
+  CFG_RESUME_MODE=0
 
   case "${1:-}" in
     export|plan|doctor|config|install|uninstall)
@@ -307,6 +315,10 @@ confluex_parse_args() {
         ;;
       --confidential)
         CFG_CONFIDENTIAL_MODE=1
+        shift
+        ;;
+      --resume)
+        CFG_RESUME_MODE=1
         shift
         ;;
       --out)
@@ -475,6 +487,10 @@ confluex_parse_args() {
       printf 'ERROR: install does not use --verify-encryption\n' >&2
       return 1
     fi
+    if (( CFG_RESUME_MODE )); then
+      printf 'ERROR: install does not use --resume\n' >&2
+      return 1
+    fi
     if (( CFG_MAX_PAGES_SET )); then
       printf 'ERROR: install does not use --max-pages\n' >&2
       return 1
@@ -541,6 +557,10 @@ confluex_parse_args() {
     fi
     if (( CFG_VERIFY_ENCRYPTION )); then
       printf 'ERROR: uninstall does not use --verify-encryption\n' >&2
+      return 1
+    fi
+    if (( CFG_RESUME_MODE )); then
+      printf 'ERROR: uninstall does not use --resume\n' >&2
       return 1
     fi
     if (( CFG_MAX_PAGES_SET )); then
@@ -615,6 +635,10 @@ confluex_parse_args() {
       printf 'ERROR: doctor does not use --confidential\n' >&2
       return 1
     fi
+    if (( CFG_RESUME_MODE )); then
+      printf 'ERROR: doctor does not use --resume\n' >&2
+      return 1
+    fi
     if [[ -n "$CFG_ROOT_ID" && ! "$CFG_ROOT_ID" =~ ^[0-9]+$ ]]; then
       printf 'ERROR: --page-id must be numeric, got: %s\n' "$CFG_ROOT_ID" >&2
       return 1
@@ -675,6 +699,10 @@ confluex_parse_args() {
       printf 'ERROR: config does not use --verify-encryption\n' >&2
       return 1
     fi
+    if (( CFG_RESUME_MODE )); then
+      printf 'ERROR: config does not use --resume\n' >&2
+      return 1
+    fi
     if (( CFG_MAX_PAGES_SET )); then
       printf 'ERROR: config does not use --max-pages\n' >&2
       return 1
@@ -713,6 +741,11 @@ confluex_parse_args() {
 
   if (( CFG_INSTALL_DIR_SET )); then
     printf 'ERROR: export and plan do not use --install-dir\n' >&2
+    return 1
+  fi
+
+  if (( CFG_DRY_RUN )) && (( CFG_RESUME_MODE )); then
+    printf 'ERROR: plan does not use --resume\n' >&2
     return 1
   fi
 
@@ -763,6 +796,11 @@ confluex_parse_args() {
 
   if (( CFG_CONFIDENTIAL_MODE )); then
     CFG_CRITICAL_MODE=1
+  fi
+
+  if (( CFG_RESUME_MODE )) && [[ -z "$CFG_OUT_DIR" ]]; then
+    printf 'ERROR: --resume requires an explicit --out directory\n' >&2
+    return 1
   fi
 
   if (( CFG_CRITICAL_MODE )) && (( CFG_FAIL_FAST == 0 )); then

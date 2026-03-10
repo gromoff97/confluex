@@ -153,6 +153,7 @@ Use `export` when you want the actual payload:
 - exported page HTML;
 - downloaded attachments;
 - report files and `summary.txt`.
+- optional recovery from an earlier partial export through `--resume`.
 
 Example:
 
@@ -249,6 +250,12 @@ Confidential encrypted export:
 confluex export --page-id 12345 --out ./dump --confidential --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
+Resume a previous partial export without redownloading already materialized page payload when possible:
+
+```bash
+confluex export --page-id 12345 --out ./dump --resume
+```
+
 Planning run:
 
 ```bash
@@ -282,6 +289,7 @@ confluex uninstall
 - `--safe`: conservative defaults.
 - `--critical`: fail-closed mode.
 - `--confidential`: encrypted fail-closed mode that removes plaintext on encryption failure.
+- `--resume`: only for `export`, continue from an existing explicit output directory and reuse prior page payload when safe.
 - `--no-fail-fast`: continue after page-local failures.
 - `--keep-metadata`: persist `_info.txt`, `_storage.xml`, and in `plan` also `_attachments_preview.txt`.
 - `--log-file FILE`: write a persistent log file.
@@ -294,7 +302,15 @@ confluex uninstall
 - `--sleep-ms N`: pause between processed pages.
 - `--max-find-candidates N`: bound title-resolution fan-out.
 
-If you provide `--out`, that path must not already exist.
+If you provide `--out`, that path must not already exist unless you are intentionally continuing a previous export with `--resume`.
+
+`--resume` rules:
+
+- only valid with `confluex export`;
+- requires an explicit `--out`;
+- `--out` must already exist and contain a prior `manifest.tsv`;
+- reuses page payload only when the prior run already materialized that page's export payload;
+- still rebuilds traversal, page metadata, and link discovery from the root page again.
 
 If you omit `--out`, `confluex` creates:
 
@@ -361,6 +377,8 @@ If encryption succeeds:
 - `<out>.tar.gz.gpg` is created;
 - `<out>.tar.gz.gpg.txt` is created with decrypt/extract commands.
 
+If you rerun with `--resume`, the same output root is reused intentionally. `manifest.tsv`, `resolved-links.tsv`, `unresolved-links.tsv`, `failed-pages.tsv`, `scope-findings.tsv`, and `summary.txt` are regenerated for the new run, while already materialized page payload may be reused page-by-page.
+
 ## How To Read The Result
 
 ### Start With `summary.txt`
@@ -374,6 +392,9 @@ Important fields:
 - `scope_trust`
 - `scope_findings`
 - `processed_pages`
+- `resume_mode`
+- `reused_pages`
+- `fresh_pages`
 - `resolved_links`
 - `unresolved_links`
 - `failed_operations`
@@ -409,6 +430,14 @@ Common values:
 
 - `trusted`: no machine-readable reason to doubt the supported-scope interpretation was recorded.
 - `degraded`: the run is still readable, but you should not assume semantic completeness blindly.
+
+### Recovery Fields
+
+- `resume_mode=1` means the run intentionally reused an existing explicit output root.
+- `reused_pages` tells you how many page payloads were carried forward from the earlier run instead of being downloaded again.
+- `fresh_pages` tells you how many page payloads were materialized during the current rerun.
+
+If `resume_mode=1` but `reused_pages=0`, then the rerun did not actually avoid any page payload downloads.
 
 ### Other Important Reports
 
@@ -462,6 +491,8 @@ If `--confidential` was used and encryption fails, inspect process stderr, the p
 ## Interrupts, Limits, And Early Stops
 
 If a run hits `--max-pages` or `--max-download-mib`, or if a runtime error stops it, `summary.txt` marks the run as incomplete and sets `interrupt_reason`.
+
+If the partial result is still useful and you want to continue later, rerun the same root export with the same `--out` plus `--resume`. That recovery flow is meant specifically to avoid needless redownload of page payload that was already materialized successfully.
 
 If you interrupt an `export` with `Ctrl+C`:
 

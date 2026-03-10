@@ -41,7 +41,7 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100|dry_run_attachments_failure:100|linked_page_info_failure_after_resolution:100|child_without_title_in_children:100|sanitize_collision:100|partial_export_failure:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100)
+    basic:100|duplicate_paths:100|linked_no_descendants:100|cycle_links:100|ambiguous_title:100|cross_space:100|link_forms:100|fail_fast:100|no_fail_fast:100|non_page_child_ids:100|title_with_colon:100|find_output_without_ids:100|find_candidate_limit:100|duplicate_child_entries:100|same_page_four_forms:100|code_block_pageid_text:100|repeated_title_links:100|content_id_only_link:100|unicode_entity_title:100|inaccessible_tree_page:100|children_command_fails:100|children_malformed_json:100|find_partial_candidate_info_failure:100|shared_find_cache_across_pages:100|rediscovered_after_visit:100|single_quote_multiline_page_link:100|broken_storage_xml:100|edit_fail_fast:100|info_fail_fast:100|root_repeated_in_children:100|case_sensitive_title_match:100|whitespace_variant_title:100|mixed_valid_and_broken_links:100|conflicting_content_id_and_title:100|empty_title_info:100|candidate_info_title_mismatch:100|title_link_to_tree_page:100|mixed_valid_broken_ambiguous_links:100|root_referenced_again:100|invalid_content_id_valid_title:100|linked_page_edit_failure_after_resolution:100|children_title_mismatch:100|shared_linked_page_two_sources:100|broken_links_with_invalid_id:100|dry_run_attachments_failure:100|linked_page_info_failure_after_resolution:100|child_without_title_in_children:100|sanitize_collision:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100)
       emit_info 100 "Root Page" "ENG"
       ;;
     preflight_failure:100)
@@ -53,10 +53,10 @@ scenario_info() {
       printf 'Space Key: \n'
       printf 'URL: https://example.invalid/pages/100\n'
       ;;
-    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200|child_without_title_in_children:200|partial_export_failure:200)
+    basic:200|duplicate_paths:200|linked_no_descendants:200|cycle_links:200|non_page_child_ids:200|duplicate_child_entries:200|inaccessible_tree_page:200|shared_find_cache_across_pages:200|rediscovered_after_visit:200|edit_fail_fast:200|root_referenced_again:200|shared_linked_page_two_sources:200|child_without_title_in_children:200|partial_export_failure:200|resume_reuse_fail:200|resume_reuse_success:200)
       emit_info 200 "Child Page" "ENG"
       ;;
-    partial_export_failure:900)
+    partial_export_failure:900|resume_reuse_success:900)
       emit_info 900 "Later Page" "ENG"
       ;;
     sanitize_collision:1100)
@@ -206,7 +206,7 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"300","title":"Linked Page","children":[]}]}
 JSON
       ;;
-    fail_fast:100|no_fail_fast:100|partial_export_failure:100)
+    fail_fast:100|no_fail_fast:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100)
       cat <<'JSON'
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
@@ -603,12 +603,12 @@ XML
 <a href="/pages/viewpage.action?pageId=700">self by id</a>
 XML
       ;;
-    fail_fast:100|no_fail_fast:100|fail_fast:900|no_fail_fast:900|partial_export_failure:100|partial_export_failure:900)
+    fail_fast:100|no_fail_fast:100|fail_fast:900|no_fail_fast:900|partial_export_failure:100|partial_export_failure:900|resume_reuse_fail:100|resume_reuse_success:100|resume_reuse_success:900)
       cat > "$output" <<'XML'
 <p>export test</p>
 XML
       ;;
-    partial_export_failure:200)
+    partial_export_failure:200|resume_reuse_fail:200|resume_reuse_success:200)
       cat > "$output" <<'XML'
 <p>partial export page</p>
 XML
@@ -1426,6 +1426,7 @@ test_help_documents_all_public_commands_and_options() {
   assert_contains '--keep-metadata' "$log_file"
   assert_contains '--log-file FILE' "$log_file"
   assert_contains '--encryption-key KEY' "$log_file"
+  assert_contains '--resume' "$log_file"
   assert_contains 'fingerprint, long key id' "$log_file"
   assert_contains 'confluex config [--encryption-key KEY | --clear-encryption-key]' "$log_file"
   assert_contains '--max-pages N' "$log_file"
@@ -2634,6 +2635,50 @@ test_explicit_output_dir_must_not_exist() {
   assert_path_missing "$out_dir/pages"
 }
 
+test_resume_requires_existing_manifest() {
+  local out_dir="$WORK_DIR/resume-no-manifest"
+  local log_file="$TEST_ROOT/resume-no-manifest.log"
+  mkdir -p "$out_dir"
+
+  if run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --resume --out "$out_dir"; then
+    printf 'ASSERT FAILED: resume without manifest should return non-zero\n' >&2
+    exit 1
+  fi
+
+  assert_contains '--resume requires an existing manifest.tsv in' "$log_file"
+  assert_path_missing "$out_dir/pages"
+}
+
+test_resume_reuses_prior_payload_after_fail_fast_failure() {
+  local out_dir="$WORK_DIR/resume-reuse"
+  local fail_log="$TEST_ROOT/resume-reuse-fail.log"
+  local resume_log="$TEST_ROOT/resume-reuse-success.log"
+
+  if run_cmd "$fail_log" resume_reuse_fail "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"; then
+    printf 'ASSERT FAILED: initial resume-reuse failure scenario should return non-zero\n' >&2
+    exit 1
+  fi
+
+  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
+  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
+
+  run_cmd "$resume_log" resume_reuse_success "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --resume
+
+  assert_standard_report_files "$out_dir"
+  assert_report_invariants "$out_dir"
+  assert_contains 'reusing existing page HTML + attachments from prior run' "$resume_log"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resume_mode)" "resume-reuse resume_mode"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" reused_pages)" "resume-reuse reused_pages"
+  assert_equal "1" "$(summary_value "$out_dir/summary.txt" fresh_pages)" "resume-reuse fresh_pages"
+  assert_equal "0" "$(summary_value "$out_dir/summary.txt" failed_operations)" "resume-reuse failed_operations"
+  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_contains 'scenario resume_reuse_success' "$out_dir/pages/ENG/Later_Page__900/page.html"
+}
+
 test_max_pages_stops_early() {
   local out_dir="$WORK_DIR/max-pages"
   local log_file="$TEST_ROOT/max-pages.log"
@@ -2900,10 +2945,11 @@ test_readme_documents_all_public_commands_and_options() {
   assert_contains "\`--keep-metadata\`" "$ROOT_DIR/README.md"
   assert_contains "\`--log-file FILE\`" "$ROOT_DIR/README.md"
   assert_contains "\`--encryption-key KEY\`" "$ROOT_DIR/README.md"
+  assert_contains "\`--resume\`" "$ROOT_DIR/README.md"
   assert_contains "\`--clear-encryption-key\`" "$ROOT_DIR/README.md"
   assert_contains "\`--install-dir DIR\`" "$ROOT_DIR/README.md"
   assert_contains 'prefer a full fingerprint' "$ROOT_DIR/README.md"
-  assert_contains 'override that saved key per run with `--encryption-key`' "$ROOT_DIR/README.md"
+  assert_contains "override that saved key per run with \`--encryption-key\`" "$ROOT_DIR/README.md"
 }
 
 test_readme_documents_gpg_decrypt_flow() {
@@ -3011,6 +3057,8 @@ test_preflight_failure_stops_before_any_export
 test_safe_mode_applies_default_limits
 test_safe_mode_keeps_explicit_overrides
 test_explicit_output_dir_must_not_exist
+test_resume_requires_existing_manifest
+test_resume_reuses_prior_payload_after_fail_fast_failure
 test_max_pages_stops_early
 test_max_download_mib_stops_early
 test_repeated_runs_are_idempotent

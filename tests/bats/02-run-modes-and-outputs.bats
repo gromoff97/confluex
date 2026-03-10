@@ -216,7 +216,7 @@ teardown() {
   assert_summary_is_key_value_file "$out_dir/summary.txt"
   assert_summary_has_keys "$out_dir/summary.txt" \
     command root_page_id dry_run safe_mode critical_mode confidential_mode support_profile scope_trust encryption_enabled encryption_successful encryption_key encryption_key_source encrypted_archive output_dir path_provenance final_status blocking_reasons \
-    max_pages max_download_mib sleep_ms processed_pages root_pages tree_pages linked_pages other_pages manifest_rows \
+    max_pages max_download_mib sleep_ms processed_pages root_pages tree_pages linked_pages other_pages resume_mode reused_pages fresh_pages manifest_rows \
     resolved_links unresolved_links scope_findings failed_operations downloaded_total_bytes downloaded_total_mib downloaded_content_bytes \
     downloaded_content_mib downloaded_metadata_bytes downloaded_metadata_mib incomplete
   assert_summary_value "$out_dir/summary.txt" command export
@@ -224,6 +224,9 @@ teardown() {
   assert_summary_value "$out_dir/summary.txt" dry_run 0
   assert_summary_value "$out_dir/summary.txt" critical_mode 0
   assert_summary_value "$out_dir/summary.txt" confidential_mode 0
+  assert_summary_value "$out_dir/summary.txt" resume_mode 0
+  assert_summary_value "$out_dir/summary.txt" reused_pages 0
+  assert_summary_value "$out_dir/summary.txt" fresh_pages 0
   assert_summary_value "$out_dir/summary.txt" support_profile bounded_confluence_storage_v1
   assert_summary_value "$out_dir/summary.txt" scope_trust trusted
   assert_summary_value "$out_dir/summary.txt" encryption_enabled 0
@@ -237,6 +240,36 @@ teardown() {
   assert_summary_value "$out_dir/summary.txt" manifest_rows 3
   assert_failed_pages_two_columns "$out_dir/failed-pages.tsv"
   assert_scope_findings_four_columns "$out_dir/scope-findings.tsv"
+}
+
+# Covers: FR-RUN-004, FR-OUT-001, FR-REP-003, FR-OBS-001
+@test "resume mode reuses already materialized page payload from a prior failed export" {
+  local out_dir="$CONFLUEX_WORK_DIR/resume-reuse"
+
+  run_confluex resume_reuse_fail export --page-id 100 --out "$out_dir"
+  assert_failure
+  assert_summary_value "$out_dir/summary.txt" final_status incomplete
+  assert_summary_value "$out_dir/summary.txt" failed_operations 1
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_missing "$out_dir" ENG Later_Page 900
+  assert_file_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_file_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
+
+  run_confluex resume_reuse_success export --page-id 100 --out "$out_dir" --resume
+  assert_success
+  assert_output_contains 'reusing existing page HTML + attachments from prior run'
+  assert_summary_value "$out_dir/summary.txt" final_status success
+  assert_summary_value "$out_dir/summary.txt" resume_mode 1
+  assert_summary_value "$out_dir/summary.txt" reused_pages 2
+  assert_summary_value "$out_dir/summary.txt" fresh_pages 1
+  assert_summary_value "$out_dir/summary.txt" processed_pages 3
+  assert_summary_value "$out_dir/summary.txt" failed_operations 0
+  assert_page_exported "$out_dir" ENG Later_Page 900
+  assert_file_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_file_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_file_contains 'scenario resume_reuse_success' "$out_dir/pages/ENG/Later_Page__900/page.html"
+  assert_file_contains $'900\tENG\tLater Page' "$out_dir/manifest.tsv"
 }
 
 # Covers: FR-OUT-003

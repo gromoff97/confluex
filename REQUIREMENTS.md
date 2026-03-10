@@ -34,6 +34,7 @@ These requirements are written from the product interface and the apparent user 
 3. `--log-file` and `--encryption-key` require non-empty values when specified.
 4. Command-specific options that do not belong to the selected workflow cause immediate rejection, including `--clear-encryption-key` outside `config` and `--install-dir` outside `install` or `uninstall`.
 5. An explicit output directory is never silently reused.
+6. Reusing an existing output directory is allowed only through an explicit supported recovery workflow rather than by default.
 
 **Traceability**:
 - Area: invocation safety
@@ -48,8 +49,9 @@ These requirements are written from the product interface and the apparent user 
 3. `--safe`, `--max-pages`, `--max-download-mib`, `--sleep-ms`, and `--max-find-candidates` control run risk and traversal breadth.
 4. `--critical` expresses fail-closed critical-use intent for `export` and `plan`.
 5. `--confidential` expresses confidentiality-first intent for encrypted `export` and `plan`.
-6. `--no-fail-fast`, `--keep-metadata`, `--log-file`, and `--encryption-key` change run behavior or output materialization.
-7. `--verify-encryption` expresses encryption-recipient preflight intent for `doctor`.
+6. `--resume` expresses cross-run export recovery intent and is not merely a synonym for accepting an existing output directory.
+7. `--no-fail-fast`, `--keep-metadata`, `--log-file`, and `--encryption-key` change run behavior or output materialization.
+8. `--verify-encryption` expresses encryption-recipient preflight intent for `doctor`.
 
 **Traceability**:
 - Area: option semantics
@@ -137,6 +139,21 @@ These requirements are written from the product interface and the apparent user 
 **Traceability**:
 - Area: plan mode
 - Related: `FR-DATA-001`, `FR-OUT-002`, `FR-OUT-004`
+
+### FR-RUN-004
+**Requirement**: `export` shall provide an explicit cross-run recovery workflow for continuing from a previous explicit output root.
+
+**Acceptance**:
+1. `--resume` is supported only for `export`, not for `plan`, `doctor`, `config`, `install`, or `uninstall`.
+2. `--resume` requires an explicit `--out` that already exists as a directory from a prior run.
+3. `--resume` rejects an explicit output root that has no recovery manifest or is otherwise not compatible with the supported recovery workflow.
+4. In `--resume`, the product rebuilds run discovery and traversal from the root page again instead of blindly trusting prior reports as the final truth.
+5. In `--resume`, previously materialized page payload may be reused for a page only when the prior output provides enough page-identity evidence for safe reuse.
+6. In `--resume`, page payload that cannot be reused safely is materialized again rather than guessed.
+
+**Traceability**:
+- Area: recovery workflow
+- Related: `FR-CMD-002`, `FR-CMD-003`, `FR-OUT-001`, `FR-OBS-001`
 
 ## Data Acquisition and Parsing Semantics
 
@@ -253,11 +270,12 @@ These requirements are written from the product interface and the apparent user 
 **Acceptance**:
 1. If the operator does not specify `--out`, the product creates a unique output root for the run.
 2. If the operator specifies `--out`, that location becomes the output root.
-3. If an explicit output root already exists, the run is rejected before processing begins.
+3. If an explicit output root already exists and `--resume` was not requested, the run is rejected before processing begins.
+4. If `--resume` was requested, the explicit output root is accepted only when it is an existing directory compatible with the supported recovery workflow.
 
 **Traceability**:
 - Area: output root
-- Related: `FR-CMD-002`
+- Related: `FR-CMD-002`, `FR-RUN-004`
 
 ### FR-OUT-002
 **Requirement**: The output root shall separate run-level interpretation artifacts from per-page payload.
@@ -339,10 +357,11 @@ These requirements are written from the product interface and the apparent user 
 4. `failed-pages.tsv` records the affected page and the failed page-local operation.
 5. `scope-findings.tsv` contains a header and one row per scope-relevant finding, including page context, finding area, finding type, and detail.
 6. `summary.txt` uses stable `key=value` style lines rather than prose-only output.
+7. `summary.txt` includes machine-readable recovery fields that distinguish whether the run used recovery mode and how many page payloads were reused versus freshly materialized.
 
 **Traceability**:
 - Area: report schema
-- Related: `FR-REP-001`, `FR-REP-002`, `FR-OBS-001`
+- Related: `FR-REP-001`, `FR-REP-002`, `FR-OBS-001`, `FR-RUN-004`
 
 ## Safety, Failure, and Interruption
 
@@ -405,6 +424,7 @@ These requirements are written from the product interface and the apparent user 
 2. A partial result caused by a configured stop condition is marked as incomplete in `summary.txt` and includes the stop reason.
 3. A runtime failure after some artifacts were already written leaves those artifacts available for inspection unless a different requirement explicitly removes them.
 4. Partial outcomes are distinguishable from clean success without requiring inspection of internal implementation.
+5. A partial result that remains on disk after runtime failure is eligible to serve as input to the explicit recovery workflow when the operator chooses to rerun with `--resume`.
 
 **Traceability**:
 - Area: partial result semantics
@@ -456,6 +476,7 @@ These requirements are written from the product interface and the apparent user 
 6. `summary.txt` reports the blocking or warning reasons that explain why the final status is not clean success when such reasons exist.
 7. `summary.txt` reports the reason for early or incomplete termination when applicable.
 8. If persistent logging is requested, the run leaves a separate persistent log artifact.
+9. When recovery mode is used, `summary.txt` reports that fact and the reused-versus-fresh payload counts so an operator can tell whether the rerun actually avoided redundant page downloads.
 
 **Traceability**:
 - Area: observability
