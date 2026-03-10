@@ -1,6 +1,7 @@
 tools/
 node_modules/
 package-lock.json
+tmp/
 
 # Ignore dotfiles and dot-directories whose names contain "ai".
 .*ai*
