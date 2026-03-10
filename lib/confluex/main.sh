@@ -37,6 +37,8 @@ root_count=0
 tree_count=0
 linked_count=0
 other_count=0
+resume_reused_pages=0
+resume_fresh_pages=0
 CONFLUEX_STOP_REASON=""
 CFG_MAX_DOWNLOAD_BYTES=0
 
@@ -50,6 +52,8 @@ declare -A TITLE_BY_ID=()
 declare -A SPACE_BY_ID=()
 declare -A RECORDED_RESOLVED_LINKS=()
 declare -A RECORDED_SCOPE_FINDINGS=()
+declare -A RESUME_FOLDER_BY_ID=()
+declare -A RESUME_MODE_BY_ID=()
 CONFLUEX_LAST_RESOLVED_ID=""
 
 confluex_reset_state() {
@@ -62,6 +66,8 @@ confluex_reset_state() {
   SPACE_BY_ID=()
   RECORDED_RESOLVED_LINKS=()
   RECORDED_SCOPE_FINDINGS=()
+  RESUME_FOLDER_BY_ID=()
+  RESUME_MODE_BY_ID=()
   CONFLUEX_LAST_RESOLVED_ID=""
   downloaded_metadata_bytes=0
   downloaded_content_bytes=0
@@ -70,6 +76,8 @@ confluex_reset_state() {
   tree_count=0
   linked_count=0
   other_count=0
+  resume_reused_pages=0
+  resume_fresh_pages=0
   CONFLUEX_STOP_REASON=""
   ENCRYPTED_ARCHIVE=""
   ENCRYPTION_HINT_FILE=""
@@ -166,6 +174,94 @@ confluex_manifest_folder_value() {
   fi
 
   printf '%s\n' "$folder"
+}
+
+confluex_absolute_folder_from_manifest() {
+  local folder="$1"
+  local out_basename
+  local out_parent
+
+  out_basename="$(basename "$OUT_DIR")"
+  out_parent="$(dirname "$OUT_DIR")"
+
+  if [[ "$folder" == "$out_basename/"* ]]; then
+    printf '%s/%s\n' "$out_parent" "$folder"
+    return 0
+  fi
+
+  printf '%s\n' "$folder"
+}
+
+confluex_load_resume_manifest() {
+  local manifest_path="$OUT_DIR/manifest.tsv"
+  local page_id=""
+  local folder=""
+  local mode=""
+  local loaded_count=0
+
+  if [[ ! -f "$manifest_path" ]]; then
+    log_error "--resume requires an existing manifest.tsv in $OUT_DIR"
+    return 1
+  fi
+
+  while IFS=$'\t' read -r page_id _ _ folder _ mode _; do
+    [[ "$page_id" == "page_id" ]] && continue
+    [[ "$page_id" =~ ^[0-9]+$ ]] || continue
+    RESUME_FOLDER_BY_ID["$page_id"]="$(confluex_absolute_folder_from_manifest "$folder")"
+    RESUME_MODE_BY_ID["$page_id"]="$mode"
+    loaded_count=$((loaded_count + 1))
+  done < "$manifest_path"
+
+  log_info "resume state loaded: $loaded_count manifest rows from $manifest_path"
+  return 0
+}
+
+confluex_resume_folder_for_page() {
+  local page_id="$1"
+
+  if [[ -n "${RESUME_FOLDER_BY_ID[$page_id]+x}" ]]; then
+    printf '%s\n' "${RESUME_FOLDER_BY_ID[$page_id]}"
+    return 0
+  fi
+
+  return 1
+}
+
+confluex_resume_can_reuse_export_payload() {
+  local page_id="$1"
+  local page_dir="$2"
+
+  if (( CFG_RESUME_MODE == 0 || CFG_DRY_RUN == 1 )); then
+    return 1
+  fi
+
+  if [[ "${RESUME_MODE_BY_ID[$page_id]:-}" != "export" ]]; then
+    return 1
+  fi
+
+  if [[ ! -f "$page_dir/page.html" ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+confluex_count_existing_attachments() {
+  local attachments_dir="$1"
+  local count=0
+
+  if [[ ! -d "$attachments_dir" ]]; then
+    log_info "    reused attachments: none"
+    printf '0\n'
+    return 0
+  fi
+
+  while IFS= read -r -d '' _; do
+    count=$((count + 1))
+  done < <(find "$attachments_dir" -type f -print0 2>/dev/null)
+
+  log_info "    reused attachments: $count"
+  printf '%s\n' "$count"
 }
 
 confluex_enqueue() {
@@ -632,6 +728,7 @@ confluex_process_page() {
   local info_tmp
   local page_metadata_bytes=0
   local page_content_bytes=0
+  local reused_export_payload=0
   info_tmp="$(confluex_temp_file "info_${page_id}.txt")"
 
   log_info "------------------------------------------------------------"
@@ -659,7 +756,16 @@ confluex_process_page() {
   [[ -z "$title" ]] && title="page_$page_id"
 
   local page_dir
-  page_dir="$(confluex_page_folder_for "$page_id" "$space_key" "$title")"
+  if ! page_dir="$(confluex_resume_folder_for_page "$page_id")"; then
+    page_dir="$(confluex_page_folder_for "$page_id" "$space_key" "$title")"
+  fi
+
+  if confluex_resume_can_reuse_export_payload "$page_id" "$page_dir"; then
+    reused_export_payload=1
+  elif (( CFG_RESUME_MODE )) && (( CFG_DRY_RUN == 0 )) && [[ -d "$page_dir" ]]; then
+    rm -rf "$page_dir"
+  fi
+
   if (( CFG_KEEP_METADATA || CFG_DRY_RUN == 0 )); then
     mkdir -p "$page_dir"
   fi
@@ -695,35 +801,51 @@ confluex_process_page() {
     local attachments_preview_file
     attachments_preview_file="$(confluex_page_metadata_path "$page_dir" "_attachments_preview.txt")"
     log_info "  DRY-RUN: page content and attachments will NOT be downloaded"
-  attachment_count="$(confluex_log_attachments_preview "$page_id" "$attachments_preview_file")"
-  page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$attachments_preview_file")))
-  confluex_track_download_bytes metadata "$page_metadata_bytes"
-  log_info "  page download total: $(confluex_bytes_to_mib "$page_metadata_bytes") MiB metadata"
-  confluex_log_download_progress "page $page_id"
-  log_info "  DRY-RUN: would export page to $page_dir/page.html"
-  log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
-  confluex_record_manifest "$page_id" "$space_key" "$title" "$(confluex_manifest_folder_value "$page_dir")" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
-  return 0
+    attachment_count="$(confluex_log_attachments_preview "$page_id" "$attachments_preview_file")"
+    page_metadata_bytes=$((page_metadata_bytes + $(confluex_file_size_bytes "$attachments_preview_file")))
+    confluex_track_download_bytes metadata "$page_metadata_bytes"
+    log_info "  page download total: $(confluex_bytes_to_mib "$page_metadata_bytes") MiB metadata"
+    confluex_log_download_progress "page $page_id"
+    log_info "  DRY-RUN: would export page to $page_dir/page.html"
+    log_info "  DRY-RUN: attachment preview lines logged: $attachment_count"
+    confluex_record_manifest "$page_id" "$space_key" "$title" "$(confluex_manifest_folder_value "$page_dir")" "${DISCOVERED_BY[$page_id]:-unknown}" "dry-run" "$attachment_count"
+    return 0
   fi
 
-  log_info "  exporting page HTML + attachments"
-  if confluex_run_with_optional_log confluence export "$page_id" --format html --dest "$page_dir" --file page.html --attachments-dir attachments; then
-    log_info "  export complete"
+  if (( reused_export_payload )); then
+    log_info "  reusing existing page HTML + attachments from prior run"
+    resume_reused_pages=$((resume_reused_pages + 1))
   else
-    log_warn "  export failed for page $page_id"
-    printf '%s\texport\n' "$page_id" >> "$FAILED"
-    if (( CFG_FAIL_FAST )); then
-      return 1
+    log_info "  exporting page HTML + attachments"
+    if confluex_run_with_optional_log confluence export "$page_id" --format html --dest "$page_dir" --file page.html --attachments-dir attachments; then
+      log_info "  export complete"
+    else
+      log_warn "  export failed for page $page_id"
+      printf '%s\texport\n' "$page_id" >> "$FAILED"
+      if (( CFG_FAIL_FAST )); then
+        return 1
+      fi
+    fi
+    if (( CFG_RESUME_MODE )); then
+      resume_fresh_pages=$((resume_fresh_pages + 1))
     fi
   fi
 
-  page_content_bytes=$((page_content_bytes + $(confluex_file_size_bytes "$page_dir/page.html")))
-  page_content_bytes=$((page_content_bytes + $(confluex_dir_size_bytes "$page_dir/attachments")))
+  if (( reused_export_payload == 0 )); then
+    page_content_bytes=$((page_content_bytes + $(confluex_file_size_bytes "$page_dir/page.html")))
+    page_content_bytes=$((page_content_bytes + $(confluex_dir_size_bytes "$page_dir/attachments")))
+  fi
   confluex_track_download_bytes metadata "$page_metadata_bytes"
-  confluex_track_download_bytes content "$page_content_bytes"
+  if (( reused_export_payload == 0 )); then
+    confluex_track_download_bytes content "$page_content_bytes"
+  fi
   log_info "  page download total: total=$(confluex_bytes_to_mib "$((page_metadata_bytes + page_content_bytes))") MiB, content=$(confluex_bytes_to_mib "$page_content_bytes") MiB, metadata=$(confluex_bytes_to_mib "$page_metadata_bytes") MiB"
   confluex_log_download_progress "page $page_id"
-  attachment_count="$(confluex_log_attachments_from_export "$page_dir/attachments")"
+  if (( reused_export_payload )); then
+    attachment_count="$(confluex_count_existing_attachments "$page_dir/attachments")"
+  else
+    attachment_count="$(confluex_log_attachments_from_export "$page_dir/attachments")"
+  fi
   confluex_record_manifest "$page_id" "$space_key" "$title" "$(confluex_manifest_folder_value "$page_dir")" "${DISCOVERED_BY[$page_id]:-unknown}" "export" "$attachment_count"
   return 0
 }
@@ -856,6 +978,9 @@ confluex_write_summary() {
     printf 'tree_pages=%s\n' "$tree_count"
     printf 'linked_pages=%s\n' "$linked_count"
     printf 'other_pages=%s\n' "$other_count"
+    printf 'resume_mode=%s\n' "$CFG_RESUME_MODE"
+    printf 'reused_pages=%s\n' "$resume_reused_pages"
+    printf 'fresh_pages=%s\n' "$resume_fresh_pages"
     printf 'manifest_rows=%s\n' "$manifest_count"
     printf 'resolved_links=%s\n' "$resolved_count"
     printf 'unresolved_links=%s\n' "$unresolved_count"
@@ -977,7 +1102,17 @@ confluex_init_runtime_paths() {
   else
     OUT_DIR="$CFG_OUT_DIR"
     if [[ -e "$OUT_DIR" ]]; then
-      log_error "output directory already exists: $OUT_DIR"
+      if (( CFG_RESUME_MODE )); then
+        if [[ ! -d "$OUT_DIR" ]]; then
+          log_error "--resume requires an existing output directory, got non-directory path: $OUT_DIR"
+          return 1
+        fi
+      else
+        log_error "output directory already exists: $OUT_DIR"
+        return 1
+      fi
+    elif (( CFG_RESUME_MODE )); then
+      log_error "--resume requires an existing output directory: $OUT_DIR"
       return 1
     fi
   fi
@@ -995,6 +1130,10 @@ confluex_init_runtime_paths() {
 
   if [[ -n "$CFG_LOG_FILE" ]]; then
     LOG_FILE="$CFG_LOG_FILE"
+  fi
+
+  if (( CFG_RESUME_MODE )); then
+    confluex_load_resume_manifest || return 1
   fi
 
   mkdir -p "$PAGES_DIR"

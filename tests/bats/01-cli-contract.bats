@@ -24,6 +24,7 @@ teardown() {
   assert_output_contains '--safe'
   assert_output_contains '--critical'
   assert_output_contains '--confidential'
+  assert_output_contains '--resume'
   assert_output_contains '--max-pages N'
   assert_output_contains '--max-download-mib N'
   assert_output_contains '--sleep-ms N'
@@ -91,12 +92,33 @@ teardown() {
   assert_output_contains '--confidential requires an explicit or saved encryption key'
   assert_no_default_output_dirs
 
+  run_confluex basic export --page-id 100 --resume
+  assert_failure
+  assert_output_contains 'ERROR: --resume requires an explicit --out directory'
+  assert_no_default_output_dirs
+
   mkdir -p "$CONFLUEX_WORK_DIR/existing-out"
   run_confluex basic export --page-id 100 --out "$CONFLUEX_WORK_DIR/existing-out"
   assert_failure
   assert_output_contains 'output directory already exists:'
   assert_dir_empty "$CONFLUEX_WORK_DIR/existing-out"
   assert_path_missing "$CONFLUEX_WORK_DIR/existing-out/manifest.tsv"
+
+  run_confluex basic export --page-id 100 --resume --out "$CONFLUEX_WORK_DIR/missing-resume"
+  assert_failure
+  assert_output_contains '--resume requires an existing output directory:'
+  assert_no_default_output_dirs
+
+  mkdir -p "$CONFLUEX_WORK_DIR/resume-no-manifest"
+  run_confluex basic export --page-id 100 --resume --out "$CONFLUEX_WORK_DIR/resume-no-manifest"
+  assert_failure
+  assert_output_contains '--resume requires an existing manifest.tsv in'
+  assert_path_missing "$CONFLUEX_WORK_DIR/resume-no-manifest/pages"
+
+  : > "$CONFLUEX_WORK_DIR/not-a-dir"
+  run_confluex basic export --page-id 100 --resume --out "$CONFLUEX_WORK_DIR/not-a-dir"
+  assert_failure
+  assert_output_contains '--resume requires an existing output directory, got non-directory path:'
 }
 
 # Covers: FR-CMD-002, FR-DIAG-001, FR-CONF-001, FR-LIFE-001
@@ -116,6 +138,11 @@ teardown() {
   assert_output_contains 'ERROR: doctor does not use --critical'
   assert_no_default_output_dirs
 
+  run_confluex basic doctor --resume
+  assert_failure
+  assert_output_contains 'ERROR: doctor does not use --resume'
+  assert_no_default_output_dirs
+
   run_confluex basic config --page-id 100
   assert_failure
   assert_output_contains 'ERROR: config does not use --page-id'
@@ -124,6 +151,11 @@ teardown() {
   run_confluex basic config --install-dir "$CONFLUEX_WORK_DIR/install-bin"
   assert_failure
   assert_output_contains 'ERROR: config does not use --install-dir'
+  assert_no_default_output_dirs
+
+  run_confluex basic config --resume
+  assert_failure
+  assert_output_contains 'ERROR: config does not use --resume'
   assert_no_default_output_dirs
 
   run_confluex basic install --safe
@@ -139,6 +171,11 @@ teardown() {
   run_confluex basic uninstall --encryption-key TESTKEY
   assert_failure
   assert_output_contains 'ERROR: uninstall does not use --encryption-key'
+  assert_no_default_output_dirs
+
+  run_confluex basic plan --page-id 100 --resume --out "$CONFLUEX_WORK_DIR/plan-resume"
+  assert_failure
+  assert_output_contains 'ERROR: plan does not use --resume'
   assert_no_default_output_dirs
 }
 

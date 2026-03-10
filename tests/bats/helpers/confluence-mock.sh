@@ -28,7 +28,7 @@ scenario_info() {
   local page_id="$2"
 
   case "$scenario:$page_id" in
-    basic:100|duplicate_paths:100|cycle_links:100|ambiguous_title:100|linked_no_descendants:100|link_forms:100|fail_fast:100|no_fail_fast:100|partial_export_failure:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100|code_block_pageid_text:100|invalid_content_id_valid_title:100|root_referenced_again:100|children_unavailable:100|unsupported_internal_url:100|ri_url_pageid:100|display_url_title:100|paged_children:100|partially_visible_title_resolution:100)
+    basic:100|duplicate_paths:100|cycle_links:100|ambiguous_title:100|linked_no_descendants:100|link_forms:100|fail_fast:100|no_fail_fast:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100|code_block_pageid_text:100|invalid_content_id_valid_title:100|root_referenced_again:100|children_unavailable:100|unsupported_internal_url:100|ri_url_pageid:100|display_url_title:100|paged_children:100|partially_visible_title_resolution:100)
       emit_info 100 "Root Page" "ENG"
       ;;
     info_variant:100)
@@ -43,8 +43,11 @@ scenario_info() {
     preflight_failure:100)
       exit 1
       ;;
-    basic:200|duplicate_paths:200|cycle_links:200|linked_no_descendants:200|fail_fast:200|no_fail_fast:200|partial_export_failure:200|root_referenced_again:200|paged_children:200)
+    basic:200|duplicate_paths:200|cycle_links:200|linked_no_descendants:200|fail_fast:200|no_fail_fast:200|partial_export_failure:200|resume_reuse_fail:200|resume_reuse_success:200|root_referenced_again:200|paged_children:200)
       emit_info 200 "Child Page" "ENG"
+      ;;
+    resume_reuse_success:900)
+      emit_info 900 "Later Page" "ENG"
       ;;
     basic:300|duplicate_paths:300|cycle_links:300|linked_no_descendants:300|link_forms:300|invalid_content_id_valid_title:300|ri_url_pageid:300|display_url_title:300)
       emit_info 300 "Linked Page" "ENG"
@@ -85,7 +88,7 @@ JSON
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"300","title":"Linked Page","children":[]}]}
 JSON
       ;;
-    fail_fast:100|no_fail_fast:100|partial_export_failure:100)
+    fail_fast:100|no_fail_fast:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100)
       cat <<'JSON'
 {"results":[{"id":"200","title":"Child Page","children":[]},{"id":"900","title":"Later Page","children":[]}]}
 JSON
@@ -231,7 +234,7 @@ XML
 <p>page body</p>
 XML
       ;;
-    fail_fast:100|no_fail_fast:100|fail_fast:200|no_fail_fast:200|fail_fast:900|no_fail_fast:900|partial_export_failure:100|partial_export_failure:200|partial_export_failure:900)
+    fail_fast:100|no_fail_fast:100|fail_fast:200|no_fail_fast:200|fail_fast:900|no_fail_fast:900|partial_export_failure:100|partial_export_failure:200|partial_export_failure:900|resume_reuse_fail:100|resume_reuse_fail:200|resume_reuse_success:100|resume_reuse_success:200|resume_reuse_success:900)
       cat > "$output" <<'XML'
 <p>export test</p>
 XML
