@@ -346,7 +346,7 @@ teardown() {
   assert_file_contains $'100\ttree_scope\tchildren_pagination_hint\thasMore_true' "$findings_out/scope-findings.tsv"
 
   run_confluex paged_children export --page-id 100 --out "$critical_out" --critical
-  assert_failure
+  assert_status 2
   assert_summary_value "$critical_out/summary.txt" final_status policy_failed
   assert_summary_value "$critical_out/summary.txt" blocking_reasons scope_findings
   assert_summary_value "$critical_out/summary.txt" scope_trust degraded
@@ -375,14 +375,14 @@ teardown() {
   assert_summary_value "$override_out/summary.txt" sleep_ms 5
 
   run_confluex ambiguous_title export --page-id 100 --out "$unresolved_out" --critical
-  assert_failure
+  assert_status 2
   assert_summary_value "$unresolved_out/summary.txt" critical_mode 1
   assert_summary_value "$unresolved_out/summary.txt" final_status policy_failed
   assert_summary_value "$unresolved_out/summary.txt" blocking_reasons unresolved_links
   assert_file_contains $'100\tRoot Page\tENG\ttitle\tENG:Common Page' "$unresolved_out/unresolved-links.tsv"
 
   run_confluex children_unavailable export --page-id 100 --out "$degraded_out" --critical
-  assert_failure
+  assert_status 2
   assert_summary_value "$degraded_out/summary.txt" critical_mode 1
   assert_summary_value "$degraded_out/summary.txt" final_status policy_failed
   assert_summary_value "$degraded_out/summary.txt" blocking_reasons scope_findings
