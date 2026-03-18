@@ -465,6 +465,7 @@ These requirements are written from the product interface and the apparent user 
 8. In `--confidential` mode, an effective encryption key identity is required before the run proceeds, and that identity shall be expressed as a full 40-hex GPG fingerprint whether provided explicitly or via saved default configuration.
 9. In `--confidential` mode, encryption failure does not leave plain run payload artifacts on disk as a recovery result.
 10. When encryption is enabled, the effective recipient is validated before traversal and payload export work begins.
+11. If `--confidential` is combined with a persistent `--log-file`, the operator is warned that the log file is not protected by payload cleanup.
 
 **Traceability**:
 - Area: encrypted results

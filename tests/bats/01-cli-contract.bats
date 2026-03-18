@@ -306,6 +306,18 @@ EOF
 }
 
 # Covers: FR-CONF-001
+@test "confidential mode warns when a persistent log file is enabled" {
+  local out_dir="$CONFLUEX_WORK_DIR/confidential-log-warning"
+  local log_file="$CONFLUEX_WORK_DIR/confidential.log"
+  local fingerprint="0123456789ABCDEF0123456789ABCDEF01234567"
+
+  run_confluex basic export --page-id 100 --out "$out_dir" --confidential --encryption-key "$fingerprint" --log-file "$log_file"
+  assert_success
+  assert_output_contains '--confidential does not protect persistent log files'
+  assert_file_exists "$log_file"
+}
+
+# Covers: FR-CONF-001
 @test "config shows, saves, and clears the default encryption key identity" {
   local config_file
   config_file="$(config_file_path)"
