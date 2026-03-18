@@ -23,9 +23,43 @@ emit_info_variant() {
   printf 'URL: https://example.invalid/spaces/%s/pages/%s\n' "$space_key" "$page_id"
 }
 
+stress_graph_emit_children_json() {
+  local page_id=0
+  local first=1
+
+  printf '{"results":['
+  for ((page_id = 200; page_id <= 219; page_id += 1)); do
+    if (( first == 0 )); then
+      printf ','
+    fi
+    first=0
+    printf '{"id":"%s","title":"Stress Child %s","children":[]}' "$page_id" "$page_id"
+  done
+  printf ']}\n'
+}
+
 scenario_info() {
   local scenario="$1"
   local page_id="$2"
+
+  if [[ "$scenario" == "stress_graph" ]]; then
+    if [[ "$page_id" == "100" ]]; then
+      emit_info 100 "Stress Root" "ENG"
+      return 0
+    fi
+
+    if (( page_id >= 200 && page_id <= 219 )); then
+      emit_info "$page_id" "Stress Child $page_id" "ENG"
+      return 0
+    fi
+
+    if (( page_id >= 300 && page_id <= 309 )); then
+      emit_info "$page_id" "Stress Linked $page_id" "ENG"
+      return 0
+    fi
+
+    exit 1
+  fi
 
   case "$scenario:$page_id" in
     basic:100|duplicate_paths:100|cycle_links:100|ambiguous_title:100|linked_no_descendants:100|linked_page_link_chain:100|link_forms:100|fail_fast:100|no_fail_fast:100|partial_export_failure:100|resume_reuse_fail:100|resume_reuse_success:100|interrupt_export:100|interrupt_dry_run:100|max_download_limit:100|code_block_pageid_text:100|invalid_content_id_valid_title:100|root_referenced_again:100|children_unavailable:100|unsupported_internal_url:100|ri_url_pageid:100|display_url_title:100|paged_children:100|partially_visible_title_resolution:100)
@@ -80,6 +114,17 @@ scenario_children() {
   local scenario="$1"
   local page_id="$2"
 
+  if [[ "$scenario" == "stress_graph" ]]; then
+    if [[ "$page_id" == "100" ]]; then
+      stress_graph_emit_children_json
+    else
+      cat <<'JSON'
+{"results":[]}
+JSON
+    fi
+    return 0
+  fi
+
   case "$scenario:$page_id" in
     basic:100|cycle_links:100|linked_no_descendants:100|linked_page_link_chain:100)
       cat <<'JSON'
@@ -121,6 +166,22 @@ scenario_edit() {
   local scenario="$1"
   local page_id="$2"
   local output="$3"
+  local linked_page_id=0
+
+  if [[ "$scenario" == "stress_graph" ]]; then
+    if [[ "$page_id" == "100" ]]; then
+      : > "$output"
+      for ((linked_page_id = 300; linked_page_id <= 309; linked_page_id += 1)); do
+        printf '<ac:link><ri:page ri:space-key="ENG" ri:content-title="Stress Linked %s" /></ac:link>\n' "$linked_page_id" >> "$output"
+      done
+      return 0
+    fi
+
+    cat > "$output" <<XML
+<p>stress page $page_id</p>
+XML
+    return 0
+  fi
 
   case "$scenario:$page_id" in
     basic:100|linked_no_descendants:100|linked_page_link_chain:100|cycle_links:100)
@@ -283,6 +344,15 @@ scenario_find() {
   local scenario="$1"
   local title="$2"
   local space_key="${3:-}"
+  local linked_page_id=0
+
+  if [[ "$scenario" == "stress_graph" && "$space_key" == "ENG" && "$title" =~ ^Stress\ Linked\ ([0-9]+)$ ]]; then
+    linked_page_id="${BASH_REMATCH[1]}"
+    if (( linked_page_id >= 300 && linked_page_id <= 309 )); then
+      printf 'ID: %s\n' "$linked_page_id"
+      return 0
+    fi
+  fi
 
   case "$scenario:$title:$space_key" in
     basic:Linked\ Page:ENG|duplicate_paths:Linked\ Page:ENG|cycle_links:Linked\ Page:ENG|linked_no_descendants:Linked\ Page:ENG|linked_page_link_chain:Linked\ Page:ENG)
