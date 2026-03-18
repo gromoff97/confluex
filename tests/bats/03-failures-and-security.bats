@@ -121,6 +121,24 @@ teardown() {
   assert_file_contains 'GPG key identity: EXPLICIT-KEY' "$override_out.tar.gz.gpg.txt"
 }
 
+# Covers: FR-CONF-001
+@test "confidential mode requires a full fingerprint recipient from CLI or config" {
+  local cli_out="$CONFLUEX_WORK_DIR/confidential-cli-short-key"
+  local config_out="$CONFLUEX_WORK_DIR/confidential-config-short-key"
+
+  run_confluex basic export --page-id 100 --out "$cli_out" --confidential --encryption-key SHORTKEY
+  assert_failure
+  assert_path_missing "$cli_out/pages/ENG/Root_Page__100/page.html"
+  assert_output_contains 'full fingerprint'
+
+  run_confluex basic config --encryption-key NOTAFINGERPRINT
+  assert_success
+  run_confluex basic export --page-id 100 --out "$config_out" --confidential
+  assert_failure
+  assert_path_missing "$config_out/pages/ENG/Root_Page__100/page.html"
+  assert_output_contains 'full fingerprint'
+}
+
 # Covers: FR-CONF-001, FR-SEC-001
 @test "encrypted runs validate recipient availability before payload export starts" {
   local configured_out="$CONFLUEX_WORK_DIR/configured-key-preflight"
@@ -144,6 +162,18 @@ teardown() {
   assert_path_missing "$explicit_out/pages/ENG/Root_Page__100/page.html"
   assert_path_missing "$explicit_out.tar.gz.gpg"
   assert_output_contains 'encryption recipient'
+}
+
+# Covers: FR-SEC-001
+@test "encrypted exports do not rely on gpg trust-model always" {
+  local encrypted_out="$CONFLUEX_WORK_DIR/encrypted-no-trust-model"
+
+  export MOCK_GPG_FAIL_ON_TRUST_MODEL=1
+  run_confluex basic export --page-id 100 --out "$encrypted_out" --encryption-key KEY-ONE
+  unset MOCK_GPG_FAIL_ON_TRUST_MODEL
+  assert_success
+  assert_path_missing "$encrypted_out"
+  assert_file_exists "$encrypted_out.tar.gz.gpg"
 }
 
 # Covers: FR-SEC-001
@@ -185,9 +215,10 @@ teardown() {
 # Covers: FR-SEC-001, FR-OBS-001
 @test "confidential mode removes plain output when encryption fails" {
   local confidential_out="$CONFLUEX_WORK_DIR/confidential-export"
+  local fingerprint="0123456789ABCDEF0123456789ABCDEF01234567"
 
   export MOCK_GPG_FAIL=1
-  run_confluex basic export --page-id 100 --out "$confidential_out" --confidential --encryption-key LOCKED-KEY
+  run_confluex basic export --page-id 100 --out "$confidential_out" --confidential --encryption-key "$fingerprint"
   unset MOCK_GPG_FAIL
   assert_status 5
   assert_path_missing "$confidential_out"

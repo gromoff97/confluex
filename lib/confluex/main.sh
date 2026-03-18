@@ -1353,6 +1353,12 @@ confluex_validate_encryption_recipient() {
   return 1
 }
 
+confluex_encryption_key_is_full_fingerprint() {
+  local key="$1"
+
+  [[ "$key" =~ ^[A-Fa-f0-9]{40}$ ]]
+}
+
 confluex_encrypt_output_dir() {
   local out_parent
   local out_name
@@ -1380,7 +1386,7 @@ confluex_encrypt_output_dir() {
     return 1
   fi
 
-  if ! gpg --batch --yes --trust-model always --recipient "$CFG_ENCRYPTION_KEY" --output "$archive_gpg" --encrypt "$archive_tar"; then
+  if ! gpg --batch --yes --recipient "$CFG_ENCRYPTION_KEY" --output "$archive_gpg" --encrypt "$archive_tar"; then
     log_error "failed to encrypt archive for GPG key identity $CFG_ENCRYPTION_KEY"
     ENCRYPTED_ARCHIVE=""
     ENCRYPTION_SUCCESSFUL=0
@@ -1541,6 +1547,11 @@ confluex_run_export() {
 confluex_validate_run_configuration() {
   if (( CFG_CONFIDENTIAL_MODE )) && [[ -z "$CFG_ENCRYPTION_KEY" ]]; then
     log_error "--confidential requires an explicit or saved encryption key"
+    return 1
+  fi
+
+  if (( CFG_CONFIDENTIAL_MODE )) && ! confluex_encryption_key_is_full_fingerprint "$CFG_ENCRYPTION_KEY"; then
+    log_error "--confidential requires a full fingerprint encryption key"
     return 1
   fi
 

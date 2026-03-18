@@ -199,6 +199,7 @@ It:
 
 - implies `--critical`;
 - requires an effective encryption key;
+- requires that key, whether passed explicitly or loaded from saved config, to be provided as a full 40-hex GPG fingerprint;
 - removes the plain payload if encryption fails.
 
 Use it only when the machine already has the target public key in its GPG keyring.
