@@ -70,6 +70,7 @@ These requirements are written from the product interface and the apparent user 
 5. If `doctor --verify-encryption` is requested with no explicit or saved encryption key identity available, the command reports that condition explicitly.
 6. `doctor` does not claim to validate a saved encryption key identity unless encryption verification was requested explicitly.
 7. `doctor` reports the current product support profile so operators do not have to infer it from code or tests.
+8. `doctor` exposes version or capability-hint output for the Node.js runtime, the `confluence` CLI, and `gpg` when those tools are present so operators can troubleshoot environment drift.
 
 **Traceability**:
 - Area: diagnostics
@@ -389,6 +390,7 @@ These requirements are written from the product interface and the apparent user 
 3. `--sleep-ms` throttles page-to-page processing cadence.
 4. `--max-find-candidates` limits title-based link candidate fan-out.
 5. When a configured limit stops the run early, that state is visible in the result.
+6. `export` and `plan` runs executed without `--safe` and without positive page or download limits emit an explicit warning that the crawl is effectively unbounded.
 
 **Traceability**:
 - Area: run limits

@@ -1353,6 +1353,30 @@ confluex_validate_encryption_recipient() {
   return 1
 }
 
+confluex_print_doctor_capability_hint() {
+  local cmd="$1"
+  local label="$2"
+  local version_line=""
+
+  version_line="$("$cmd" --version 2>/dev/null | sed -n '1p')" || version_line=""
+  if [[ -n "$version_line" ]]; then
+    printf '  [INFO] %s version: %s\n' "$label" "$version_line"
+    return 0
+  fi
+
+  case "$cmd" in
+    node)
+      printf '  [INFO] node capability: version output unavailable; parser helpers require a working Node.js runtime\n'
+      ;;
+    confluence)
+      printf '  [INFO] confluence capability: version output unavailable; requires info, children, edit, export, and find subcommands\n'
+      ;;
+    gpg)
+      printf '  [INFO] gpg capability: version output unavailable; encrypted output requires a working GnuPG installation\n'
+      ;;
+  esac
+}
+
 confluex_encryption_key_is_full_fingerprint() {
   local key="$1"
 
@@ -1455,11 +1479,23 @@ confluex_run_doctor() {
   for cmd in bash node confluence sed awk grep sort find tr wc; do
     if command -v "$cmd" >/dev/null 2>&1; then
       printf '  [OK] %s: %s\n' "$cmd" "$(command -v "$cmd")"
+      case "$cmd" in
+        node|confluence)
+          confluex_print_doctor_capability_hint "$cmd" "$cmd"
+          ;;
+      esac
     else
       printf '  [FAIL] %s not found\n' "$cmd"
       ok=0
     fi
   done
+
+  if command -v gpg >/dev/null 2>&1; then
+    printf '  [OK] gpg: %s\n' "$(command -v gpg)"
+    confluex_print_doctor_capability_hint gpg gpg
+  else
+    printf '  [WARN] gpg not found (encrypted output unavailable)\n'
+  fi
 
   if (( ok == 0 )); then
     return 1
@@ -1558,6 +1594,22 @@ confluex_validate_run_configuration() {
   return 0
 }
 
+confluex_warn_if_unbounded_non_safe_run() {
+  if [[ "$CFG_COMMAND" != "export" && "$CFG_COMMAND" != "plan" ]]; then
+    return 0
+  fi
+
+  if (( CFG_SAFE_MODE )); then
+    return 0
+  fi
+
+  if (( CFG_MAX_PAGES > 0 || CFG_MAX_DOWNLOAD_MIB > 0 )); then
+    return 0
+  fi
+
+  log_warn "running without --safe and without positive --max-pages/--max-download-mib limits; crawl state is effectively unbounded"
+}
+
 confluex_main() {
   local script_path="$1"
   local script_lib_dir="$2"
@@ -1635,6 +1687,7 @@ confluex_main() {
   else
     log_info "log-file: disabled"
   fi
+  confluex_warn_if_unbounded_non_safe_run
 
   if confluex_preflight; then
     preflight_status=0

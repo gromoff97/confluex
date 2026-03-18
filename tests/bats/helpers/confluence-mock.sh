@@ -350,6 +350,9 @@ cmd="${1:-}"
 shift || true
 
 case "$cmd" in
+  --version)
+    printf 'confluence-cli mock 1.0.0\n'
+    ;;
   info)
     scenario_info "$SCENARIO" "${1:-}"
     ;;

@@ -333,6 +333,32 @@ teardown() {
   assert_path_exists "$(generated_dir 'confluence_dump_100_20240101_010203_2')"
 }
 
+# Covers: FR-SCALE-001, FR-SAFE-001
+@test "unbounded non-safe export and plan runs warn explicitly" {
+  local unbounded_plan="$CONFLUEX_WORK_DIR/unbounded-plan"
+  local unbounded_export="$CONFLUEX_WORK_DIR/unbounded-export"
+  local bounded_export="$CONFLUEX_WORK_DIR/bounded-export"
+  local safe_plan="$CONFLUEX_WORK_DIR/safe-plan-warning-check"
+
+  run_confluex basic plan --page-id 100 --out "$unbounded_plan"
+  assert_success
+  assert_output_contains 'without --safe'
+  assert_output_contains 'effectively unbounded'
+
+  run_confluex basic export --page-id 100 --out "$unbounded_export"
+  assert_success
+  assert_output_contains 'without --safe'
+  assert_output_contains 'effectively unbounded'
+
+  run_confluex basic export --page-id 100 --out "$bounded_export" --max-pages 10
+  assert_success
+  assert_output_not_contains 'effectively unbounded'
+
+  run_confluex basic plan --page-id 100 --out "$safe_plan" --safe
+  assert_success
+  assert_output_not_contains 'effectively unbounded'
+}
+
 # Covers: FR-GRAPH-001, FR-LINK-005, FR-SAFE-006
 @test "pagination hints in child traversal degrade scope trust and block critical mode" {
   local findings_out="$CONFLUEX_WORK_DIR/paged-children-findings"

@@ -30,6 +30,13 @@ You need:
 - `confluence` CLI already installed, authenticated, and working;
 - `gpg`, only if you want encrypted output.
 
+Operational baseline:
+
+- `bash` 4+;
+- a current Node.js LTS runtime;
+- a `confluence` CLI build that supports at least `info`, `children`, `edit`, `export`, and `find`, and ideally `--version`;
+- GnuPG 2.x if you want encrypted output.
+
 `bats-core` is only needed if you want to run this repository's functional test suite. It is an external dependency and is not vendored here.
 
 You can use the tool directly from the repository as `./confluex ...`.
@@ -110,6 +117,7 @@ Use `doctor` before a first run, after environment changes, or before a critical
 It checks:
 
 - local command availability;
+- version or capability hints for `node`, `confluence`, and `gpg` where available;
 - whether `confluence` CLI is reachable;
 - page access, if `--page-id` is given;
 - encryption-recipient availability, if `--verify-encryption` is requested;
@@ -175,6 +183,8 @@ It applies these defaults unless you override them explicitly:
 - `--sleep-ms 200`
 
 `--safe` reduces risk. It does not guarantee semantic completeness.
+
+If you skip `--safe`, add an explicit positive `--max-pages` or `--max-download-mib` limit for routine work. Unbounded non-safe runs are expert mode and warn explicitly.
 
 ### `--critical`
 

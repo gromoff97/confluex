@@ -6,6 +6,11 @@ input=""
 list_keys=0
 recipient=""
 
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'gpg (GnuPG) 2.4.0-mock\n'
+  exit 0
+fi
+
 while (($# > 0)); do
   case "$1" in
     --output|-o)

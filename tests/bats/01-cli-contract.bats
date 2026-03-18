@@ -260,6 +260,9 @@ EOF
   assert_output_contains '[OK] bash:'
   assert_output_contains '[OK] node:'
   assert_output_contains '[OK] confluence:'
+  assert_output_contains '[INFO] node version:'
+  assert_output_contains '[INFO] confluence version:'
+  assert_output_contains '[INFO] gpg version:'
   assert_output_contains '[WARN] auth check skipped (no --page-id)'
 
   run_confluex basic doctor --page-id 100
