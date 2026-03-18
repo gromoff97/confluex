@@ -359,6 +359,38 @@ teardown() {
   assert_output_not_contains 'effectively unbounded'
 }
 
+# Covers: FR-SCALE-001, FR-SAFE-002, FR-OBS-001
+@test "synthetic stress graph keeps warnings and summary data interpretable" {
+  local stress_out="$CONFLUEX_WORK_DIR/stress-graph-plan"
+  local limited_out="$CONFLUEX_WORK_DIR/stress-graph-plan-limited"
+
+  run_confluex stress_graph plan --page-id 100 --out "$stress_out"
+  assert_success
+  assert_output_contains 'effectively unbounded'
+  assert_standard_report_files "$stress_out"
+  assert_summary_value "$stress_out/summary.txt" final_status success
+  assert_summary_value "$stress_out/summary.txt" processed_pages 31
+  assert_summary_value "$stress_out/summary.txt" root_pages 1
+  assert_summary_value "$stress_out/summary.txt" tree_pages 20
+  assert_summary_value "$stress_out/summary.txt" linked_pages 10
+  assert_summary_value "$stress_out/summary.txt" resolved_links 10
+  assert_equal "31" "$(manifest_row_count "$stress_out/manifest.tsv")" "stress manifest row count"
+  assert_report_invariants "$stress_out"
+
+  run_confluex stress_graph plan --page-id 100 --out "$limited_out" --max-pages 12
+  assert_status 3
+  assert_output_not_contains 'effectively unbounded'
+  assert_summary_value "$limited_out/summary.txt" final_status incomplete
+  assert_summary_value "$limited_out/summary.txt" interrupt_reason max_pages_reached
+  assert_summary_value "$limited_out/summary.txt" processed_pages 12
+  assert_summary_value "$limited_out/summary.txt" root_pages 1
+  assert_summary_value "$limited_out/summary.txt" tree_pages 11
+  assert_summary_value "$limited_out/summary.txt" linked_pages 0
+  assert_summary_value "$limited_out/summary.txt" resolved_links 10
+  assert_equal "12" "$(manifest_row_count "$limited_out/manifest.tsv")" "limited stress manifest row count"
+  assert_report_invariants "$limited_out"
+}
+
 # Covers: FR-GRAPH-001, FR-LINK-005, FR-SAFE-006
 @test "pagination hints in child traversal degrade scope trust and block critical mode" {
   local findings_out="$CONFLUEX_WORK_DIR/paged-children-findings"
