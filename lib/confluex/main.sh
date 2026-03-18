@@ -23,6 +23,11 @@ CFG_ENCRYPTION_KEY_SOURCE="none"
 RUN_BLOCKING_REASONS=""
 CONFLUEX_SUPPORT_PROFILE="bounded_confluence_storage_v1"
 CONFLUEX_RESUME_SCHEMA_VERSION="1"
+CONFLUEX_EXIT_GENERIC_FAILURE=1
+CONFLUEX_EXIT_POLICY_FAILED=2
+CONFLUEX_EXIT_LIMIT_REACHED=3
+CONFLUEX_EXIT_RUNTIME_ERROR=4
+CONFLUEX_EXIT_ENCRYPTION_FAILURE=5
 
 # Counters (filled by confluex_compute_counts).
 processed_count=0
@@ -1296,7 +1301,7 @@ confluex_preflight() {
     log_info "preflight: checking encryption recipient"
     if ! confluex_validate_encryption_recipient "$CFG_ENCRYPTION_KEY"; then
       log_error "preflight failed: encryption recipient not available: $CFG_ENCRYPTION_KEY"
-      return 1
+      return "$CONFLUEX_EXIT_ENCRYPTION_FAILURE"
     fi
   fi
 
@@ -1308,7 +1313,7 @@ confluex_preflight() {
   fi
 
   log_error "preflight failed: cannot access page $CFG_ROOT_ID. Check confluence-cli authentication and permissions."
-  return 1
+  return "$CONFLUEX_EXIT_GENERIC_FAILURE"
 }
 
 confluex_write_encryption_instructions() {
@@ -1546,12 +1551,15 @@ confluex_main() {
   local script_path="$1"
   local script_lib_dir="$2"
   local -a required_cmds=()
+  local preflight_status=0
+  local export_status=0
+  local encrypt_status=0
   shift 2
 
   CFG_HELP_ONLY=0
   if ! confluex_parse_args "$@"; then
     confluex_usage >&2
-    return 1
+    return "$CONFLUEX_EXIT_GENERIC_FAILURE"
   fi
 
   if (( CFG_HELP_ONLY )); then
@@ -1580,16 +1588,16 @@ confluex_main() {
 
   confluex_reset_state
   confluex_apply_default_config
-  confluex_validate_run_configuration || return 1
+  confluex_validate_run_configuration || return "$CONFLUEX_EXIT_GENERIC_FAILURE"
 
   required_cmds=(bash node confluence sed awk grep sort find tr wc)
   if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
     required_cmds+=(tar gpg)
   fi
-  confluex_require_cmds "${required_cmds[@]}" || return 1
+  confluex_require_cmds "${required_cmds[@]}" || return "$CONFLUEX_EXIT_GENERIC_FAILURE"
 
   CFG_MAX_DOWNLOAD_BYTES=$((CFG_MAX_DOWNLOAD_MIB * 1048576))
-  confluex_init_runtime_paths || return 1
+  confluex_init_runtime_paths || return "$CONFLUEX_EXIT_GENERIC_FAILURE"
   trap 'confluex_on_interrupt' INT TERM
   trap 'confluex_on_exit $?' EXIT
 
@@ -1617,26 +1625,41 @@ confluex_main() {
     log_info "log-file: disabled"
   fi
 
-  if ! confluex_preflight; then
-    return 1
+  if confluex_preflight; then
+    preflight_status=0
+  else
+    preflight_status=$?
+  fi
+  if (( preflight_status != 0 )); then
+    return "$preflight_status"
   fi
 
   confluex_collect_initial_queue
 
-  if ! confluex_run_export; then
+  if confluex_run_export; then
+    export_status=0
+  else
+    export_status=$?
+  fi
+  if (( export_status != 0 )); then
     if [[ -n "$CONFLUEX_STOP_REASON" ]]; then
       confluex_write_summary 1 "$CONFLUEX_STOP_REASON"
       log_warn "stopped early: $CONFLUEX_STOP_REASON"
-      return 1
+      return "$CONFLUEX_EXIT_LIMIT_REACHED"
     fi
     confluex_write_summary 1 "runtime_error"
     log_error "aborted due to fail-fast mode"
-    return 1
+    return "$CONFLUEX_EXIT_RUNTIME_ERROR"
   fi
 
   if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
-    if ! confluex_encrypt_output_dir; then
-      return 1
+    if confluex_encrypt_output_dir; then
+      encrypt_status=0
+    else
+      encrypt_status=$?
+    fi
+    if (( encrypt_status != 0 )); then
+      return "$CONFLUEX_EXIT_ENCRYPTION_FAILURE"
     fi
   else
     confluex_write_summary 0 ""
@@ -1687,7 +1710,7 @@ confluex_main() {
 
   if confluex_should_fail_critical_policy; then
     log_error "critical policy failed: $RUN_BLOCKING_REASONS"
-    return 1
+    return "$CONFLUEX_EXIT_POLICY_FAILED"
   fi
 
   return 0

@@ -482,6 +482,7 @@ These requirements are written from the product interface and the apparent user 
 8. If persistent logging is requested, the run leaves a separate persistent log artifact.
 9. When recovery mode is used, `summary.txt` reports that fact and the reused-versus-fresh payload counts so an operator can tell whether the rerun actually avoided redundant page downloads.
 10. `summary.txt` reports the active resume schema version used for compatibility checks.
+11. Export and plan commands use stable non-zero exit codes that distinguish at least policy failure, configured stop conditions, runtime failure, encryption failure, and signal interruption.
 
 **Traceability**:
 - Area: observability

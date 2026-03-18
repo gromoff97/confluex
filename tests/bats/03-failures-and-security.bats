@@ -33,7 +33,7 @@ teardown() {
   local limited_out="$CONFLUEX_WORK_DIR/max-download-limit"
 
   run_confluex partial_export_failure export --page-id 100 --out "$partial_out"
-  assert_failure
+  assert_status 4
   assert_file_exists "$partial_out/pages/ENG/Child_Page__200/page.html"
   assert_file_contains $'200\texport' "$partial_out/failed-pages.tsv"
   assert_failed_pages_two_columns "$partial_out/failed-pages.tsv"
@@ -43,7 +43,7 @@ teardown() {
   assert_summary_has_keys "$partial_out/summary.txt" command root_page_id output_dir failed_operations downloaded_total_bytes interrupt_reason
 
   run_confluex basic export --page-id 100 --out "$max_pages_out" --max-pages 1
-  assert_failure
+  assert_status 3
   assert_summary_value "$max_pages_out/summary.txt" incomplete 1
   assert_summary_value "$max_pages_out/summary.txt" final_status incomplete
   assert_summary_value "$max_pages_out/summary.txt" interrupt_reason max_pages_reached
@@ -51,7 +51,7 @@ teardown() {
   assert_report_invariants "$max_pages_out"
 
   run_confluex max_download_limit export --page-id 100 --out "$limited_out" --max-download-mib 1
-  assert_failure
+  assert_status 3
   assert_summary_value "$limited_out/summary.txt" incomplete 1
   assert_summary_value "$limited_out/summary.txt" final_status incomplete
   assert_summary_value "$limited_out/summary.txt" interrupt_reason max_download_mib_reached
@@ -94,7 +94,7 @@ teardown() {
   export MOCK_GPG_FAIL=1
   run_confluex basic export --page-id 100 --out "$failing_out" --encryption-key KEY-TWO
   unset MOCK_GPG_FAIL
-  assert_failure
+  assert_status 5
   assert_path_exists "$failing_out"
   assert_path_missing "$failing_out.tar.gz.gpg"
   assert_summary_value "$failing_out/summary.txt" encryption_enabled 1
@@ -132,7 +132,7 @@ teardown() {
   export MOCK_GPG_MISSING_KEY=NOT-A-REAL-GPG-IDENTITY
   run_confluex basic export --page-id 100 --out "$configured_out"
   unset MOCK_GPG_MISSING_KEY
-  assert_failure
+  assert_status 5
   assert_path_missing "$configured_out/pages/ENG/Root_Page__100/page.html"
   assert_path_missing "$configured_out.tar.gz.gpg"
   assert_output_contains 'encryption recipient'
@@ -140,7 +140,7 @@ teardown() {
   export MOCK_GPG_MISSING_KEY=EXPLICIT-MISSING-KEY
   run_confluex basic export --page-id 100 --out "$explicit_out" --encryption-key EXPLICIT-MISSING-KEY
   unset MOCK_GPG_MISSING_KEY
-  assert_failure
+  assert_status 5
   assert_path_missing "$explicit_out/pages/ENG/Root_Page__100/page.html"
   assert_path_missing "$explicit_out.tar.gz.gpg"
   assert_output_contains 'encryption recipient'
@@ -189,7 +189,7 @@ teardown() {
   export MOCK_GPG_FAIL=1
   run_confluex basic export --page-id 100 --out "$confidential_out" --confidential --encryption-key LOCKED-KEY
   unset MOCK_GPG_FAIL
-  assert_failure
+  assert_status 5
   assert_path_missing "$confidential_out"
   assert_path_missing "$confidential_out.tar.gz.gpg"
   assert_file_exists "$confidential_out.status.txt"

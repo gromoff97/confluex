@@ -419,6 +419,17 @@ The important values are:
 - `interrupted`: the operator interrupted the run.
 - `encryption_failed`: the export finished but final encryption did not succeed.
 
+### Exit Codes
+
+`confluex` keeps `summary.txt` as the detailed diagnostic surface, but the command exit status is also stable enough for automation:
+
+- `0`: success
+- `2`: critical policy failure (`final_status=policy_failed`)
+- `3`: configured stop condition such as `--max-pages` or `--max-download-mib`
+- `4`: runtime failure during export processing (`final_status=incomplete` with `interrupt_reason=runtime_error`)
+- `5`: encryption failure, including missing or unavailable recipients detected in preflight
+- `130`: interrupted by signal
+
 ### `blocking_reasons`
 
 This explains why a result is not a clean success.
