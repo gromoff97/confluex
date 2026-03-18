@@ -150,6 +150,8 @@ These requirements are written from the product interface and the apparent user 
 4. In `--resume`, the product rebuilds run discovery and traversal from the root page again instead of blindly trusting prior reports as the final truth.
 5. In `--resume`, previously materialized page payload may be reused for a page only when the prior output provides enough page-identity evidence for safe reuse.
 6. In `--resume`, page payload that cannot be reused safely is materialized again rather than guessed.
+7. A compatible recovery workflow requires prior summary metadata that matches the current root page, command, support profile, and resume schema version.
+8. Recovery manifest folder values used for payload reuse must remain inside the active output root.
 
 **Traceability**:
 - Area: recovery workflow
@@ -460,6 +462,7 @@ These requirements are written from the product interface and the apparent user 
 7. `--confidential` is available as a confidentiality-first mode for encrypted runs and implies critical-use behavior.
 8. In `--confidential` mode, an effective encryption key identity is required before the run proceeds.
 9. In `--confidential` mode, encryption failure does not leave plain run payload artifacts on disk as a recovery result.
+10. When encryption is enabled, the effective recipient is validated before traversal and payload export work begins.
 
 **Traceability**:
 - Area: encrypted results
@@ -478,6 +481,7 @@ These requirements are written from the product interface and the apparent user 
 7. `summary.txt` reports the reason for early or incomplete termination when applicable.
 8. If persistent logging is requested, the run leaves a separate persistent log artifact.
 9. When recovery mode is used, `summary.txt` reports that fact and the reused-versus-fresh payload counts so an operator can tell whether the rerun actually avoided redundant page downloads.
+10. `summary.txt` reports the active resume schema version used for compatibility checks.
 
 **Traceability**:
 - Area: observability

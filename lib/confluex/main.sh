@@ -22,6 +22,7 @@ ENCRYPTION_SUCCESSFUL=0
 CFG_ENCRYPTION_KEY_SOURCE="none"
 RUN_BLOCKING_REASONS=""
 CONFLUEX_SUPPORT_PROFILE="bounded_confluence_storage_v1"
+CONFLUEX_RESUME_SCHEMA_VERSION="1"
 
 # Counters (filled by confluex_compute_counts).
 processed_count=0
@@ -176,20 +177,98 @@ confluex_manifest_folder_value() {
   printf '%s\n' "$folder"
 }
 
+confluex_summary_value() {
+  local file="$1"
+  local key="$2"
+
+  awk -F= -v key="$key" '$1 == key { print substr($0, length(key) + 2); exit }' "$file"
+}
+
+confluex_path_is_within_out_dir() {
+  local path="$1"
+
+  [[ "$path" == "$OUT_DIR" || "$path" == "$OUT_DIR"/* ]]
+}
+
+confluex_path_has_relative_segments() {
+  local path="$1"
+
+  case "$path" in
+    */../*|*/..|*/./*|*/.|*//*) return 0 ;;
+  esac
+
+  return 1
+}
+
 confluex_absolute_folder_from_manifest() {
   local folder="$1"
   local out_basename
   local out_parent
+  local resolved=""
 
   out_basename="$(basename "$OUT_DIR")"
   out_parent="$(dirname "$OUT_DIR")"
 
   if [[ "$folder" == "$out_basename/"* ]]; then
-    printf '%s/%s\n' "$out_parent" "$folder"
-    return 0
+    resolved="$(printf '%s/%s\n' "$out_parent" "$folder")"
+  elif [[ "$folder" == "$OUT_DIR"/* ]]; then
+    resolved="$folder"
+  else
+    log_error "--resume requires manifest folders to stay inside $OUT_DIR, got: $folder"
+    return 1
   fi
 
-  printf '%s\n' "$folder"
+  if confluex_path_has_relative_segments "$resolved"; then
+    log_error "--resume requires normalized manifest folders inside $OUT_DIR, got: $folder"
+    return 1
+  fi
+
+  if ! confluex_path_is_within_out_dir "$resolved"; then
+    log_error "--resume requires manifest folders to stay inside $OUT_DIR, got: $folder"
+    return 1
+  fi
+
+  printf '%s\n' "$resolved"
+}
+
+confluex_validate_resume_summary() {
+  local summary_path="$OUT_DIR/summary.txt"
+  local prior_command=""
+  local prior_root_id=""
+  local prior_support_profile=""
+  local prior_schema=""
+
+  if [[ ! -f "$summary_path" ]]; then
+    log_error "--resume requires an existing summary.txt in $OUT_DIR"
+    return 1
+  fi
+
+  prior_command="$(confluex_summary_value "$summary_path" command)"
+  prior_root_id="$(confluex_summary_value "$summary_path" root_page_id)"
+  prior_support_profile="$(confluex_summary_value "$summary_path" support_profile)"
+  prior_schema="$(confluex_summary_value "$summary_path" resume_schema_version)"
+
+  if [[ "$prior_command" != "export" ]]; then
+    log_error "--resume requires a prior export summary in $OUT_DIR"
+    return 1
+  fi
+
+  if [[ "$prior_root_id" != "$CFG_ROOT_ID" ]]; then
+    log_error "--resume requires matching root_page_id in $OUT_DIR/summary.txt, got: ${prior_root_id:-<missing>}"
+    return 1
+  fi
+
+  if [[ "$prior_support_profile" != "$CONFLUEX_SUPPORT_PROFILE" ]]; then
+    log_error "--resume requires support_profile=$CONFLUEX_SUPPORT_PROFILE in $OUT_DIR/summary.txt, got: ${prior_support_profile:-<missing>}"
+    return 1
+  fi
+
+  if [[ "$prior_schema" != "$CONFLUEX_RESUME_SCHEMA_VERSION" ]]; then
+    log_error "--resume requires resume_schema_version=$CONFLUEX_RESUME_SCHEMA_VERSION in $OUT_DIR/summary.txt, got: ${prior_schema:-<missing>}"
+    return 1
+  fi
+
+  return 0
 }
 
 confluex_load_resume_manifest() {
@@ -204,10 +283,13 @@ confluex_load_resume_manifest() {
     return 1
   fi
 
+  confluex_validate_resume_summary || return 1
+
   while IFS=$'\t' read -r page_id _ _ folder _ mode _; do
     [[ "$page_id" == "page_id" ]] && continue
     [[ "$page_id" =~ ^[0-9]+$ ]] || continue
-    RESUME_FOLDER_BY_ID["$page_id"]="$(confluex_absolute_folder_from_manifest "$folder")"
+    folder="$(confluex_absolute_folder_from_manifest "$folder")" || return 1
+    RESUME_FOLDER_BY_ID["$page_id"]="$folder"
     RESUME_MODE_BY_ID["$page_id"]="$mode"
     loaded_count=$((loaded_count + 1))
   done < "$manifest_path"
@@ -986,6 +1068,7 @@ confluex_write_summary() {
     printf 'encrypted_archive=%s\n' "$ENCRYPTED_ARCHIVE"
     printf 'output_dir=%s\n' "$OUT_DIR"
     printf 'path_provenance=%s\n' "runtime_origin"
+    printf 'resume_schema_version=%s\n' "$CONFLUEX_RESUME_SCHEMA_VERSION"
     printf 'final_status=%s\n' "$final_status"
     printf 'blocking_reasons=%s\n' "$RUN_BLOCKING_REASONS"
     printf 'max_pages=%s\n' "$CFG_MAX_PAGES"
@@ -1209,6 +1292,14 @@ confluex_collect_initial_queue() {
 }
 
 confluex_preflight() {
+  if [[ -n "$CFG_ENCRYPTION_KEY" ]]; then
+    log_info "preflight: checking encryption recipient"
+    if ! confluex_validate_encryption_recipient "$CFG_ENCRYPTION_KEY"; then
+      log_error "preflight failed: encryption recipient not available: $CFG_ENCRYPTION_KEY"
+      return 1
+    fi
+  fi
+
   log_info "preflight: checking confluence-cli access"
   if confluex_capture_stdout "$PREFLIGHT_INFO_FILE" confluence info "$CFG_ROOT_ID"; then
     confluex_track_download_bytes metadata "$(confluex_file_size_bytes "$PREFLIGHT_INFO_FILE")"
@@ -1487,6 +1578,7 @@ confluex_main() {
     return $?
   fi
 
+  confluex_reset_state
   confluex_apply_default_config
   confluex_validate_run_configuration || return 1
 
@@ -1496,7 +1588,6 @@ confluex_main() {
   fi
   confluex_require_cmds "${required_cmds[@]}" || return 1
 
-  confluex_reset_state
   CFG_MAX_DOWNLOAD_BYTES=$((CFG_MAX_DOWNLOAD_MIB * 1048576))
   confluex_init_runtime_paths || return 1
   trap 'confluex_on_interrupt' INT TERM
