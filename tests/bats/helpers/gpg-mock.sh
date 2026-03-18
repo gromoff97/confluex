@@ -13,6 +13,9 @@ while (($# > 0)); do
       shift 2
       ;;
     --recipient|--trust-model)
+      if [[ "$1" == "--trust-model" && -n "${MOCK_GPG_FAIL_ON_TRUST_MODEL:-}" ]]; then
+        exit 1
+      fi
       if [[ "$1" == "--recipient" ]]; then
         recipient="$2"
       fi

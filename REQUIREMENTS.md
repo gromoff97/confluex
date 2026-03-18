@@ -460,7 +460,7 @@ These requirements are written from the product interface and the apparent user 
 5. If no explicit encryption key identity is provided, a saved default encryption key identity is used automatically when present.
 6. If encryption fails, the plain result remains available and the failed encryption path is not presented as a successful encrypted completion.
 7. `--confidential` is available as a confidentiality-first mode for encrypted runs and implies critical-use behavior.
-8. In `--confidential` mode, an effective encryption key identity is required before the run proceeds.
+8. In `--confidential` mode, an effective encryption key identity is required before the run proceeds, and that identity shall be expressed as a full 40-hex GPG fingerprint whether provided explicitly or via saved default configuration.
 9. In `--confidential` mode, encryption failure does not leave plain run payload artifacts on disk as a recovery result.
 10. When encryption is enabled, the effective recipient is validated before traversal and payload export work begins.
 
