@@ -1610,6 +1610,18 @@ confluex_warn_if_unbounded_non_safe_run() {
   log_warn "running without --safe and without positive --max-pages/--max-download-mib limits; crawl state is effectively unbounded"
 }
 
+confluex_warn_about_confidential_logging() {
+  if (( CFG_CONFIDENTIAL_MODE == 0 )); then
+    return 0
+  fi
+
+  if [[ -z "$LOG_FILE" ]]; then
+    return 0
+  fi
+
+  log_warn "--confidential does not protect persistent log files; plaintext operational logs may remain at $LOG_FILE"
+}
+
 confluex_main() {
   local script_path="$1"
   local script_lib_dir="$2"
@@ -1688,6 +1700,7 @@ confluex_main() {
     log_info "log-file: disabled"
   fi
   confluex_warn_if_unbounded_non_safe_run
+  confluex_warn_about_confidential_logging
 
   if confluex_preflight; then
     preflight_status=0

@@ -203,14 +203,15 @@ Use it when a "usable but imperfect" result is worse than an explicit blocked re
 
 ### `--confidential`
 
-Use `--confidential` when encryption is mandatory and plaintext artifacts must not remain on disk if encryption fails.
+Use `--confidential` when encryption is mandatory and plain exported payload artifacts must not remain on disk if encryption fails.
 
 It:
 
 - implies `--critical`;
 - requires an effective encryption key;
 - requires that key, whether passed explicitly or loaded from saved config, to be provided as a full 40-hex GPG fingerprint;
-- removes the plain payload if encryption fails.
+- removes the plain payload if encryption fails;
+- does not promise removal of every plaintext operational trace such as stderr output or a separately configured persistent log file.
 
 Use it only when the machine already has the target public key in its GPG keyring.
 
@@ -514,7 +515,7 @@ One-shot variant:
 gpg --decrypt dump.tar.gz.gpg > dump.tar.gz && tar -xzf dump.tar.gz
 ```
 
-If `--confidential` was used and encryption fails, inspect process stderr, the persistent log file if you used `--log-file`, and `<out>.status.txt` if present. Plain payload artifacts are intentionally removed in that mode.
+If `--confidential` was used and encryption fails, inspect process stderr, the persistent log file if you used `--log-file`, and `<out>.status.txt` if present. Plain payload artifacts are intentionally removed in that mode, but plaintext operational traces outside the payload can still remain.
 
 ## Interrupts, Limits, And Early Stops
 
