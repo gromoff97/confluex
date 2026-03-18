@@ -121,6 +121,77 @@ teardown() {
   assert_output_contains '--resume requires an existing output directory, got non-directory path:'
 }
 
+# Covers: FR-OUT-001, FR-RUN-004
+@test "resume rejects manifest folders outside the active output root and incompatible prior state" {
+  local escaped_out="$CONFLUEX_WORK_DIR/resume-escaped"
+  local escaped_external="$CONFLUEX_WORK_DIR/external-reused-page"
+  local traversed_out="$CONFLUEX_WORK_DIR/resume-traversed"
+  local traversed_external="$CONFLUEX_WORK_DIR/external-traversed-page"
+  local incompatible_out="$CONFLUEX_WORK_DIR/resume-incompatible"
+  local compatible_pages="$incompatible_out/pages/ENG/Root_Page__100"
+
+  mkdir -p "$escaped_out" "$escaped_external/attachments" "$traversed_out" "$traversed_external/attachments"
+  printf 'external payload\n' > "$escaped_external/page.html"
+  printf 'external attachment\n' > "$escaped_external/attachments/readme.txt"
+  printf 'traversed payload\n' > "$traversed_external/page.html"
+  printf 'traversed attachment\n' > "$traversed_external/attachments/readme.txt"
+  cat > "$escaped_out/manifest.tsv" <<EOF
+page_id	space_key	title	folder	discovered_by	mode	attachment_count
+100	ENG	Root Page	$escaped_external	root	export	1
+EOF
+  cat > "$escaped_out/summary.txt" <<'EOF'
+command=export
+root_page_id=100
+support_profile=bounded_confluence_storage_v1
+resume_schema_version=1
+final_status=incomplete
+EOF
+
+  run_confluex basic export --page-id 100 --resume --out "$escaped_out"
+  assert_failure
+  assert_path_exists "$escaped_external/page.html"
+  assert_file_contains 'external payload' "$escaped_external/page.html"
+  assert_output_contains 'resume'
+
+  cat > "$traversed_out/manifest.tsv" <<EOF
+page_id	space_key	title	folder	discovered_by	mode	attachment_count
+100	ENG	Root Page	$(basename "$traversed_out")/../$(basename "$traversed_external")	root	export	1
+EOF
+  cat > "$traversed_out/summary.txt" <<'EOF'
+command=export
+root_page_id=100
+support_profile=bounded_confluence_storage_v1
+resume_schema_version=1
+final_status=incomplete
+EOF
+
+  run_confluex basic export --page-id 100 --resume --out "$traversed_out"
+  assert_failure
+  assert_path_exists "$traversed_external/page.html"
+  assert_file_contains 'traversed payload' "$traversed_external/page.html"
+  assert_output_contains 'resume'
+
+  mkdir -p "$compatible_pages/attachments"
+  printf 'reused root payload\n' > "$compatible_pages/page.html"
+  printf 'reused root attachment\n' > "$compatible_pages/attachments/readme.txt"
+  cat > "$incompatible_out/manifest.tsv" <<EOF
+page_id	space_key	title	folder	discovered_by	mode	attachment_count
+100	ENG	Root Page	$(basename "$incompatible_out")/pages/ENG/Root_Page__100	root	export	1
+EOF
+  cat > "$incompatible_out/summary.txt" <<'EOF'
+command=export
+root_page_id=999
+support_profile=bounded_confluence_storage_v1
+resume_schema_version=1
+final_status=incomplete
+EOF
+
+  run_confluex basic export --page-id 100 --resume --out "$incompatible_out"
+  assert_failure
+  assert_file_contains 'reused root payload' "$compatible_pages/page.html"
+  assert_output_contains 'resume'
+}
+
 # Covers: FR-CMD-002, FR-DIAG-001, FR-CONF-001, FR-LIFE-001
 @test "subcommands reject incompatible options instead of silently accepting them" {
   run_confluex basic doctor --out "$CONFLUEX_WORK_DIR/doctor-out"

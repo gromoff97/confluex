@@ -121,6 +121,31 @@ teardown() {
   assert_file_contains 'GPG key identity: EXPLICIT-KEY' "$override_out.tar.gz.gpg.txt"
 }
 
+# Covers: FR-CONF-001, FR-SEC-001
+@test "encrypted runs validate recipient availability before payload export starts" {
+  local configured_out="$CONFLUEX_WORK_DIR/configured-key-preflight"
+  local explicit_out="$CONFLUEX_WORK_DIR/explicit-key-preflight"
+
+  run_confluex basic config --encryption-key NOT-A-REAL-GPG-IDENTITY
+  assert_success
+
+  export MOCK_GPG_MISSING_KEY=NOT-A-REAL-GPG-IDENTITY
+  run_confluex basic export --page-id 100 --out "$configured_out"
+  unset MOCK_GPG_MISSING_KEY
+  assert_failure
+  assert_path_missing "$configured_out/pages/ENG/Root_Page__100/page.html"
+  assert_path_missing "$configured_out.tar.gz.gpg"
+  assert_output_contains 'encryption recipient'
+
+  export MOCK_GPG_MISSING_KEY=EXPLICIT-MISSING-KEY
+  run_confluex basic export --page-id 100 --out "$explicit_out" --encryption-key EXPLICIT-MISSING-KEY
+  unset MOCK_GPG_MISSING_KEY
+  assert_failure
+  assert_path_missing "$explicit_out/pages/ENG/Root_Page__100/page.html"
+  assert_path_missing "$explicit_out.tar.gz.gpg"
+  assert_output_contains 'encryption recipient'
+}
+
 # Covers: FR-SEC-001
 @test "encrypted exports can be decrypted and extracted back into an interpretable run layout" {
   local encrypted_out="$CONFLUEX_WORK_DIR/roundtrip-encrypted-export"

@@ -308,7 +308,9 @@ If you provide `--out`, that path must not already exist unless you are intentio
 
 - only valid with `confluex export`;
 - requires an explicit `--out`;
-- `--out` must already exist and contain a prior `manifest.tsv`;
+- `--out` must already exist and contain a prior `manifest.tsv` and `summary.txt`;
+- the prior `summary.txt` must describe a compatible export for the same root page and support profile;
+- manifest folder entries used for reuse must stay inside the active output root;
 - reuses page payload only when the prior run already materialized that page's export payload;
 - still rebuilds traversal, page metadata, and link discovery from the root page again.
 
@@ -394,6 +396,7 @@ Important fields:
 - `scope_findings`
 - `processed_pages`
 - `resume_mode`
+- `resume_schema_version`
 - `reused_pages`
 - `fresh_pages`
 - `resolved_links`
@@ -473,6 +476,8 @@ You can:
 - save a default key with `confluex config --encryption-key ...`;
 - override that saved key per run with `--encryption-key`;
 - verify recipient availability with `confluex doctor --verify-encryption`.
+
+When encryption is enabled for `export` or `plan`, `confluex` validates the effective recipient before traversal begins. A missing or unavailable recipient fails the run before page payload is materialized.
 
 To decrypt an encrypted result:
 

@@ -6,10 +6,6 @@ input=""
 list_keys=0
 recipient=""
 
-if [[ -n "${MOCK_GPG_FAIL:-}" ]]; then
-  exit 1
-fi
-
 while (($# > 0)); do
   case "$1" in
     --output|-o)
@@ -53,6 +49,10 @@ if (( list_keys )); then
   [[ -n "$recipient" ]] || exit 1
   printf 'pub:-:4096:1:%s:::::::\n' "$recipient"
   exit 0
+fi
+
+if [[ -n "${MOCK_GPG_FAIL:-}" ]]; then
+  exit 1
 fi
 
 [[ -n "$output" ]] || exit 1
