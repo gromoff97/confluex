@@ -630,9 +630,9 @@ For critical workflows, rerun with `--critical` so those conditions become expli
 
 ## Contract And Tests
 
-The functional contract lives under [`docs/`](docs/). Read the relevant
-`FR-<AREA>.md` files for behavior. If you need to add or maintain
-requirements, use [`docs/AGENTS.md`](docs/AGENTS.md).
+The requirements corpus lives under [`docs/`](docs/). Read
+[`docs/AGENTS.md`](docs/AGENTS.md) first, then the relevant `FR-<AREA>.md`
+files. Product behavior is defined only in `FR-<AREA>.md`.
 
 The main black-box suite lives in:
 
