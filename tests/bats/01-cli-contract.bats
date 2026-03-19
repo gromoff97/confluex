@@ -10,7 +10,7 @@ teardown() {
   confluex_teardown
 }
 
-# Covers: FR-CMD-001, FR-CMD-003
+# Covers: FR-0001, FR-0003
 @test "help exposes the public command surface and operator options" {
   run_confluex basic --help
 
@@ -35,7 +35,7 @@ teardown() {
   assert_no_default_output_dirs
 }
 
-# Covers: FR-CMD-002, FR-OUT-001
+# Covers: FR-0002, FR-0076
 @test "invalid invocations are rejected before page-processing starts" {
   run_confluex basic export
   assert_failure
@@ -121,7 +121,7 @@ teardown() {
   assert_output_contains '--resume requires an existing output directory, got non-directory path:'
 }
 
-# Covers: FR-OUT-001, FR-RUN-004
+# Covers: FR-0076, FR-0055
 @test "resume rejects manifest folders outside the active output root and incompatible prior state" {
   local escaped_out="$CONFLUEX_WORK_DIR/resume-escaped"
   local escaped_external="$CONFLUEX_WORK_DIR/external-reused-page"
@@ -192,7 +192,7 @@ EOF
   assert_output_contains 'resume'
 }
 
-# Covers: FR-CMD-002, FR-DIAG-001, FR-CONF-001, FR-LIFE-001
+# Covers: FR-0002, FR-0038, FR-0045, FR-0048
 @test "subcommands reject incompatible options instead of silently accepting them" {
   run_confluex basic doctor --out "$CONFLUEX_WORK_DIR/doctor-out"
   assert_failure
@@ -250,7 +250,7 @@ EOF
   assert_no_default_output_dirs
 }
 
-# Covers: FR-DIAG-001
+# Covers: FR-0038
 @test "doctor checks local prerequisites and optional page access" {
   run_confluex basic doctor
   assert_success
@@ -285,7 +285,7 @@ EOF
   assert_output_contains '[FAIL] cannot access page 100 via confluence-cli'
 }
 
-# Covers: FR-DIAG-001, FR-CONF-001
+# Covers: FR-0038, FR-0045
 @test "doctor does not attempt to validate a saved encryption key identity" {
   run_confluex basic config --encryption-key NOT-A-REAL-GPG-IDENTITY
   assert_success
@@ -305,7 +305,7 @@ EOF
   assert_output_contains 'source: config'
 }
 
-# Covers: FR-CONF-001
+# Covers: FR-0045
 @test "confidential mode warns when a persistent log file is enabled" {
   local out_dir="$CONFLUEX_WORK_DIR/confidential-log-warning"
   local log_file="$CONFLUEX_WORK_DIR/confidential.log"
@@ -317,7 +317,7 @@ EOF
   assert_file_exists "$log_file"
 }
 
-# Covers: FR-CONF-001
+# Covers: FR-0045
 @test "config shows, saves, and clears the default encryption key identity" {
   local config_file
   config_file="$(config_file_path)"
@@ -346,7 +346,7 @@ EOF
   assert_output_contains 'ERROR: config cannot combine --encryption-key with --clear-encryption-key'
 }
 
-# Covers: FR-LIFE-001
+# Covers: FR-0048
 @test "install and uninstall provide a self-contained CLI lifecycle" {
   local install_dir="$CONFLUEX_WORK_DIR/install-bin"
   local install_lib_dir="$install_dir/lib/confluex"
