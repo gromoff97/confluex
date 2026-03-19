@@ -51,7 +51,7 @@ Normative files:
 - `docs/FR-SEC.md` - encryption requirements.
 - `docs/FR-OBS.md` - observability and outcome requirements.
 
-## Legacy Note
+## Self-Contained Docs Domain
 
-The root `REQUIREMENTS.md` file is retained only as a short pointer to this
-directory. The authoritative requirements now live under `docs/`.
+This `docs/` directory is the authoritative requirements domain for Confluex.
+Use the root `README.md` only as the repository-level entry point.
