@@ -2,6 +2,7 @@ tools/
 node_modules/
 package-lock.json
 tmp/
+docs/superpowers/
 
 # Ignore dotfiles and dot-directories whose names contain "ai".
 .*ai*
