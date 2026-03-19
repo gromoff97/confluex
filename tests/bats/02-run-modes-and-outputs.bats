@@ -10,7 +10,7 @@ teardown() {
   confluex_teardown
 }
 
-# Covers: FR-RUN-001, FR-RUN-002, FR-GRAPH-001, FR-GRAPH-002, FR-LINK-001
+# Covers: FR-0052, FR-0053, FR-0060, FR-0061
 @test "basic export walks the root tree and linked pages into one interpretable result" {
   local out_dir="$CONFLUEX_WORK_DIR/basic-export"
 
@@ -30,7 +30,7 @@ teardown() {
   assert_report_invariants "$out_dir"
 }
 
-# Covers: FR-RUN-003, FR-OUT-004
+# Covers: FR-0028, FR-0054, FR-0081
 @test "plan omits HTML and attachments and only persists metadata when requested" {
   local out_dir="$CONFLUEX_WORK_DIR/plan-default"
   local meta_out_dir="$CONFLUEX_WORK_DIR/plan-metadata"
@@ -53,7 +53,7 @@ teardown() {
   assert_page_html_missing "$meta_out_dir" ENG Root_Page 100
 }
 
-# Covers: FR-OUT-004
+# Covers: FR-0028, FR-0080
 @test "export metadata persistence is controlled explicitly by keep-metadata" {
   local default_out="$CONFLUEX_WORK_DIR/export-default-metadata"
   local meta_out="$CONFLUEX_WORK_DIR/export-keep-metadata"
@@ -71,7 +71,7 @@ teardown() {
   assert_file_exists "$meta_out/pages/ENG/Child_Page__200/_storage.xml"
 }
 
-# Covers: FR-GRAPH-002
+# Covers: FR-0062
 @test "linked pages do not automatically pull their descendants" {
   local out_dir="$CONFLUEX_WORK_DIR/no-linked-descendants"
 
@@ -85,7 +85,7 @@ teardown() {
   assert_page_missing "$out_dir" ENG Linked_Descendant 400
 }
 
-# Covers: FR-GRAPH-002
+# Covers: FR-0062
 @test "linked pages do not recursively expand scope through their own links" {
   local out_dir="$CONFLUEX_WORK_DIR/no-link-of-link-expansion"
 
@@ -100,7 +100,7 @@ teardown() {
   assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 400)" "manifest page count for 400"
 }
 
-# Covers: FR-LINK-002
+# Covers: FR-0064, FR-0113, FR-0116
 @test "ambiguous title links stay unresolved instead of being guessed" {
   local out_dir="$CONFLUEX_WORK_DIR/ambiguous-link"
 
@@ -115,7 +115,7 @@ teardown() {
   assert_summary_value "$out_dir/summary.txt" blocking_reasons unresolved_links
 }
 
-# Covers: FR-LINK-001, FR-LINK-003
+# Covers: FR-0061, FR-0063, FR-0065
 @test "supported internal link forms expand scope while external lookalikes do not" {
   local out_dir="$CONFLUEX_WORK_DIR/link-forms"
 
@@ -130,7 +130,7 @@ teardown() {
   assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 999)" "manifest page count for external lookalike"
 }
 
-# Covers: FR-LINK-001, FR-LINK-005, FR-OBS-001
+# Covers: FR-0063, FR-0066, FR-0113, FR-0114
 @test "ri:url and display-style internal references are supported while unsupported internal references become scope findings" {
   local supported_out="$CONFLUEX_WORK_DIR/ri-url-supported"
   local display_out="$CONFLUEX_WORK_DIR/display-url-supported"
@@ -159,7 +159,7 @@ teardown() {
   assert_file_contains $'100\tlink_support\tunsupported_internal_reference\tri:url:/spaces/ENG/overview' "$unsupported_out/scope-findings.tsv"
 }
 
-# Covers: FR-LINK-003
+# Covers: FR-0065
 @test "link-like text inside code-like or plain-text content does not expand scope" {
   local out_dir="$CONFLUEX_WORK_DIR/code-text-lookalikes"
 
@@ -172,7 +172,7 @@ teardown() {
   assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 889)" "manifest page count for 889"
 }
 
-# Covers: FR-LINK-005, FR-OBS-001
+# Covers: FR-0072, FR-0113, FR-0114
 @test "partially inspectable title resolution records scope findings" {
   local out_dir="$CONFLUEX_WORK_DIR/partially-visible-title-resolution"
 
@@ -187,7 +187,7 @@ teardown() {
   assert_file_contains $'100\ttitle_resolution\ttitle_candidates_inaccessible\t[ENG] Hidden Page' "$out_dir/scope-findings.tsv"
 }
 
-# Covers: FR-LINK-004
+# Covers: FR-0067
 @test "duplicate discoveries and cycles do not cause duplicate processing" {
   local duplicate_out="$CONFLUEX_WORK_DIR/duplicate-paths"
   local cycle_out="$CONFLUEX_WORK_DIR/cycle-links"
@@ -203,7 +203,7 @@ teardown() {
   assert_equal "1" "$(manifest_page_count "$cycle_out/manifest.tsv" 100)" "cycle root page count"
 }
 
-# Covers: FR-LINK-004
+# Covers: FR-0067
 @test "rediscovered pages that point back to the root are not re-exported" {
   local out_dir="$CONFLUEX_WORK_DIR/root-rediscovery"
 
@@ -214,7 +214,7 @@ teardown() {
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root manifest count"
 }
 
-# Covers: FR-OUT-001, FR-OUT-002, FR-OUT-003, FR-REP-001, FR-REP-002, FR-REP-003, FR-OBS-001
+# Covers: FR-0076, FR-0077, FR-0085, FR-0086, FR-0087, FR-0089, FR-0090
 @test "export output tree and report files stay stable enough for black-box inspection" {
   local out_dir="$CONFLUEX_WORK_DIR/output-contract"
 
@@ -257,7 +257,7 @@ teardown() {
   assert_scope_findings_four_columns "$out_dir/scope-findings.tsv"
 }
 
-# Covers: FR-RUN-004, FR-OUT-001, FR-REP-003, FR-OBS-001
+# Covers: FR-0105, FR-0106, FR-0117
 @test "resume mode reuses already materialized page payload from a prior failed export" {
   local out_dir="$CONFLUEX_WORK_DIR/resume-reuse"
 
@@ -287,7 +287,7 @@ teardown() {
   assert_file_contains $'900\tENG\tLater Page' "$out_dir/manifest.tsv"
 }
 
-# Covers: FR-OUT-003
+# Covers: FR-0079
 @test "page folder naming stays bounded for long and Unicode-heavy titles" {
   local out_dir="$CONFLUEX_WORK_DIR/long-unicode-title"
 
@@ -299,7 +299,7 @@ teardown() {
   assert_page_dir_component_length_at_most "$out_dir" 100 85
 }
 
-# Covers: FR-DATA-001, FR-DIAG-001
+# Covers: FR-0069
 @test "alternate info output variants still parse into a valid export run" {
   local out_dir="$CONFLUEX_WORK_DIR/info-variant"
 
@@ -310,7 +310,7 @@ teardown() {
   assert_summary_value "$out_dir/summary.txt" final_status success
 }
 
-# Covers: FR-SAFE-001, FR-SAFE-002, FR-OUT-001
+# Covers: FR-0022, FR-0055
 @test "safe mode applies default limits, explicit overrides win, and generated output roots stay unique" {
   local out_dir="$CONFLUEX_WORK_DIR/safe-plan"
   local override_out="$CONFLUEX_WORK_DIR/safe-plan-override"
@@ -333,7 +333,7 @@ teardown() {
   assert_path_exists "$(generated_dir 'confluence_dump_100_20240101_010203_2')"
 }
 
-# Covers: FR-SCALE-001, FR-SAFE-001
+# Covers: FR-0094
 @test "unbounded non-safe export and plan runs warn explicitly" {
   local unbounded_plan="$CONFLUEX_WORK_DIR/unbounded-plan"
   local unbounded_export="$CONFLUEX_WORK_DIR/unbounded-export"
@@ -359,7 +359,7 @@ teardown() {
   assert_output_not_contains 'effectively unbounded'
 }
 
-# Covers: FR-SCALE-001, FR-SAFE-002, FR-OBS-001
+# Covers: FR-0094, FR-0097, FR-0113
 @test "synthetic stress graph keeps warnings and summary data interpretable" {
   local stress_out="$CONFLUEX_WORK_DIR/stress-graph-plan"
   local limited_out="$CONFLUEX_WORK_DIR/stress-graph-plan-limited"
@@ -391,7 +391,7 @@ teardown() {
   assert_report_invariants "$limited_out"
 }
 
-# Covers: FR-GRAPH-001, FR-LINK-005, FR-SAFE-006
+# Covers: FR-0071, FR-0096, FR-0113, FR-0114
 @test "pagination hints in child traversal degrade scope trust and block critical mode" {
   local findings_out="$CONFLUEX_WORK_DIR/paged-children-findings"
   local critical_out="$CONFLUEX_WORK_DIR/paged-children-critical"
@@ -410,7 +410,7 @@ teardown() {
   assert_summary_value "$critical_out/summary.txt" scope_trust degraded
 }
 
-# Covers: FR-SAFE-001, FR-SAFE-006, FR-OBS-001
+# Covers: FR-0023, FR-0096, FR-0113, FR-0114
 @test "critical mode implies safe defaults and blocks unresolved scope" {
   local clean_out="$CONFLUEX_WORK_DIR/critical-clean"
   local unresolved_out="$CONFLUEX_WORK_DIR/critical-unresolved"

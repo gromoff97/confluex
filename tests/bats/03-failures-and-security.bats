@@ -10,7 +10,7 @@ teardown() {
   confluex_teardown
 }
 
-# Covers: FR-SAFE-003
+# Covers: FR-0096
 @test "fail-fast stops on the first page-local failure while best-effort continues" {
   local fail_fast_out="$CONFLUEX_WORK_DIR/fail-fast"
   local best_effort_out="$CONFLUEX_WORK_DIR/best-effort"
@@ -26,7 +26,7 @@ teardown() {
   assert_file_contains $'200\texport' "$best_effort_out/failed-pages.tsv"
 }
 
-# Covers: FR-SAFE-002, FR-SAFE-005, FR-OBS-001
+# Covers: FR-0095, FR-0098, FR-0113
 @test "runtime failures and configured stop conditions leave interpretable partial results" {
   local partial_out="$CONFLUEX_WORK_DIR/partial-runtime"
   local max_pages_out="$CONFLUEX_WORK_DIR/max-pages-limit"
@@ -58,7 +58,7 @@ teardown() {
   assert_report_invariants "$limited_out"
 }
 
-# Covers: FR-SAFE-004
+# Covers: FR-0097
 @test "interrupted export is marked incomplete and interrupted plan output is removed" {
   local export_out="$CONFLUEX_WORK_DIR/interrupt-export"
   local plan_out="$CONFLUEX_WORK_DIR/interrupt-plan"
@@ -77,7 +77,7 @@ teardown() {
   assert_path_missing "$plan_out"
 }
 
-# Covers: FR-SEC-001
+# Covers: FR-0107
 @test "explicit encryption creates an archive and preserves plain output on encryption failure" {
   local encrypted_out="$CONFLUEX_WORK_DIR/encrypted-export"
   local failing_out="$CONFLUEX_WORK_DIR/encryption-failure"
@@ -102,7 +102,7 @@ teardown() {
   assert_summary_value "$failing_out/summary.txt" final_status encryption_failed
 }
 
-# Covers: FR-CONF-001, FR-SEC-001
+# Covers: FR-0045, FR-0107
 @test "configured encryption keys are used by default and explicit keys override them" {
   local configured_out="$CONFLUEX_WORK_DIR/configured-encryption"
   local override_out="$CONFLUEX_WORK_DIR/override-encryption"
@@ -121,7 +121,7 @@ teardown() {
   assert_file_contains 'GPG key identity: EXPLICIT-KEY' "$override_out.tar.gz.gpg.txt"
 }
 
-# Covers: FR-CONF-001
+# Covers: FR-0045
 @test "confidential mode requires a full fingerprint recipient from CLI or config" {
   local cli_out="$CONFLUEX_WORK_DIR/confidential-cli-short-key"
   local config_out="$CONFLUEX_WORK_DIR/confidential-config-short-key"
@@ -139,7 +139,7 @@ teardown() {
   assert_output_contains 'full fingerprint'
 }
 
-# Covers: FR-CONF-001, FR-SEC-001
+# Covers: FR-0045, FR-0107
 @test "encrypted runs validate recipient availability before payload export starts" {
   local configured_out="$CONFLUEX_WORK_DIR/configured-key-preflight"
   local explicit_out="$CONFLUEX_WORK_DIR/explicit-key-preflight"
@@ -164,7 +164,7 @@ teardown() {
   assert_output_contains 'encryption recipient'
 }
 
-# Covers: FR-SEC-001
+# Covers: FR-0107
 @test "encrypted exports do not rely on gpg trust-model always" {
   local encrypted_out="$CONFLUEX_WORK_DIR/encrypted-no-trust-model"
 
@@ -176,7 +176,7 @@ teardown() {
   assert_file_exists "$encrypted_out.tar.gz.gpg"
 }
 
-# Covers: FR-SEC-001
+# Covers: FR-0107
 @test "encrypted exports can be decrypted and extracted back into an interpretable run layout" {
   local encrypted_out="$CONFLUEX_WORK_DIR/roundtrip-encrypted-export"
   local restore_dir="$CONFLUEX_WORK_DIR/roundtrip-restore"
@@ -212,7 +212,7 @@ teardown() {
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" final_status success
 }
 
-# Covers: FR-SEC-001, FR-OBS-001
+# Covers: FR-0107, FR-0113
 @test "confidential mode removes plain output when encryption fails" {
   local confidential_out="$CONFLUEX_WORK_DIR/confidential-export"
   local fingerprint="0123456789ABCDEF0123456789ABCDEF01234567"
