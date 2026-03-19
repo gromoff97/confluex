@@ -13,6 +13,9 @@ declare -A expected_headings=(
   ["docs/README.md"]="# Confluex Documentation"
   ["docs/AGENTS.md"]="# Requirements Agent Guide"
   ["docs/FOUNDATIONS.md"]="# Requirements Foundations"
+  ["docs/WORKFLOW-DOCTOR.md"]="# Doctor Workflow Guide"
+  ["docs/WORKFLOW-PLAN.md"]="# Plan Workflow Guide"
+  ["docs/WORKFLOW-EXPORT.md"]="# Export Workflow Guide"
   ["docs/FR-CMD.md"]="# Command Surface Requirements"
   ["docs/FR-UX.md"]="# Operator Experience Requirements"
   ["docs/FR-VAL.md"]="# Invocation Validation Requirements"
@@ -66,17 +69,31 @@ for path in "${!expected_headings[@]}"; do
   fi
 done
 
-if [[ ! -f REQUIREMENTS.md ]]; then
-  fail 'missing root REQUIREMENTS.md pointer'
-fi
+workflow_guides=(
+  "docs/WORKFLOW-DOCTOR.md"
+  "docs/WORKFLOW-PLAN.md"
+  "docs/WORKFLOW-EXPORT.md"
+)
 
-if [[ "$(head -n 1 REQUIREMENTS.md)" != '# Confluex Functional Requirements' ]]; then
-  fail 'unexpected heading in REQUIREMENTS.md'
-fi
-
-if ! grep -Fq 'Start with `docs/README.md`.' REQUIREMENTS.md; then
-  fail 'REQUIREMENTS.md does not point to docs/README.md'
-fi
+for path in "${workflow_guides[@]}"; do
+  grep -Fq '## Status' "$path" || fail "missing Status section in $path"
+  grep -Fq 'This file is non-normative.' "$path" || fail "missing non-normative marker in $path"
+  grep -Fq 'Canonical requirements live in `docs/FOUNDATIONS.md` and `docs/FR-*.md`.' "$path" || fail "missing canonical-source marker in $path"
+  grep -Fq '## Use This Guide When' "$path" || fail "missing Use This Guide When section in $path"
+  grep -Fq '## Read First' "$path" || fail "missing Read First section in $path"
+  grep -Fq '## Read Next If Needed' "$path" || fail "missing Read Next If Needed section in $path"
+  grep -Fq '## Typical Task Routing' "$path" || fail "missing Typical Task Routing section in $path"
+  grep -Fq '## Precedence' "$path" || fail "missing Precedence section in $path"
+  if rg -q '^### FR-[0-9]{4}$' "$path"; then
+    fail "workflow guide must not contain normative requirement cards: $path"
+  fi
+  if grep -Fq '**Requirement**:' "$path"; then
+    fail "workflow guide must not contain normative requirement markers: $path"
+  fi
+  if rg -q 'FR-[0-9]{4}|FR-[A-Z]+-[0-9]{3}' "$path"; then
+    fail "workflow guide must not contain requirement IDs: $path"
+  fi
+done
 
 for path in "${!expected_counts[@]}"; do
   count="$(rg -c '^### FR-[0-9]{4}$' "$path")"
@@ -184,4 +201,4 @@ if [[ "$legacy_count" -ne 120 ]]; then
   fail "expected 120 legacy crosswalk rows; found ${legacy_count}"
 fi
 
-printf 'PASS: requirements docs validated (120 IDs, 120 crosswalk rows).\n'
+printf 'PASS: requirements docs validated (120 IDs, 120 crosswalk rows, 3 workflow guides).\n'
