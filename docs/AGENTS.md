@@ -7,10 +7,14 @@ requirements in the Confluex documentation set.
 
 1. Read `docs/README.md` first.
 2. Read `docs/FOUNDATIONS.md` before interpreting any normative requirement.
-3. Read only the relevant `docs/FR-<AREA>.md` files for the current task.
-4. Treat `docs/TRACEABILITY-MODEL.md` and `docs/GLOSSARY.md` as supporting
+3. If the task is centered on `doctor`, `plan`, or `export`, read the matching
+   `docs/WORKFLOW-*.md` guide as a routing aid.
+4. Treat `docs/WORKFLOW-*.md` files as non-normative reading guides only.
+5. If a workflow guide conflicts with a normative file, the normative file wins.
+6. Read only the relevant `docs/FR-<AREA>.md` files for the current task.
+7. Treat `docs/TRACEABILITY-MODEL.md` and `docs/GLOSSARY.md` as supporting
    documents unless the task explicitly depends on them.
-5. Do not infer new requirements from examples, rationale, or explanatory text.
+8. Do not infer new requirements from examples, rationale, or explanatory text.
 
 ## Requirement ID Rules
 

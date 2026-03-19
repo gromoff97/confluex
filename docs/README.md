@@ -10,6 +10,8 @@ Operational files:
 - `docs/README.md` defines the docs index and required reading order.
 - `docs/AGENTS.md` defines how humans and AI agents must read and maintain the
   requirements set.
+- `docs/WORKFLOW-*.md` files define non-normative workflow-specific reading
+  guides for humans and AI readers.
 
 Normative files:
 
@@ -26,8 +28,10 @@ Normative files:
 1. Read `docs/README.md`.
 2. Read `docs/AGENTS.md`.
 3. Read `docs/FOUNDATIONS.md`.
-4. Read only the `docs/FR-<AREA>.md` files relevant to the task.
-5. Read `docs/CONFORMANCE-OUTCOME-MATRIX.md`,
+4. If the task is centered on `doctor`, `plan`, or `export`, read the matching
+   `docs/WORKFLOW-*.md` guide.
+5. Read only the `docs/FR-<AREA>.md` files relevant to the task.
+6. Read `docs/CONFORMANCE-OUTCOME-MATRIX.md`,
    `docs/TRACEABILITY-MODEL.md`, or `docs/GLOSSARY.md` only when needed by the
    task.
 
