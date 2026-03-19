@@ -630,7 +630,10 @@ For critical workflows, rerun with `--critical` so those conditions become expli
 
 ## Contract And Tests
 
-The functional contract is formalized in [`REQUIREMENTS.md`](REQUIREMENTS.md).
+The functional contract lives under [`docs/`](docs/). Start with
+[`docs/README.md`](docs/README.md) for the documentation map and reading order.
+If you need to add or maintain requirements, use
+[`docs/AGENTS.md`](docs/AGENTS.md).
 
 The main black-box suite lives in:
 
