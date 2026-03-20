@@ -1,20 +1,11 @@
 # AGENTS
 
-## Scope
-Rules for reading and changing implementation under `lib/`.
-
-## Read
-- Identify the smallest owning code area before editing.
-- Read the relevant `docs/FR-<AREA>.md` files before changing behavior.
-- Read `tests/AGENTS.md` if the change affects observable behavior.
-
-## Change
-- Keep changes local to the owning area when possible.
-- Treat CLI behavior, outputs, validation, safety, and observability changes as behavior changes.
-- Update code to match canonical requirements.
-- Do not use `AGENTS.md` as a source of product behavior.
-
-## Verify
-- Run the smallest relevant verification first.
-- Run broader verification if behavior changed.
-- Confirm the resulting behavior still matches the relevant requirements.
+- IDENTIFY THE SMALLEST OWNING CODE AREA BEFORE EDITING.
+- IF AREA IS UNCLEAR, READ `docs/AGENTS.md` FOR AREA MAP.
+- IF BEHAVIOR IS IN SCOPE, READ THE RELEVANT `docs/FR-<AREA>.md`.
+- IF OBSERVABLE BEHAVIOR IS IN SCOPE, READ `tests/AGENTS.md`.
+- KEEP CHANGES LOCAL.
+- CLI BEHAVIOR, OUTPUTS, VALIDATION, SAFETY, AND OBSERVABILITY CHANGES ARE BEHAVIOR CHANGES.
+- CODE MUST MATCH CANONICAL REQUIREMENTS IN `docs/FR-<AREA>.md`.
+- IF BEHAVIOR REVIEW OR BEHAVIOR CHANGES ARE IN SCOPE, APPLY ROOT `AGENTS.md` REVIEW CHECKLIST.
+- RUN THE SMALLEST RELEVANT VERIFICATION FIRST.

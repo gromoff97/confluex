@@ -247,3 +247,31 @@ output-root reuse begins.
 - Area: invocation validation
 - Observable evidence: stderr, exit code, absence of output-root and log-file
   side effects
+
+### FR-0122
+**Requirement**: The product shall reject unsupported page payload format
+values before command work begins.
+
+**Applicability**:
+- non-help invocations using `--page-format <format>`
+
+**Rationale**:
+- Operators need deterministic validation of page payload format selection.
+
+**Acceptance Criteria**:
+1. `--page-format md` is accepted.
+2. `--page-format html` is accepted.
+3. Any other `--page-format` value, including the empty string, is rejected.
+4. If the rejected command is `export`, rejection occurs before traversal, page
+   payload materialization, attachment download, report generation, or
+   output-root reuse begins.
+
+**Dependencies**:
+- `FR-0012`
+- `FR-0013`
+- `FR-0121`
+
+**Traceability**:
+- Area: invocation validation
+- Observable evidence: acceptance or rejection of format values, absence of
+  command work

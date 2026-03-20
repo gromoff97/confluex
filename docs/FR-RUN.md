@@ -14,11 +14,11 @@
 **Acceptance Criteria**:
 1. Both workflows require a root page id.
 2. Both workflows validate root-page accessibility before traversal begins.
-3. Both workflows apply the same scope-discovery rules in Section 13 to the same
-   root page.
+3. Both workflows apply the same scope-discovery requirements in `FR-0059`
+   through `FR-0067` to the same root page.
 4. Differences between `export` and `plan` are limited to command-specific
    payload acquisition, persistence, encryption, and output-retention
-   requirements stated elsewhere in this document.
+   requirements stated elsewhere in the requirements corpus.
 
 **Dependencies**:
 - `FR-0059`
@@ -39,7 +39,8 @@
   payloads.
 
 **Acceptance Criteria**:
-1. `export` materializes page HTML for successfully processed pages.
+1. `export` materializes page payload for successfully processed pages in the
+   effective format selected under `FR-0121`.
 2. `export` materializes attachment payload files for processed pages when
    attachment-download work for those pages succeeds.
 3. `export` produces the run-level report set.
@@ -64,10 +65,11 @@
   materialization.
 
 **Acceptance Criteria**:
-1. `plan` acquires only the data required by Sections 13, 14, and 16 to
-   discover pages, resolve supported links, determine attachment counts, and
-   produce the run-level report set.
-2. `plan` does not persist `page.html`.
+1. `plan` acquires only the data required by `FR-0059` through `FR-0067`,
+   `FR-0069` through `FR-0073`, and `FR-0085` through `FR-0093` to discover
+   pages, resolve supported links, determine attachment counts, and produce the
+   run-level report set.
+2. `plan` does not persist `page.md` or `page.html`.
 3. `plan` does not persist downloaded attachment payload files.
 
 **Dependencies**:

@@ -2,7 +2,7 @@
 
 
 ### FR-0085
-**Requirement**: Every retained run result that this document defines as a
+**Requirement**: Every retained run result that the requirements corpus defines as a
 report-set container shall contain a complete report set.
 
 **Applicability**:
@@ -123,7 +123,7 @@ failures.
    `page_id<TAB>page_title<TAB>operation<TAB>error_summary`.
 3. `failed-pages.tsv` contains one row for each page-local failure.
 4. `operation` uses only `page_metadata`, `storage_content`, `child_listing`,
-   `title_resolution`, `attachment_preview`, `page_html`, or
+   `title_resolution`, `attachment_preview`, `page_payload`, or
    `attachment_download`.
 5. If a failed page-local operation cannot be attributed to a known page
    identifier or title at reporting time, the unavailable field value is `none`.
@@ -189,8 +189,8 @@ support-profile findings.
 1. `summary.txt` is UTF-8 text with LF line endings and `key=value` lines.
 2. `summary.txt` contains these keys exactly once each and in this exact order:
    `command`, `page_id`, `output_root`, `output_path_provenance`,
-   `support_profile`, `final_status`, `scope_trust`, `processed_pages`,
-   `root_pages`, `tree_pages`, `linked_pages`, `other_pages`,
+   `support_profile`, `page_payload_format`, `final_status`, `scope_trust`,
+   `processed_pages`, `root_pages`, `tree_pages`, `linked_pages`, `other_pages`,
    `resolved_links`, `unresolved_links`, `scope_findings`,
    `failed_operations`, `downloaded_mib_total`,
    `downloaded_mib_content`, `downloaded_mib_metadata`,
@@ -206,6 +206,7 @@ support-profile findings.
 **Dependencies**:
 - `FR-0113`
 - `FR-0120`
+- `FR-0121`
 
 **Traceability**:
 - Area: reports
@@ -256,7 +257,7 @@ consistent.
 1. `processed_pages` equals the number of data rows in `manifest.tsv`.
 2. `root_pages`, `tree_pages`, `linked_pages`, and `other_pages` equal the
    number of manifest rows in those categories; `other_pages` is `0` for all
-   runs governed by this document.
+   runs governed by the requirements corpus.
 3. `resolved_links`, `unresolved_links`, `scope_findings`, and
    `failed_operations` equal the number of data rows in their corresponding
    report files.
