@@ -134,7 +134,7 @@ fields.
 
 **Acceptance Criteria**:
 1. `resume_mode` uses `0` or `1`.
-2. `resume_schema_version` uses only `1`.
+2. `resume_schema_version` uses only `2`.
 3. If `resume_mode=1`, `summary.txt` reports `reused_pages` and `fresh_pages`.
 4. If `resume_mode=0`, `reused_pages=0` and `fresh_pages=<processed_pages>`.
 5. If `resume_mode=1` and no payload was reused, `reused_pages=0`.
@@ -162,7 +162,7 @@ fields.
 2. Accepted `export` and `plan` runs that terminate with
    `final_status=success` or `final_status=success_with_findings` exit `0`.
 3. Accepted `doctor`, `config`, `install`, and `uninstall` invocations that
-   complete according to this document exit `0`.
+   complete according to the requirements corpus exit `0`.
 4. `policy_failed` exits `2`.
 5. Configured stop conditions exit `3`.
 6. Runtime failure after command work has started exits `4`.
@@ -192,17 +192,21 @@ the remaining required keys.
 **Acceptance Criteria**:
 1. `command` uses only `export` or `plan`.
 2. `support_profile` uses only `default`.
-3. `output_root` reports the absolute logical plain output-root path serialized
+3. If `command=export`, `page_payload_format` uses only `md` or `html` and
+   reports the effective page payload format for that run.
+4. If `command=plan`, `page_payload_format=none`.
+5. `output_root` reports the absolute logical plain output-root path serialized
    as a quoted path string, even if encryption later removes that directory from
    disk.
-4. `page_id` reports the canonical resolved root page identifier.
-5. `encryption_enabled=1` if encryption was requested; otherwise `0`.
-6. `encryption_successful=1` if and only if an encrypted archive was created
+6. `page_id` reports the canonical resolved root page identifier.
+7. `encryption_enabled=1` if encryption was requested; otherwise `0`.
+8. `encryption_successful=1` if and only if an encrypted archive was created
    successfully for the run; otherwise `0`.
 
 **Dependencies**:
 - `FR-0090`
 - `FR-0112`
+- `FR-0121`
 
 **Traceability**:
 - Area: observability and outcomes
@@ -226,7 +230,8 @@ download-volume fields.
 2. Download-volume accounting is accumulated in whole bytes before MiB
    serialization.
 3. `downloaded_mib_content` counts only bytes acquired during the current run for
-   `page.html` materialization and attachment payload downloads.
+   page payload materialization in the selected format and attachment payload
+   downloads.
 4. `downloaded_mib_metadata` counts only bytes acquired during the current run
    for page metadata, storage-format data, and attachment-preview data.
 5. `downloaded_mib_total` is derived from the exact arithmetic sum of the

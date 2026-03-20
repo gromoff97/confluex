@@ -16,9 +16,10 @@ recovery criteria.
 1. A candidate resume root contains at least `manifest.tsv`, `summary.txt`, and
    `INCOMPLETE` from a prior plain export run.
 2. The prior `summary.txt` reports `command=export`,
-   `support_profile=default`, `resume_mode=0`, `encryption_successful=0`, and
-   `resume_schema_version=1`, and its `page_id` value equals the current
-   invocation's `--page-id` value.
+   `support_profile=default`, `page_payload_format` equal to the current
+   invocation's effective page payload format, `resume_mode=0`,
+   `encryption_successful=0`, and `resume_schema_version=2`, and its `page_id`
+   value equals the current invocation's `--page-id` value.
 3. The prior `summary.txt` reports `final_status=incomplete` or
    `final_status=interrupted`.
 4. Report counts in the existing output root remain internally consistent with
@@ -29,6 +30,10 @@ recovery criteria.
 **Dependencies**:
 - `FR-0026`
 - `FR-0092`
+- `FR-0090`
+- `FR-0117`
+- `FR-0119`
+- `FR-0121`
 
 **Traceability**:
 - Area: resume and recovery
@@ -69,8 +74,11 @@ recovery criteria.
 **Acceptance Criteria**:
 1. A prior page payload may be reused only when the prior manifest identifies the
    page and its `folder` path still resolves inside the active output root to
-   payload for that same page.
-2. If prior payload cannot be safely attributed to the same page, the product
+   payload for that same page, and that folder contains the page payload file
+   required by the current invocation's effective page payload format and does
+   not contain the page payload file of the other supported format.
+2. If prior payload cannot be safely attributed to the same page, or if that
+   folder contains the page payload file of a different supported format, the product
    materializes fresh payload instead of reusing it.
 3. If a prior `folder` path resolves outside the active output root, the resume
    invocation is rejected.
@@ -78,6 +86,8 @@ recovery criteria.
 **Dependencies**:
 - `FR-0103`
 - `FR-0086`
+- `FR-0080`
+- `FR-0121`
 
 **Traceability**:
 - Area: resume and recovery

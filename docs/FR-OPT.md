@@ -244,10 +244,11 @@ artifacts.
    and `_storage.xml`.
 3. In `plan`, if `--keep-metadata` is in effect and page-level metadata
    acquisition succeeds for a processed page, the product persists `_info.txt`
-   and `_storage.xml`.
+   and `_storage.xml` but does not thereby request page payload persistence.
 4. In `plan`, if `--keep-metadata` is in effect and attachment-preview data is
    acquired for a page, the product also persists `_attachments_preview.txt`
-   for that page.
+   for that page but does not thereby request downloaded attachment payload
+   persistence.
 5. Any command other than `export` or `plan` used with `--keep-metadata` is
    rejected.
 
@@ -318,7 +319,7 @@ encryption-recipient identity.
    encryption recipient.
 4. The value is rejected if it contains TAB, LF, or CR.
 5. The exact value `none` is rejected because `none` is the reserved absence
-   token in this document.
+   token in the requirements corpus.
 6. In `doctor`, `--encryption-key <value>` without `--verify-encryption` is
    rejected.
 
@@ -490,7 +491,7 @@ candidate breadth.
 **Acceptance Criteria**:
 1. `export` supports only `--page-id`, `--out`, `--safe`, `--critical`,
    `--encrypt`, `--confidential`, `--resume`, `--no-fail-fast`,
-   `--keep-metadata`, `--log-file`, `--encryption-key`, `--max-pages`,
+   `--keep-metadata`, `--page-format`, `--log-file`, `--encryption-key`, `--max-pages`,
    `--max-download-mib`, `--sleep-ms`, and `--max-find-candidates`.
 2. `plan` supports only `--page-id`, `--out`, `--safe`, `--critical`,
    `--encrypt`, `--confidential`, `--no-fail-fast`, `--keep-metadata`,
@@ -519,6 +520,7 @@ candidate breadth.
 - `FR-0033`
 - `FR-0034`
 - `FR-0035`
+- `FR-0121`
 
 **Traceability**:
 - Area: option semantics
@@ -556,3 +558,33 @@ deterministic precedence order.
 - Area: option semantics
 - Observable evidence: recipient selection in `doctor`, encryption preflight,
   rejection or acceptance of encrypted runs
+
+### FR-0121
+**Requirement**: `--page-format <format>` shall select the materialized page
+payload format for `export`.
+
+**Applicability**:
+- `export --page-format <format>`
+
+**Rationale**:
+- Operators need explicit control over the persisted page payload format.
+
+**Acceptance Criteria**:
+1. `--page-format <format>` selects the page payload format for materialized
+   page content in `export`.
+2. Without `--page-format`, the effective page payload format is `md`.
+3. `--page-format md` requests persistence of `page.md` for successfully
+   materialized pages.
+4. `--page-format html` requests persistence of `page.html` for successfully
+   materialized pages.
+5. Any command other than `export` used with `--page-format` is rejected.
+
+**Dependencies**:
+- `FR-0012`
+- `FR-0074`
+- `FR-0080`
+
+**Traceability**:
+- Area: option semantics
+- Observable evidence: accepted format selection, default format behavior,
+  rejection

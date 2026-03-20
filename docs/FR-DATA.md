@@ -201,33 +201,39 @@ downloading attachment payload files.
   attachment payload files
 
 ### FR-0074
-**Requirement**: `export` shall acquire and persist page HTML payload.
+**Requirement**: `export` shall acquire and persist page payload in the
+selected format.
 
 **Applicability**:
 - accepted `export` runs
 
 **Rationale**:
-- Materialized export requires persisted page HTML for successfully exported
-  pages.
+- Materialized export requires persisted page content for successfully exported
+  pages in the selected format.
 
 **Acceptance Criteria**:
-1. If a page is successfully materialized in `export`, the product persists
-   `page.html` in that page's payload folder.
-2. If page HTML materialization for a page fails, the run records exactly one
-   `failed-pages.tsv` row with `operation=page_html` for that condition.
-3. If `--no-fail-fast` is not in effect, a `page_html` page-local failure stops
-   further page processing after the failure is recorded.
-4. If `--no-fail-fast` is in effect, a `page_html` page-local failure does not
-   by itself prevent processing of later pages.
+1. If a page is successfully materialized in `export` and the effective page
+   payload format is `md`, the product persists `page.md` in that page's
+   payload folder.
+2. If a page is successfully materialized in `export` and the effective page
+   payload format is `html`, the product persists `page.html` in that page's
+   payload folder.
+3. If page payload materialization for a page fails, the run records exactly
+   one `failed-pages.tsv` row with `operation=page_payload` for that condition.
+4. If `--no-fail-fast` is not in effect, a `page_payload` page-local failure
+   stops further page processing after the failure is recorded.
+5. If `--no-fail-fast` is in effect, a `page_payload` page-local failure does
+   not by itself prevent processing of later pages.
 
 **Dependencies**:
 - `FR-0053`
 - `FR-0095`
+- `FR-0121`
 - `FR-0080`
 
 **Traceability**:
 - Area: data acquisition
-- Observable evidence: `page.html` presence, failed-pages report
+- Observable evidence: `page.md` or `page.html` presence, failed-pages report
 
 ### FR-0075
 **Requirement**: `export` shall acquire and persist attachment payload files when

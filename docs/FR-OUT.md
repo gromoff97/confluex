@@ -126,15 +126,21 @@ per-page artifacts are persisted.
 - Operators need predictable placement of materialized content and metadata.
 
 **Acceptance Criteria**:
-1. A successfully materialized export page payload folder contains `page.html`.
-2. If the page has persisted attachments, the folder contains `attachments/`.
-3. If `--keep-metadata` is in effect and metadata acquisition succeeded, the
+1. If the effective page payload format is `md`, a successfully materialized
+   export page payload folder contains `page.md` and does not contain
+   `page.html`.
+2. If the effective page payload format is `html`, a successfully materialized
+   export page payload folder contains `page.html` and does not contain
+   `page.md`.
+3. If the page has persisted attachments, the folder contains `attachments/`.
+4. If `--keep-metadata` is in effect and metadata acquisition succeeded, the
    folder also contains `_info.txt` and `_storage.xml`.
 
 **Dependencies**:
 - `FR-0074`
 - `FR-0075`
 - `FR-0028`
+- `FR-0121`
 
 **Traceability**:
 - Area: output structure
@@ -152,10 +158,11 @@ when metadata persistence is enabled.
   accidental content export.
 
 **Acceptance Criteria**:
-1. Without `--keep-metadata`, `plan` does not persist `page.html`, attachments,
-   `_info.txt`, or `_storage.xml`.
+1. Without `--keep-metadata`, `plan` does not persist `page.md`, `page.html`,
+   attachments, `_info.txt`, `_storage.xml`, or `_attachments_preview.txt`.
 2. With `--keep-metadata` and successful metadata acquisition, a persisted plan
-   page folder contains `_info.txt` and `_storage.xml`.
+   page folder contains `_info.txt` and `_storage.xml`, and does not contain
+   `page.md`, `page.html`, or downloaded attachment payload files.
 3. With `--keep-metadata` and acquired attachment-preview data, the persisted
    plan page folder also contains `_attachments_preview.txt`.
 
