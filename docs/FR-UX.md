@@ -133,3 +133,35 @@ warnings and errors.
 **Traceability**:
 - Area: operator experience
 - Observable evidence: stdout and stderr stream selection
+
+### FR-0123
+**Requirement**: `export --help` shall document the supported materialized page
+export formats explicitly.
+
+**Applicability**:
+- `confluex export --help`
+
+**Rationale**:
+- Operators need command help that makes Markdown and HTML export support
+  discoverable without consulting other requirement files.
+
+**Acceptance Criteria**:
+1. The `--page-format <format>` entry in `confluex export --help` identifies
+   Markdown (`md`) and HTML (`html`) as the supported materialized page export
+   formats.
+2. The same help entry states that omitting `--page-format` defaults the
+   materialized page export format to Markdown (`md`).
+3. The `Examples` section contains at least one accepted `export` example that
+   omits `--page-format` and at least one accepted `export` example that uses
+   `--page-format html`.
+
+**Dependencies**:
+- `FR-0001`
+- `FR-0008`
+- `FR-0036`
+- `FR-0121`
+- `FR-0122`
+
+**Traceability**:
+- Area: operator experience
+- Observable evidence: `confluex export --help` option text and examples
