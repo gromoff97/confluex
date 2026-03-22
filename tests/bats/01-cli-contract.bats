@@ -142,7 +142,7 @@ EOF
   cat > "$escaped_out/summary.txt" <<'EOF'
 command=export
 root_page_id=100
-support_profile=bounded_confluence_storage_v1
+support_profile=default
 resume_schema_version=1
 final_status=incomplete
 EOF
@@ -160,7 +160,7 @@ EOF
   cat > "$traversed_out/summary.txt" <<'EOF'
 command=export
 root_page_id=100
-support_profile=bounded_confluence_storage_v1
+support_profile=default
 resume_schema_version=1
 final_status=incomplete
 EOF
@@ -181,7 +181,7 @@ EOF
   cat > "$incompatible_out/summary.txt" <<'EOF'
 command=export
 root_page_id=999
-support_profile=bounded_confluence_storage_v1
+support_profile=default
 resume_schema_version=1
 final_status=incomplete
 EOF
@@ -251,58 +251,133 @@ EOF
 }
 
 # Covers: FR-0038
-@test "doctor checks local prerequisites and optional page access" {
+@test "doctor emits the machine-readable diagnostics contract" {
+  local confluence_version='present:unknown_version'
+  local expected=""
+
   run_confluex basic doctor
   assert_success
-  assert_output_contains 'confluex doctor'
-  assert_output_contains '[INFO] support profile: bounded_confluence_storage_v1'
-  assert_output_contains 'supported link forms: child tree, ri:content-entity, ri:page, ri:url(pageId), ri:url(space/title), ac:parameter(page), href(pageId), href(space/title)'
-  assert_output_contains '[OK] bash:'
-  assert_output_contains '[OK] node:'
-  assert_output_contains '[OK] confluence:'
-  assert_output_contains '[INFO] node version:'
-  assert_output_contains '[INFO] confluence version:'
-  assert_output_contains '[INFO] gpg version:'
-  assert_output_contains '[WARN] auth check skipped (no --page-id)'
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=skipped
+encryption_recipient=skipped
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=none
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 
   run_confluex basic doctor --page-id 100
   assert_success
-  assert_output_contains '[OK] access to page 100'
-  assert_output_contains 'title: Root Page'
-  assert_output_contains 'space: ENG'
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=ok
+page_identity=100
+encryption_recipient=skipped
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=none
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 
   run_confluex basic doctor --verify-encryption
-  assert_failure
-  assert_output_contains '[FAIL] no encryption key provided and no saved default encryption key is configured'
+  assert_success
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=skipped
+encryption_recipient=missing
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=set_encryption_key
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 
   run_confluex basic doctor --verify-encryption --encryption-key READYKEY
   assert_success
-  assert_output_contains '[OK] encryption recipient available: READYKEY'
-  assert_output_contains 'source: cli'
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=skipped
+encryption_recipient=ok
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=none
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 
   run_confluex preflight_failure doctor --page-id 100
-  assert_failure
-  assert_output_contains '[FAIL] cannot access page 100 via confluence-cli'
+  assert_success
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=failed
+encryption_recipient=skipped
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=check_page_access
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 }
 
 # Covers: FR-0038, FR-0045
 @test "doctor does not attempt to validate a saved encryption key identity" {
+  local expected=""
+  local confluence_version='present:unknown_version'
+
   run_confluex basic config --encryption-key NOT-A-REAL-GPG-IDENTITY
   assert_success
 
   run_confluex basic doctor
   assert_success
-  assert_output_contains '[OK] bash:'
-  assert_output_contains '[WARN] auth check skipped (no --page-id)'
-  assert_output_not_contains 'default encryption key'
-  assert_output_not_contains 'NOT-A-REAL-GPG-IDENTITY'
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=skipped
+encryption_recipient=skipped
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=none
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 
   export MOCK_GPG_MISSING_KEY=NOT-A-REAL-GPG-IDENTITY
   run_confluex basic doctor --verify-encryption
   unset MOCK_GPG_MISSING_KEY
-  assert_failure
-  assert_output_contains '[FAIL] encryption recipient not available: NOT-A-REAL-GPG-IDENTITY'
-  assert_output_contains 'source: config'
+  assert_success
+  expected="$(cat <<EOF
+dependency_parser_runtime=present:$(node --version | sed -n '1p')
+dependency_confluence_cli=$confluence_version
+dependency_gpg=present:$(gpg --version | sed -n '1p')
+page_access=skipped
+encryption_recipient=failed
+support_profile=default
+supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title
+next_action=fix_encryption_key
+EOF
+)"
+  assert_stdout_equals "$expected"
+  assert_stderr_empty
 }
 
 # Covers: FR-0045

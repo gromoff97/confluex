@@ -36,6 +36,8 @@ confluex_setup() {
 
   CONFLUEX_LAST_STATUS=0
   CONFLUEX_LAST_OUTPUT=""
+  CONFLUEX_LAST_STDOUT=""
+  CONFLUEX_LAST_STDERR=""
 }
 
 confluex_teardown() {
@@ -50,18 +52,21 @@ fail_test() {
 run_command() {
   local scenario="$1"
   shift
-  local log_file="$CONFLUEX_TEST_ROOT/last-command.log"
+  local stdout_file="$CONFLUEX_TEST_ROOT/last-command.stdout"
+  local stderr_file="$CONFLUEX_TEST_ROOT/last-command.stderr"
 
   if (
     cd "$CONFLUEX_WORK_DIR" &&
     SCENARIO="$scenario" "$@"
-  ) >"$log_file" 2>&1; then
+  ) >"$stdout_file" 2>"$stderr_file"; then
     CONFLUEX_LAST_STATUS=0
   else
     CONFLUEX_LAST_STATUS=$?
   fi
 
-  CONFLUEX_LAST_OUTPUT="$(cat "$log_file")"
+  CONFLUEX_LAST_STDOUT="$(cat "$stdout_file")"
+  CONFLUEX_LAST_STDERR="$(cat "$stderr_file")"
+  CONFLUEX_LAST_OUTPUT="$(printf '%s%s' "$CONFLUEX_LAST_STDOUT" "$CONFLUEX_LAST_STDERR")"
 }
 
 run_confluex() {
@@ -91,6 +96,15 @@ assert_output_contains() {
 assert_output_not_contains() {
   local needle="$1"
   [[ "$CONFLUEX_LAST_OUTPUT" != *"$needle"* ]] || fail_test "did not expect output to contain '$needle', got: $CONFLUEX_LAST_OUTPUT"
+}
+
+assert_stdout_equals() {
+  local expected="$1"
+  [[ "$CONFLUEX_LAST_STDOUT" == "$expected" ]] || fail_test "expected stdout to equal '$expected', got: $CONFLUEX_LAST_STDOUT"
+}
+
+assert_stderr_empty() {
+  [[ -z "$CONFLUEX_LAST_STDERR" ]] || fail_test "expected stderr to be empty, got: $CONFLUEX_LAST_STDERR"
 }
 
 assert_file_exists() {

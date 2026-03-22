@@ -242,7 +242,7 @@ teardown() {
   assert_summary_value "$out_dir/summary.txt" resume_mode 0
   assert_summary_value "$out_dir/summary.txt" reused_pages 0
   assert_summary_value "$out_dir/summary.txt" fresh_pages 0
-  assert_summary_value "$out_dir/summary.txt" support_profile bounded_confluence_storage_v1
+  assert_summary_value "$out_dir/summary.txt" support_profile default
   assert_summary_value "$out_dir/summary.txt" scope_trust trusted
   assert_summary_value "$out_dir/summary.txt" encryption_enabled 0
   assert_summary_value "$out_dir/summary.txt" encryption_successful 0
