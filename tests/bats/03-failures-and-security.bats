@@ -205,7 +205,7 @@ teardown() {
   assert_page_exported "$restore_dir/roundtrip-encrypted-export" ENG Linked_Page 300
   assert_report_invariants "$restore_dir/roundtrip-encrypted-export"
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" critical_mode 0
-  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" support_profile bounded_confluence_storage_v1
+  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" support_profile default
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" scope_trust trusted
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" encryption_enabled 1
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" encryption_successful 1

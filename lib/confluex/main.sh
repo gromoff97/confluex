@@ -21,7 +21,7 @@ ENCRYPTION_HINT_FILE=""
 ENCRYPTION_SUCCESSFUL=0
 CFG_ENCRYPTION_KEY_SOURCE="none"
 RUN_BLOCKING_REASONS=""
-CONFLUEX_SUPPORT_PROFILE="bounded_confluence_storage_v1"
+CONFLUEX_SUPPORT_PROFILE="default"
 CONFLUEX_RESUME_SCHEMA_VERSION="1"
 CONFLUEX_EXIT_GENERIC_FAILURE=1
 CONFLUEX_EXIT_POLICY_FAILED=2
@@ -1377,6 +1377,80 @@ confluex_print_doctor_capability_hint() {
   esac
 }
 
+confluex_doctor_dependency_state() {
+  local cmd="$1"
+  local version_line=""
+
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    printf 'absent\n'
+    return 0
+  fi
+
+  version_line="$("$cmd" --version 2>/dev/null | sed -n '1p')" || version_line=""
+  version_line="${version_line//$'\t'/ }"
+  version_line="${version_line//$'\r'/ }"
+  version_line="${version_line//$'\n'/ }"
+  version_line="$(trim "$version_line")"
+
+  if [[ -z "$version_line" ]]; then
+    printf 'present:unknown_version\n'
+    return 0
+  fi
+
+  printf 'present:%s\n' "$version_line"
+}
+
+confluex_parse_info_identity() {
+  local file="$1"
+  local page_id=""
+
+  page_id="$(sed -n 's/^[[:space:]]*ID:[[:space:]]*//p' "$file" | sed -n '1p')"
+  page_id="$(trim "$page_id")"
+  if [[ -n "$page_id" ]]; then
+    printf '%s\n' "$page_id"
+    return 0
+  fi
+
+  page_id="$(sed -n 's#^[[:space:]]*URL:[[:space:]].*/pages/\([0-9][0-9]*\)\([/?#].*\)\{0,1\}$#\1#p' "$file" | sed -n '1p')"
+  page_id="$(trim "$page_id")"
+  printf '%s\n' "$page_id"
+}
+
+confluex_doctor_next_action() {
+  local parser_runtime_state="$1"
+  local confluence_state="$2"
+  local gpg_state="$3"
+  local page_access="$4"
+  local encryption_recipient="$5"
+  local -a actions=()
+
+  if [[ "$parser_runtime_state" == "absent" ]]; then
+    actions+=("install_parser_runtime")
+  fi
+  if [[ "$confluence_state" == "absent" ]]; then
+    actions+=("install_confluence_cli")
+  fi
+  if [[ "$gpg_state" == "absent" ]]; then
+    actions+=("install_gpg")
+  fi
+  if [[ "$page_access" == "failed" ]]; then
+    actions+=("check_page_access")
+  fi
+  if [[ "$encryption_recipient" == "missing" ]]; then
+    actions+=("set_encryption_key")
+  fi
+  if [[ "$encryption_recipient" == "failed" ]]; then
+    actions+=("fix_encryption_key")
+  fi
+
+  if (( ${#actions[@]} == 0 )); then
+    printf 'none\n'
+    return 0
+  fi
+
+  confluex_join_csv "${actions[@]}"
+}
+
 confluex_encryption_key_is_full_fingerprint() {
   local key="$1"
 
@@ -1464,89 +1538,64 @@ confluex_run_config() {
 }
 
 confluex_run_doctor() {
-  local ok=1
+  local parser_runtime_state=""
+  local confluence_state=""
+  local gpg_state=""
   local info_file=""
-  local parsed=""
-  local title=""
-  local space_key=""
-  local cmd=""
+  local page_access="skipped"
+  local page_identity=""
+  local encryption_recipient="skipped"
   local effective_key=""
-  local key_source="cli"
+  local next_action=""
 
-  printf 'confluex doctor\n'
-  printf '  [INFO] support profile: %s\n' "$CONFLUEX_SUPPORT_PROFILE"
-  printf '  [INFO] supported link forms: child tree, ri:content-entity, ri:page, ri:url(pageId), ri:url(space/title), ac:parameter(page), href(pageId), href(space/title)\n'
-  for cmd in bash node confluence sed awk grep sort find tr wc; do
-    if command -v "$cmd" >/dev/null 2>&1; then
-      printf '  [OK] %s: %s\n' "$cmd" "$(command -v "$cmd")"
-      case "$cmd" in
-        node|confluence)
-          confluex_print_doctor_capability_hint "$cmd" "$cmd"
-          ;;
-      esac
+  parser_runtime_state="$(confluex_doctor_dependency_state node)"
+  confluence_state="$(confluex_doctor_dependency_state confluence)"
+  gpg_state="$(confluex_doctor_dependency_state gpg)"
+
+  printf 'dependency_parser_runtime=%s\n' "$parser_runtime_state"
+  printf 'dependency_confluence_cli=%s\n' "$confluence_state"
+  printf 'dependency_gpg=%s\n' "$gpg_state"
+
+  if [[ -n "$CFG_ROOT_ID" ]]; then
+    info_file="$(mktemp "${TMPDIR:-/tmp}/confluex.doctor.${CFG_ROOT_ID}.XXXXXX")"
+    if command -v confluence >/dev/null 2>&1 && confluence info "$CFG_ROOT_ID" >"$info_file" 2>/dev/null; then
+      page_access="ok"
+      page_identity="$(confluex_parse_info_identity "$info_file")"
+      if [[ -z "$page_identity" ]]; then
+        page_identity="$CFG_ROOT_ID"
+      fi
     else
-      printf '  [FAIL] %s not found\n' "$cmd"
-      ok=0
+      page_access="failed"
     fi
-  done
-
-  if command -v gpg >/dev/null 2>&1; then
-    printf '  [OK] gpg: %s\n' "$(command -v gpg)"
-    confluex_print_doctor_capability_hint gpg gpg
-  else
-    printf '  [WARN] gpg not found (encrypted output unavailable)\n'
+    rm -f "$info_file"
   fi
 
-  if (( ok == 0 )); then
-    return 1
+  printf 'page_access=%s\n' "$page_access"
+  if [[ "$page_access" == "ok" ]]; then
+    printf 'page_identity=%s\n' "$page_identity"
   fi
 
   if (( CFG_VERIFY_ENCRYPTION )); then
-    if ! command -v gpg >/dev/null 2>&1; then
-      printf '  [FAIL] gpg not found\n'
-      return 1
-    fi
-
     effective_key="$CFG_ENCRYPTION_KEY"
     if [[ -z "$effective_key" ]]; then
       effective_key="$(confluex_read_config_encryption_key)"
-      key_source="config"
     fi
 
     if [[ -z "$effective_key" ]]; then
-      printf '  [FAIL] no encryption key provided and no saved default encryption key is configured\n'
-      return 1
-    fi
-
-    if confluex_validate_encryption_recipient "$effective_key"; then
-      printf '  [OK] encryption recipient available: %s\n' "$effective_key"
-      printf '       source: %s\n' "$key_source"
+      encryption_recipient="missing"
+    elif confluex_validate_encryption_recipient "$effective_key"; then
+      encryption_recipient="ok"
     else
-      printf '  [FAIL] encryption recipient not available: %s\n' "$effective_key"
-      printf '       source: %s\n' "$key_source"
-      return 1
+      encryption_recipient="failed"
     fi
   fi
 
-  if [[ -z "$CFG_ROOT_ID" ]]; then
-    printf '  [WARN] auth check skipped (no --page-id)\n'
-    return 0
-  fi
-
-  info_file="$(mktemp "${TMPDIR:-/tmp}/confluex.doctor.${CFG_ROOT_ID}.XXXXXX")"
-  if confluex_capture_stdout "$info_file" confluence info "$CFG_ROOT_ID"; then
-    parsed="$(confluex_parse_info_file "$info_file")"
-    IFS=$'\x1f' read -r title space_key _ <<< "$parsed"
-    printf '  [OK] access to page %s\n' "$CFG_ROOT_ID"
-    printf '       title: %s\n' "${title:-<unknown>}"
-    printf '       space: %s\n' "${space_key:-<unknown>}"
-    rm -f "$info_file"
-    return 0
-  fi
-
-  rm -f "$info_file"
-  printf '  [FAIL] cannot access page %s via confluence-cli\n' "$CFG_ROOT_ID"
-  return 1
+  printf 'encryption_recipient=%s\n' "$encryption_recipient"
+  printf 'support_profile=%s\n' "$CONFLUEX_SUPPORT_PROFILE"
+  printf 'supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title\n'
+  next_action="$(confluex_doctor_next_action "$parser_runtime_state" "$confluence_state" "$gpg_state" "$page_access" "$encryption_recipient")"
+  printf 'next_action=%s\n' "$next_action"
+  return 0
 }
 
 confluex_run_export() {
