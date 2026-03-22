@@ -143,7 +143,7 @@ EOF
 command=export
 root_page_id=100
 support_profile=default
-resume_schema_version=1
+resume_schema_version=2
 final_status=incomplete
 EOF
 
@@ -161,7 +161,7 @@ EOF
 command=export
 root_page_id=100
 support_profile=default
-resume_schema_version=1
+resume_schema_version=2
 final_status=incomplete
 EOF
 
@@ -182,7 +182,7 @@ EOF
 command=export
 root_page_id=999
 support_profile=default
-resume_schema_version=1
+resume_schema_version=2
 final_status=incomplete
 EOF
 
