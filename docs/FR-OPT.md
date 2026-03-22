@@ -572,11 +572,12 @@ payload format for `export`.
 **Acceptance Criteria**:
 1. `--page-format <format>` selects the page payload format for materialized
    page content in `export`.
-2. Without `--page-format`, the effective page payload format is `md`.
-3. `--page-format md` requests persistence of `page.md` for successfully
-   materialized pages.
-4. `--page-format html` requests persistence of `page.html` for successfully
-   materialized pages.
+2. Without `--page-format`, the effective page payload format is Markdown
+   (`md`).
+3. `--page-format md` selects Markdown page export and requests persistence of
+   `page.md` for successfully materialized pages.
+4. `--page-format html` selects HTML page export and requests persistence of
+   `page.html` for successfully materialized pages.
 5. Any command other than `export` used with `--page-format` is rejected.
 
 **Dependencies**:
