@@ -21,8 +21,23 @@ confluex_log() {
   local ts
   local line
   ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-  line="$(printf '[%s] [%s] %s\n' "$ts" "$level" "$*")"
-  printf '%s\n' "$line" >&2
+  case "$level" in
+    INFO)
+      line="$(printf '[%s] [INFO] %s\n' "$ts" "$*")"
+      ;;
+    WARN)
+      line="$(printf 'WARNING: [%s] %s\n' "$ts" "$*")"
+      ;;
+    ERROR)
+      line="$(printf 'ERROR: [%s] %s\n' "$ts" "$*")"
+      ;;
+    *)
+      line="$(printf '[%s] [%s] %s\n' "$ts" "$level" "$*")"
+      ;;
+  esac
+  if [[ "$level" != "INFO" ]]; then
+    printf '%s\n' "$line" >&2
+  fi
   if [[ -n "${LOG_FILE:-}" ]]; then
     printf '%s\n' "$line" >> "$LOG_FILE"
   fi
@@ -38,6 +53,62 @@ trim() {
   s="${s#"${s%%[![:space:]]*}"}"
   s="${s%"${s##*[![:space:]]}"}"
   printf '%s' "$s"
+}
+
+confluex_normalize_logical_path() {
+  local path="$1"
+  local absolute=""
+  local part=""
+  local -a parts=()
+  local -a stack=()
+
+  if [[ -z "$path" ]]; then
+    return 1
+  fi
+
+  if [[ "$path" == /* ]]; then
+    absolute="$path"
+  else
+    absolute="$PWD/$path"
+  fi
+
+  IFS='/' read -r -a parts <<< "${absolute#/}"
+  for part in "${parts[@]}"; do
+    case "$part" in
+      ""|".")
+        continue
+        ;;
+      "..")
+        if (( ${#stack[@]} > 0 )); then
+          unset 'stack[${#stack[@]}-1]'
+          stack=("${stack[@]}")
+        fi
+        ;;
+      *)
+        stack+=("$part")
+        ;;
+    esac
+  done
+
+  if (( ${#stack[@]} == 0 )); then
+    printf '/\n'
+    return 0
+  fi
+
+  absolute=""
+  for part in "${stack[@]}"; do
+    absolute="${absolute}/$part"
+  done
+  printf '%s\n' "$absolute"
+}
+
+confluex_quote_path_string() {
+  local path="$1"
+  local escaped="$path"
+
+  escaped="${escaped//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf '"%s"\n' "$escaped"
 }
 
 sanitize_name() {

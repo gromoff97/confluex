@@ -10,8 +10,8 @@ Use it when you want to export a Confluence page tree without manually chaining 
 
 - export a root page and its full recursive child tree;
 - follow supported internal page references found in page content;
-- download page HTML and attachments in `export`;
-- build the same scope without HTML and attachment downloads in `plan`;
+- materialize page payload as Markdown by default, or as HTML when requested, plus attachments in `export`;
+- build the same scope without materialized page payload or attachment downloads in `plan`;
 - write machine-readable reports about exported pages, unresolved links, failures, and degraded scope;
 - optionally encrypt the final result for a GPG recipient.
 
@@ -143,10 +143,7 @@ Use `plan` when you want to understand scope without downloading page HTML or at
 - resolves supported internal links;
 - writes the same run-level reports.
 
-`plan` does not:
-
-- persist `page.html`;
-- download attachments.
+`plan` does not persist page payload files or downloaded attachments.
 
 Example:
 
@@ -158,7 +155,7 @@ confluex plan --page-id 12345 --out ./plan --safe
 
 Use `export` when you want the actual payload:
 
-- exported page HTML;
+- exported page payload (`page.md` by default, or `page.html` with `--page-format html`);
 - downloaded attachments;
 - report files and `summary.txt`.
 - optional recovery from an earlier partial export through `--resume`.
@@ -215,6 +212,12 @@ It:
 
 Use it only when the machine already has the target public key in its GPG keyring.
 
+### `--encrypt`
+
+Use `--encrypt` when you want an encrypted final artifact while keeping standard-mode recovery semantics if encryption itself fails.
+
+Pair it with `--encryption-key` to override the recipient for the current run, or save a default recipient once with `confluex config --encryption-key ...`.
+
 ## Common Commands
 
 Normal export:
@@ -253,7 +256,7 @@ confluex export --page-id 12345 --out ./dump --keep-metadata --log-file ./conflu
 Encrypted export:
 
 ```bash
-confluex export --page-id 12345 --out ./dump --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+confluex export --page-id 12345 --out ./dump --encrypt --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
 Confidential encrypted export:
@@ -300,10 +303,12 @@ confluex uninstall
 - `--out DIR`: explicit output directory. If omitted, `confluex` generates one.
 - `--safe`: conservative defaults.
 - `--critical`: fail-closed mode.
+- `--encrypt`: request encrypted output delivery.
 - `--confidential`: encrypted fail-closed mode that removes plaintext on encryption failure.
 - `--resume`: only for `export`, continue from an existing explicit output directory and reuse prior page payload when safe.
 - `--no-fail-fast`: continue after page-local failures.
 - `--keep-metadata`: persist `_info.txt`, `_storage.xml`, and in `plan` also `_attachments_preview.txt`.
+- `--page-format FORMAT`: only for `export`, select `md` or `html`. Default: `md`.
 - `--log-file FILE`: write a persistent log file.
 - `--encryption-key KEY`: use this GPG recipient for the current run.
 - `--clear-encryption-key`: only for `config`, remove the saved default encryption key.
@@ -368,7 +373,7 @@ dump/
   pages/
     ENG/
       Root_Page__100/
-        page.html
+        page.md
         attachments/
   manifest.tsv
   resolved-links.tsv
@@ -378,7 +383,9 @@ dump/
   summary.txt
 ```
 
-Typical `plan` result has the same top-level reports, but no `page.html` and no downloaded attachments.
+If you choose `--page-format html`, the per-page payload file is `page.html` instead of `page.md`.
+
+Typical `plan` result has the same top-level reports, but no `page.md`, no `page.html`, and no downloaded attachments.
 
 By default metadata files are not persisted. With `--keep-metadata`, page folders also include:
 
@@ -500,7 +507,7 @@ You can:
 - override that saved key per run with `--encryption-key`;
 - verify recipient availability with `confluex doctor --verify-encryption`.
 
-When encryption is enabled for `export` or `plan`, `confluex` validates the effective recipient before traversal begins. A missing or unavailable recipient fails the run before page payload is materialized.
+When encryption is enabled for `export` or `plan` with `--encrypt` or `--confidential`, `confluex` validates the effective recipient before traversal begins. A missing or unavailable recipient fails the run before page payload is materialized.
 
 To decrypt an encrypted result:
 

@@ -30,6 +30,45 @@ teardown() {
   assert_report_invariants "$out_dir"
 }
 
+# Covers: FR-0056, FR-0057, FR-0058
+@test "accepted export and plan runs emit the machine-readable lifecycle contract on stdout" {
+  local plain_out="$CONFLUEX_WORK_DIR/lifecycle-export"
+  local encrypted_out="$CONFLUEX_WORK_DIR/lifecycle-encrypted"
+  local plan_out="$CONFLUEX_WORK_DIR/lifecycle-plan"
+  local expected_stdout=""
+
+  run_confluex basic export --page-id 100 --out "$plain_out"
+  assert_success
+  printf -v expected_stdout '%s\n%s\n%s\n%s\n%s' \
+    "RUN_START command=export page_id=100 output_root=\"$plain_out\"" \
+    'RUN_PHASE phase=scope_discovery' \
+    'RUN_PHASE phase=page_processing' \
+    'RUN_PHASE phase=report_generation' \
+    "RUN_COMPLETE final_status=success artifact=\"$plain_out\""
+  assert_stdout_equals "$expected_stdout"
+
+  run_confluex basic export --page-id 100 --out "$encrypted_out" --encrypt --encryption-key KEY-ONE
+  assert_success
+  printf -v expected_stdout '%s\n%s\n%s\n%s\n%s\n%s' \
+    "RUN_START command=export page_id=100 output_root=\"$encrypted_out\"" \
+    'RUN_PHASE phase=scope_discovery' \
+    'RUN_PHASE phase=page_processing' \
+    'RUN_PHASE phase=report_generation' \
+    'RUN_PHASE phase=encryption' \
+    "RUN_COMPLETE final_status=success artifact=\"${encrypted_out}.tar.gz.gpg\""
+  assert_stdout_equals "$expected_stdout"
+
+  run_confluex basic plan --page-id 100 --out "$plan_out"
+  assert_success
+  printf -v expected_stdout '%s\n%s\n%s\n%s\n%s' \
+    "RUN_START command=plan page_id=100 output_root=\"$plan_out\"" \
+    'RUN_PHASE phase=scope_discovery' \
+    'RUN_PHASE phase=page_processing' \
+    'RUN_PHASE phase=report_generation' \
+    "RUN_COMPLETE final_status=success artifact=\"$plan_out\""
+  assert_stdout_equals "$expected_stdout"
+}
+
 # Covers: FR-0028, FR-0054, FR-0081
 @test "plan omits HTML and attachments and only persists metadata when requested" {
   local out_dir="$CONFLUEX_WORK_DIR/plan-default"
@@ -42,7 +81,8 @@ teardown() {
   assert_path_missing "$out_dir/pages/ENG/Root_Page__100/attachments"
   assert_path_missing "$out_dir/pages/ENG/Root_Page__100/_info.txt"
   assert_path_missing "$out_dir/pages/ENG/Root_Page__100/_storage.xml"
-  assert_summary_value "$out_dir/summary.txt" dry_run 1
+  assert_summary_value "$out_dir/summary.txt" command plan
+  assert_summary_value "$out_dir/summary.txt" page_payload_format none
   assert_report_invariants "$out_dir"
 
   run_confluex basic plan --page-id 100 --out "$meta_out_dir" --keep-metadata
@@ -108,7 +148,7 @@ teardown() {
 
   assert_success
   assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "manifest row count"
-  assert_file_contains $'100\tRoot Page\tENG\ttitle\tENG:Common Page' "$out_dir/unresolved-links.tsv"
+  assert_file_contains $'100\tRoot Page\tpage_ref\tENG:Common Page\tnot_unique' "$out_dir/unresolved-links.tsv"
   assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 600)" "manifest page count for 600"
   assert_equal "0" "$(manifest_page_count "$out_dir/manifest.tsv" 601)" "manifest page count for 601"
   assert_summary_value "$out_dir/summary.txt" final_status success_with_findings
@@ -156,7 +196,7 @@ teardown() {
   assert_summary_value "$unsupported_out/summary.txt" blocking_reasons scope_findings
   assert_summary_value "$unsupported_out/summary.txt" scope_trust degraded
   assert_summary_value "$unsupported_out/summary.txt" scope_findings 1
-  assert_file_contains $'100\tlink_support\tunsupported_internal_reference\tri:url:/spaces/ENG/overview' "$unsupported_out/scope-findings.tsv"
+  assert_file_contains $'100\tunsupported_pattern\tunsupported_internal_pattern\tri:url:/spaces/ENG/overview' "$unsupported_out/scope-findings.tsv"
 }
 
 # Covers: FR-0065
@@ -184,7 +224,7 @@ teardown() {
   assert_summary_value "$out_dir/summary.txt" final_status success_with_findings
   assert_summary_value "$out_dir/summary.txt" blocking_reasons scope_findings
   assert_summary_value "$out_dir/summary.txt" scope_trust degraded
-  assert_file_contains $'100\ttitle_resolution\ttitle_candidates_inaccessible\t[ENG] Hidden Page' "$out_dir/scope-findings.tsv"
+  assert_file_contains $'100\ttitle_resolution\tcandidate_visibility_incomplete\t[ENG] Hidden Page' "$out_dir/scope-findings.tsv"
 }
 
 # Covers: FR-0067
@@ -218,42 +258,40 @@ teardown() {
 @test "export output tree and report files stay stable enough for black-box inspection" {
   local out_dir="$CONFLUEX_WORK_DIR/output-contract"
 
-  run_confluex basic export --page-id 100 --out "$out_dir"
+  run_confluex basic export --page-id 100 --out "$out_dir" --page-format html
 
   assert_success
   assert_standard_report_files "$out_dir"
   assert_path_exists "$out_dir/pages"
-  assert_file_contains $'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count' "$out_dir/manifest.tsv"
+  assert_file_contains $'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count' "$out_dir/manifest.tsv"
   assert_manifest_folders_relative "$out_dir/manifest.tsv"
-  assert_file_contains $'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space' "$out_dir/resolved-links.tsv"
-  assert_file_contains $'from_page_id\tfrom_title\tspace_key\tlink_type\tlink_value' "$out_dir/unresolved-links.tsv"
-  assert_file_contains $'page_id\tscope_area\tfinding_type\tdetail' "$out_dir/scope-findings.tsv"
+  assert_file_contains $'source_page_id\tsource_title\tlink_kind\traw_link_value\ttarget_page_id\ttarget_space_key\ttarget_title' "$out_dir/resolved-links.tsv"
+  assert_file_contains $'source_page_id\tsource_title\tlink_kind\traw_link_value\tresolution_reason' "$out_dir/unresolved-links.tsv"
+  assert_file_contains $'page_id\tpage_title\toperation\terror_summary' "$out_dir/failed-pages.tsv"
+  assert_file_contains $'page_id\tfinding_area\tfinding_type\tdetail' "$out_dir/scope-findings.tsv"
   assert_summary_is_key_value_file "$out_dir/summary.txt"
-  assert_summary_has_keys "$out_dir/summary.txt" \
-    command root_page_id dry_run safe_mode critical_mode confidential_mode support_profile scope_trust encryption_enabled encryption_successful encryption_key encryption_key_source encrypted_archive output_dir path_provenance final_status blocking_reasons \
-    max_pages max_download_mib sleep_ms processed_pages root_pages tree_pages linked_pages other_pages resume_mode reused_pages fresh_pages manifest_rows \
-    resolved_links unresolved_links scope_findings failed_operations downloaded_total_bytes downloaded_total_mib downloaded_content_bytes \
-    downloaded_content_mib downloaded_metadata_bytes downloaded_metadata_mib incomplete
+  assert_summary_keys_exact "$out_dir/summary.txt" \
+    command page_id output_root output_path_provenance support_profile page_payload_format final_status scope_trust processed_pages root_pages tree_pages linked_pages other_pages \
+    resolved_links unresolved_links scope_findings failed_operations downloaded_mib_total downloaded_mib_content downloaded_mib_metadata blocking_reasons interrupt_reason resume_mode \
+    resume_schema_version reused_pages fresh_pages encryption_enabled encryption_successful
   assert_summary_value "$out_dir/summary.txt" command export
-  assert_summary_value "$out_dir/summary.txt" root_page_id 100
-  assert_summary_value "$out_dir/summary.txt" dry_run 0
-  assert_summary_value "$out_dir/summary.txt" critical_mode 0
-  assert_summary_value "$out_dir/summary.txt" confidential_mode 0
+  assert_summary_value "$out_dir/summary.txt" page_id 100
+  assert_summary_value "$out_dir/summary.txt" output_root "\"$out_dir\""
+  assert_summary_value "$out_dir/summary.txt" output_path_provenance explicit
+  assert_summary_value "$out_dir/summary.txt" page_payload_format html
   assert_summary_value "$out_dir/summary.txt" resume_mode 0
   assert_summary_value "$out_dir/summary.txt" reused_pages 0
-  assert_summary_value "$out_dir/summary.txt" fresh_pages 0
+  assert_summary_value "$out_dir/summary.txt" fresh_pages 3
   assert_summary_value "$out_dir/summary.txt" support_profile default
   assert_summary_value "$out_dir/summary.txt" scope_trust trusted
   assert_summary_value "$out_dir/summary.txt" encryption_enabled 0
   assert_summary_value "$out_dir/summary.txt" encryption_successful 0
-  assert_summary_value "$out_dir/summary.txt" path_provenance runtime_origin
   assert_summary_value "$out_dir/summary.txt" final_status success
-  assert_summary_value "$out_dir/summary.txt" blocking_reasons ''
+  assert_summary_value "$out_dir/summary.txt" blocking_reasons none
+  assert_summary_value "$out_dir/summary.txt" interrupt_reason none
   assert_summary_value "$out_dir/summary.txt" scope_findings 0
-  assert_summary_value "$out_dir/summary.txt" incomplete 0
   assert_summary_value "$out_dir/summary.txt" processed_pages 3
-  assert_summary_value "$out_dir/summary.txt" manifest_rows 3
-  assert_failed_pages_two_columns "$out_dir/failed-pages.tsv"
+  assert_failed_pages_four_columns "$out_dir/failed-pages.tsv"
   assert_scope_findings_four_columns "$out_dir/scope-findings.tsv"
 }
 
@@ -261,7 +299,7 @@ teardown() {
 @test "resume mode reuses already materialized page payload from a prior failed export" {
   local out_dir="$CONFLUEX_WORK_DIR/resume-reuse"
 
-  run_confluex resume_reuse_fail export --page-id 100 --out "$out_dir"
+  run_confluex resume_reuse_fail export --page-id 100 --out "$out_dir" --page-format html
   assert_failure
   assert_summary_value "$out_dir/summary.txt" final_status incomplete
   assert_summary_value "$out_dir/summary.txt" failed_operations 1
@@ -271,7 +309,7 @@ teardown() {
   assert_file_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
   assert_file_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
 
-  run_confluex resume_reuse_success export --page-id 100 --out "$out_dir" --resume
+  run_confluex resume_reuse_success export --page-id 100 --out "$out_dir" --resume --page-format html
   assert_success
   assert_output_contains 'reusing existing page HTML + attachments from prior run'
   assert_summary_value "$out_dir/summary.txt" final_status success
@@ -317,15 +355,17 @@ teardown() {
 
   run_confluex basic plan --page-id 100 --out "$out_dir" --safe
   assert_success
-  assert_summary_value "$out_dir/summary.txt" max_pages 200
-  assert_summary_value "$out_dir/summary.txt" max_download_mib 256
-  assert_summary_value "$out_dir/summary.txt" sleep_ms 200
+  assert_output_contains 'safe-mode: 1'
+  assert_output_contains 'max-pages: 200'
+  assert_output_contains 'max-download-mib: 256'
+  assert_output_contains 'sleep-ms: 200'
 
   run_confluex basic plan --page-id 100 --out "$override_out" --safe --max-pages 7 --max-download-mib 9 --sleep-ms 5
   assert_success
-  assert_summary_value "$override_out/summary.txt" max_pages 7
-  assert_summary_value "$override_out/summary.txt" max_download_mib 9
-  assert_summary_value "$override_out/summary.txt" sleep_ms 5
+  assert_output_contains 'safe-mode: 1'
+  assert_output_contains 'max-pages: 7'
+  assert_output_contains 'max-download-mib: 9'
+  assert_output_contains 'sleep-ms: 5'
 
   mkdir -p "$CONFLUEX_WORK_DIR/confluence_dump_100_20240101_010203"
   run_confluex basic export --page-id 100
@@ -333,7 +373,7 @@ teardown() {
   assert_path_exists "$(generated_dir 'confluence_dump_100_20240101_010203_2')"
 }
 
-# Covers: FR-0094
+# Covers: FR-0009, FR-0010, FR-0094
 @test "unbounded non-safe export and plan runs warn explicitly" {
   local unbounded_plan="$CONFLUEX_WORK_DIR/unbounded-plan"
   local unbounded_export="$CONFLUEX_WORK_DIR/unbounded-export"
@@ -342,21 +382,33 @@ teardown() {
 
   run_confluex basic plan --page-id 100 --out "$unbounded_plan"
   assert_success
-  assert_output_contains 'without --safe'
-  assert_output_contains 'effectively unbounded'
+  assert_stdout_contains 'RUN_START command=plan page_id=100 output_root="'
+  assert_stdout_contains 'RUN_COMPLETE final_status=success artifact="'
+  assert_stdout_not_contains 'WARNING: '
+  [[ "$CONFLUEX_LAST_STDERR" == WARNING:\ * ]] ||
+    fail_test "expected stderr to start with 'WARNING: ', got: $CONFLUEX_LAST_STDERR"
+  assert_stderr_contains 'without --safe'
+  assert_stderr_contains 'effectively unbounded'
 
   run_confluex basic export --page-id 100 --out "$unbounded_export"
   assert_success
-  assert_output_contains 'without --safe'
-  assert_output_contains 'effectively unbounded'
+  assert_stdout_contains 'RUN_START command=export page_id=100 output_root="'
+  assert_stdout_contains 'RUN_COMPLETE final_status=success artifact="'
+  assert_stdout_not_contains 'WARNING: '
+  [[ "$CONFLUEX_LAST_STDERR" == WARNING:\ * ]] ||
+    fail_test "expected stderr to start with 'WARNING: ', got: $CONFLUEX_LAST_STDERR"
+  assert_stderr_contains 'without --safe'
+  assert_stderr_contains 'effectively unbounded'
 
   run_confluex basic export --page-id 100 --out "$bounded_export" --max-pages 10
   assert_success
-  assert_output_not_contains 'effectively unbounded'
+  assert_stdout_not_contains 'WARNING: '
+  assert_stderr_not_contains 'effectively unbounded'
 
   run_confluex basic plan --page-id 100 --out "$safe_plan" --safe
   assert_success
-  assert_output_not_contains 'effectively unbounded'
+  assert_stdout_not_contains 'WARNING: '
+  assert_stderr_not_contains 'effectively unbounded'
 }
 
 # Covers: FR-0094, FR-0097, FR-0113
@@ -381,7 +433,7 @@ teardown() {
   assert_status 3
   assert_output_not_contains 'effectively unbounded'
   assert_summary_value "$limited_out/summary.txt" final_status incomplete
-  assert_summary_value "$limited_out/summary.txt" interrupt_reason max_pages_reached
+  assert_summary_value "$limited_out/summary.txt" interrupt_reason max_pages_limit_reached
   assert_summary_value "$limited_out/summary.txt" processed_pages 12
   assert_summary_value "$limited_out/summary.txt" root_pages 1
   assert_summary_value "$limited_out/summary.txt" tree_pages 11
@@ -401,7 +453,7 @@ teardown() {
   assert_summary_value "$findings_out/summary.txt" final_status success_with_findings
   assert_summary_value "$findings_out/summary.txt" blocking_reasons scope_findings
   assert_summary_value "$findings_out/summary.txt" scope_trust degraded
-  assert_file_contains $'100\ttree_scope\tchildren_pagination_hint\thasMore_true' "$findings_out/scope-findings.tsv"
+  assert_file_contains $'100\tchild_listing\tpartial_listing\thasMore_true' "$findings_out/scope-findings.tsv"
 
   run_confluex paged_children export --page-id 100 --out "$critical_out" --critical
   assert_status 2
@@ -419,31 +471,29 @@ teardown() {
 
   run_confluex basic export --page-id 100 --out "$clean_out" --critical
   assert_success
-  assert_summary_value "$clean_out/summary.txt" critical_mode 1
-  assert_summary_value "$clean_out/summary.txt" safe_mode 1
-  assert_summary_value "$clean_out/summary.txt" max_pages 200
-  assert_summary_value "$clean_out/summary.txt" max_download_mib 256
-  assert_summary_value "$clean_out/summary.txt" sleep_ms 200
+  assert_output_contains 'safe-mode: 1'
+  assert_output_contains 'max-pages: 200'
+  assert_output_contains 'max-download-mib: 256'
+  assert_output_contains 'sleep-ms: 200'
   assert_summary_value "$clean_out/summary.txt" final_status success
 
   run_confluex basic export --page-id 100 --out "$override_out" --critical --max-pages 7 --max-download-mib 9 --sleep-ms 5
   assert_success
-  assert_summary_value "$override_out/summary.txt" max_pages 7
-  assert_summary_value "$override_out/summary.txt" max_download_mib 9
-  assert_summary_value "$override_out/summary.txt" sleep_ms 5
+  assert_output_contains 'safe-mode: 1'
+  assert_output_contains 'max-pages: 7'
+  assert_output_contains 'max-download-mib: 9'
+  assert_output_contains 'sleep-ms: 5'
 
   run_confluex ambiguous_title export --page-id 100 --out "$unresolved_out" --critical
   assert_status 2
-  assert_summary_value "$unresolved_out/summary.txt" critical_mode 1
   assert_summary_value "$unresolved_out/summary.txt" final_status policy_failed
   assert_summary_value "$unresolved_out/summary.txt" blocking_reasons unresolved_links
   assert_file_contains $'100\tRoot Page\tENG\ttitle\tENG:Common Page' "$unresolved_out/unresolved-links.tsv"
 
   run_confluex children_unavailable export --page-id 100 --out "$degraded_out" --critical
   assert_status 2
-  assert_summary_value "$degraded_out/summary.txt" critical_mode 1
   assert_summary_value "$degraded_out/summary.txt" final_status policy_failed
   assert_summary_value "$degraded_out/summary.txt" blocking_reasons scope_findings
   assert_summary_value "$degraded_out/summary.txt" scope_trust degraded
-  assert_file_contains $'100\ttree_scope\tchildren_unavailable\troot child traversal unavailable' "$degraded_out/scope-findings.tsv"
+  assert_file_contains $'100\tchild_listing\tincomplete_tree\troot child traversal unavailable' "$degraded_out/scope-findings.tsv"
 }

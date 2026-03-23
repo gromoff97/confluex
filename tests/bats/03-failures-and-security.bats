@@ -18,12 +18,12 @@ teardown() {
   run_confluex fail_fast export --page-id 100 --out "$fail_fast_out"
   assert_failure
   assert_equal "0" "$(manifest_page_count "$fail_fast_out/manifest.tsv" 900)" "fail-fast later page count"
-  assert_file_contains $'200\texport' "$fail_fast_out/failed-pages.tsv"
+  assert_file_contains $'200\tChild Page\tpage_payload' "$fail_fast_out/failed-pages.tsv"
 
   run_confluex no_fail_fast export --page-id 100 --out "$best_effort_out" --no-fail-fast
   assert_success
   assert_equal "1" "$(manifest_page_count "$best_effort_out/manifest.tsv" 900)" "best-effort later page count"
-  assert_file_contains $'200\texport' "$best_effort_out/failed-pages.tsv"
+  assert_file_contains $'200\tChild Page\tpage_payload' "$best_effort_out/failed-pages.tsv"
 }
 
 # Covers: FR-0095, FR-0098, FR-0113
@@ -32,29 +32,26 @@ teardown() {
   local max_pages_out="$CONFLUEX_WORK_DIR/max-pages-limit"
   local limited_out="$CONFLUEX_WORK_DIR/max-download-limit"
 
-  run_confluex partial_export_failure export --page-id 100 --out "$partial_out"
+  run_confluex partial_export_failure export --page-id 100 --out "$partial_out" --page-format html
   assert_status 4
   assert_file_exists "$partial_out/pages/ENG/Child_Page__200/page.html"
-  assert_file_contains $'200\texport' "$partial_out/failed-pages.tsv"
-  assert_failed_pages_two_columns "$partial_out/failed-pages.tsv"
-  assert_summary_value "$partial_out/summary.txt" incomplete 1
+  assert_file_contains $'200\tChild Page\tpage_payload' "$partial_out/failed-pages.tsv"
+  assert_failed_pages_four_columns "$partial_out/failed-pages.tsv"
   assert_summary_value "$partial_out/summary.txt" final_status incomplete
   assert_summary_value "$partial_out/summary.txt" interrupt_reason runtime_error
-  assert_summary_has_keys "$partial_out/summary.txt" command root_page_id output_dir failed_operations downloaded_total_bytes interrupt_reason
+  assert_summary_has_keys "$partial_out/summary.txt" command page_id output_root failed_operations downloaded_mib_total interrupt_reason
 
   run_confluex basic export --page-id 100 --out "$max_pages_out" --max-pages 1
   assert_status 3
-  assert_summary_value "$max_pages_out/summary.txt" incomplete 1
   assert_summary_value "$max_pages_out/summary.txt" final_status incomplete
-  assert_summary_value "$max_pages_out/summary.txt" interrupt_reason max_pages_reached
+  assert_summary_value "$max_pages_out/summary.txt" interrupt_reason max_pages_limit_reached
   assert_equal "1" "$(manifest_row_count "$max_pages_out/manifest.tsv")" "manifest row count for max-pages"
   assert_report_invariants "$max_pages_out"
 
   run_confluex max_download_limit export --page-id 100 --out "$limited_out" --max-download-mib 1
   assert_status 3
-  assert_summary_value "$limited_out/summary.txt" incomplete 1
   assert_summary_value "$limited_out/summary.txt" final_status incomplete
-  assert_summary_value "$limited_out/summary.txt" interrupt_reason max_download_mib_reached
+  assert_summary_value "$limited_out/summary.txt" interrupt_reason max_download_limit_reached
   assert_report_invariants "$limited_out"
 }
 
@@ -63,14 +60,13 @@ teardown() {
   local export_out="$CONFLUEX_WORK_DIR/interrupt-export"
   local plan_out="$CONFLUEX_WORK_DIR/interrupt-plan"
 
-  run_confluex interrupt_export export --page-id 100 --out "$export_out"
+  run_confluex interrupt_export export --page-id 100 --out "$export_out" --page-format html
   assert_status 130
   assert_file_exists "$export_out/INCOMPLETE"
   assert_file_exists "$export_out/pages/ENG/Root_Page__100/page.html"
-  assert_summary_value "$export_out/summary.txt" incomplete 1
   assert_summary_value "$export_out/summary.txt" final_status interrupted
-  assert_summary_value "$export_out/summary.txt" interrupt_reason SIGINT
-  assert_summary_has_keys "$export_out/summary.txt" command root_page_id output_dir processed_pages downloaded_total_bytes interrupt_reason
+  assert_summary_value "$export_out/summary.txt" interrupt_reason signal_interrupt
+  assert_summary_has_keys "$export_out/summary.txt" command page_id output_root processed_pages downloaded_mib_total interrupt_reason
 
   run_confluex interrupt_dry_run plan --page-id 100 --out "$plan_out"
   assert_status 130
@@ -82,7 +78,7 @@ teardown() {
   local encrypted_out="$CONFLUEX_WORK_DIR/encrypted-export"
   local failing_out="$CONFLUEX_WORK_DIR/encryption-failure"
 
-  run_confluex basic export --page-id 100 --out "$encrypted_out" --encryption-key KEY-ONE
+  run_confluex basic export --page-id 100 --out "$encrypted_out" --encrypt --page-format html --encryption-key KEY-ONE
   assert_success
   assert_path_missing "$encrypted_out"
   assert_file_exists "$encrypted_out.tar.gz.gpg"
@@ -92,7 +88,7 @@ teardown() {
   assert_file_contains 'tar -xzf encrypted-export.tar.gz' "$encrypted_out.tar.gz.gpg.txt"
 
   export MOCK_GPG_FAIL=1
-  run_confluex basic export --page-id 100 --out "$failing_out" --encryption-key KEY-TWO
+  run_confluex basic export --page-id 100 --out "$failing_out" --encrypt --page-format html --encryption-key KEY-TWO
   unset MOCK_GPG_FAIL
   assert_status 5
   assert_path_exists "$failing_out"
@@ -110,12 +106,12 @@ teardown() {
   run_confluex basic config --encryption-key DEFAULT-KEY
   assert_success
 
-  run_confluex basic export --page-id 100 --out "$configured_out"
+  run_confluex basic export --page-id 100 --out "$configured_out" --encrypt --page-format html
   assert_success
   assert_file_exists "$configured_out.tar.gz.gpg.txt"
   assert_file_contains 'GPG key identity: DEFAULT-KEY' "$configured_out.tar.gz.gpg.txt"
 
-  run_confluex basic export --page-id 100 --out "$override_out" --encryption-key EXPLICIT-KEY
+  run_confluex basic export --page-id 100 --out "$override_out" --encrypt --page-format html --encryption-key EXPLICIT-KEY
   assert_success
   assert_file_exists "$override_out.tar.gz.gpg.txt"
   assert_file_contains 'GPG key identity: EXPLICIT-KEY' "$override_out.tar.gz.gpg.txt"
@@ -148,7 +144,7 @@ teardown() {
   assert_success
 
   export MOCK_GPG_MISSING_KEY=NOT-A-REAL-GPG-IDENTITY
-  run_confluex basic export --page-id 100 --out "$configured_out"
+  run_confluex basic export --page-id 100 --out "$configured_out" --encrypt --page-format html
   unset MOCK_GPG_MISSING_KEY
   assert_status 5
   assert_path_missing "$configured_out/pages/ENG/Root_Page__100/page.html"
@@ -156,7 +152,7 @@ teardown() {
   assert_output_contains 'encryption recipient'
 
   export MOCK_GPG_MISSING_KEY=EXPLICIT-MISSING-KEY
-  run_confluex basic export --page-id 100 --out "$explicit_out" --encryption-key EXPLICIT-MISSING-KEY
+  run_confluex basic export --page-id 100 --out "$explicit_out" --encrypt --page-format html --encryption-key EXPLICIT-MISSING-KEY
   unset MOCK_GPG_MISSING_KEY
   assert_status 5
   assert_path_missing "$explicit_out/pages/ENG/Root_Page__100/page.html"
@@ -169,7 +165,7 @@ teardown() {
   local encrypted_out="$CONFLUEX_WORK_DIR/encrypted-no-trust-model"
 
   export MOCK_GPG_FAIL_ON_TRUST_MODEL=1
-  run_confluex basic export --page-id 100 --out "$encrypted_out" --encryption-key KEY-ONE
+  run_confluex basic export --page-id 100 --out "$encrypted_out" --encrypt --page-format html --encryption-key KEY-ONE
   unset MOCK_GPG_FAIL_ON_TRUST_MODEL
   assert_success
   assert_path_missing "$encrypted_out"
@@ -181,7 +177,7 @@ teardown() {
   local encrypted_out="$CONFLUEX_WORK_DIR/roundtrip-encrypted-export"
   local restore_dir="$CONFLUEX_WORK_DIR/roundtrip-restore"
 
-  run_confluex basic export --page-id 100 --out "$encrypted_out" --encryption-key ROUNDTRIP-KEY
+  run_confluex basic export --page-id 100 --out "$encrypted_out" --encrypt --page-format html --encryption-key ROUNDTRIP-KEY
   assert_success
   assert_path_missing "$encrypted_out"
   assert_file_exists "$encrypted_out.tar.gz.gpg"
@@ -204,8 +200,8 @@ teardown() {
   assert_page_exported "$restore_dir/roundtrip-encrypted-export" ENG Child_Page 200
   assert_page_exported "$restore_dir/roundtrip-encrypted-export" ENG Linked_Page 300
   assert_report_invariants "$restore_dir/roundtrip-encrypted-export"
-  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" critical_mode 0
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" support_profile default
+  assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" page_payload_format html
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" scope_trust trusted
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" encryption_enabled 1
   assert_summary_value "$restore_dir/roundtrip-encrypted-export/summary.txt" encryption_successful 1

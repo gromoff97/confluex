@@ -986,9 +986,12 @@ set -euo pipefail
 
 output=""
 input=""
+list_keys=0
+recipient=""
 
-if [[ -n "${MOCK_GPG_FAIL:-}" ]]; then
-  exit 1
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'gpg (GnuPG) 2.4.0-mock\n'
+  exit 0
 fi
 
 while (($# > 0)); do
@@ -998,7 +1001,20 @@ while (($# > 0)); do
       shift 2
       ;;
     --recipient|--trust-model)
+      if [[ "$1" == "--trust-model" && -n "${MOCK_GPG_FAIL_ON_TRUST_MODEL:-}" ]]; then
+        exit 1
+      fi
+      if [[ "$1" == "--recipient" ]]; then
+        recipient="$2"
+      fi
       shift 2
+      ;;
+    --list-keys)
+      list_keys=1
+      shift
+      ;;
+    --with-colons)
+      shift
       ;;
     --batch|--yes|--encrypt|--decrypt)
       shift
@@ -1007,11 +1023,28 @@ while (($# > 0)); do
       shift
       ;;
     *)
-      input="$1"
+      if (( list_keys )); then
+        recipient="$1"
+      else
+        input="$1"
+      fi
       shift
       ;;
   esac
 done
+
+if (( list_keys )); then
+  if [[ -n "${MOCK_GPG_MISSING_KEY:-}" && "$recipient" == "${MOCK_GPG_MISSING_KEY}" ]]; then
+    exit 1
+  fi
+  [[ -n "$recipient" ]] || exit 1
+  printf 'pub:-:4096:1:%s:::::::\n' "$recipient"
+  exit 0
+fi
+
+if [[ -n "${MOCK_GPG_FAIL:-}" ]]; then
+  exit 1
+fi
 
 [[ -n "$output" ]] || exit 1
 [[ -n "$input" ]] || exit 1
@@ -1092,6 +1125,7 @@ assert_standard_report_files() {
   assert_file_exists "$out_dir/resolved-links.tsv"
   assert_file_exists "$out_dir/unresolved-links.tsv"
   assert_file_exists "$out_dir/failed-pages.tsv"
+  assert_file_exists "$out_dir/scope-findings.tsv"
   assert_file_exists "$out_dir/summary.txt"
 }
 
@@ -1129,7 +1163,7 @@ assert_page_exported() {
   local space_key="$2"
   local folder_name="$3"
   local page_id="$4"
-  assert_file_exists "$out_dir/pages/$space_key/${folder_name}__${page_id}/page.html"
+  assert_file_exists "$(page_payload_path_for_out_dir "$out_dir" "$space_key" "$folder_name" "$page_id")"
 }
 
 assert_page_missing() {
@@ -1148,51 +1182,74 @@ assert_page_html_missing() {
   assert_path_missing "$out_dir/pages/$space_key/${folder_name}__${page_id}/page.html"
 }
 
-assert_report_invariants() {
+page_payload_file_name_for_out_dir() {
   local out_dir="$1"
-  local dry_run
-  local base_dir
-  local incomplete
-  dry_run="$(summary_value "$out_dir/summary.txt" dry_run)"
-  incomplete="$(summary_value "$out_dir/summary.txt" incomplete)"
-  base_dir="$(dirname "$out_dir")"
+  local format
 
-  if [[ "$dry_run" == "1" ]]; then
-    awk -F'\t' '
-      NR == 1 { next }
-      $6 != "dry-run" { exit 1 }
-    ' "$out_dir/manifest.tsv" || {
-      printf 'ASSERT FAILED: dry-run manifest contains non-dry-run rows in %s\n' "$out_dir/manifest.tsv" >&2
-      exit 1
-    }
+  format="$(summary_value "$out_dir/summary.txt" page_payload_format)"
+  if [[ "$format" == "md" ]]; then
+    printf 'page.md\n'
     return 0
   fi
 
-  awk -F'\t' '
+  printf 'page.html\n'
+}
+
+page_payload_path_for_out_dir() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+
+  printf '%s/pages/%s/%s__%s/%s\n' \
+    "$out_dir" \
+    "$space_key" \
+    "$folder_name" \
+    "$page_id" \
+    "$(page_payload_file_name_for_out_dir "$out_dir")"
+}
+
+assert_report_invariants() {
+  local out_dir="$1"
+  local command
+  local expected_mode
+  local final_status
+  command="$(summary_value "$out_dir/summary.txt" command)"
+  final_status="$(summary_value "$out_dir/summary.txt" final_status)"
+
+  if [[ "$command" == "plan" ]]; then
+    expected_mode="plan"
+  else
+    expected_mode="export"
+  fi
+
+  awk -F'\t' -v mode="$expected_mode" '
     NR == 1 { next }
-    $6 != "export" { exit 1 }
+    $6 != mode { exit 1 }
   ' "$out_dir/manifest.tsv" || {
-    printf 'ASSERT FAILED: export manifest contains non-export rows in %s\n' "$out_dir/manifest.tsv" >&2
+    printf 'ASSERT FAILED: manifest contains non-%s rows in %s\n' "$expected_mode" "$out_dir/manifest.tsv" >&2
     exit 1
   }
 
-  awk -F'\t' '
-    NR == 1 { next }
-    { print $1 "\t" $4 }
-  ' "$out_dir/manifest.tsv" | while IFS=$'\t' read -r page_id folder; do
-    [[ -z "$folder" ]] && continue
-    if [[ "$folder" != /* ]]; then
-      folder="$base_dir/$folder"
-    fi
-    assert_path_exists "$folder"
-    if [[ -f "$folder/page.html" ]]; then
-      continue
-    fi
-    if ! awk -F'\t' -v page_id="$page_id" '$1 == page_id && $2 == "export" { found = 1 } END { exit(found ? 0 : 1) }' "$out_dir/failed-pages.tsv"; then
-      printf 'ASSERT FAILED: manifest row for page %s has no page.html and no export failure in %s\n' "$page_id" "$out_dir" >&2
-      exit 1
-    fi
-  done
+  if [[ "$command" != "plan" ]]; then
+    awk -F'\t' '
+      NR == 1 { next }
+      { print $1 "\t" $4 }
+    ' "$out_dir/manifest.tsv" | while IFS=$'\t' read -r page_id folder; do
+      [[ -z "$folder" || "$folder" == "none" ]] && continue
+      if [[ "$folder" != /* ]]; then
+        folder="$out_dir/$folder"
+      fi
+      assert_path_exists "$folder"
+      if [[ -f "$folder/$(page_payload_file_name_for_out_dir "$out_dir")" ]]; then
+        continue
+      fi
+      if ! awk -F'\t' -v page_id="$page_id" 'NR == 1 { next } $1 == page_id && $3 == "page_payload" { found = 1 } END { exit(found ? 0 : 1) }' "$out_dir/failed-pages.tsv"; then
+        printf 'ASSERT FAILED: manifest row for page %s has no payload file and no page_payload failure in %s\n' "$page_id" "$out_dir" >&2
+        exit 1
+      fi
+    done
+  fi
 
   awk -F'\t' '
     NR == 1 { next }
@@ -1200,10 +1257,11 @@ assert_report_invariants() {
   ' "$out_dir/manifest.tsv" | sort -u > "$TEST_ROOT/manifest_ids.tmp"
 
   awk -F'\t' '
+    NR == 1 { next }
     { print $1 }
   ' "$out_dir/failed-pages.tsv" | sort -u > "$TEST_ROOT/failed_ids.tmp"
 
-  if [[ "$incomplete" != "1" ]]; then
+  if [[ "$final_status" != "incomplete" && "$final_status" != "interrupted" ]]; then
     awk -F'\t' '
       NR == 1 { next }
       { print $5 }
@@ -1257,7 +1315,7 @@ normalize_report_copy() {
       ;;
     summary.txt)
       sed -E \
-        -e "s|^output_dir=.*$|output_dir=__OUT__|" \
+        -e "s|^output_root=.*$|output_root=__OUT__|" \
         -e "s|^encrypted_archive=.*$|encrypted_archive=__ARCHIVE__|" \
         "$src" > "$dest"
       ;;
@@ -1379,11 +1437,13 @@ test_missing_page_id_is_rejected() {
 
 test_missing_command_is_rejected() {
   local log_file="$TEST_ROOT/missing-command.log"
-  if run_cmd "$log_file" basic "$CONFLUEX_BIN"; then
-    printf 'ASSERT FAILED: missing-command scenario should fail\n' >&2
+  if ! run_cmd "$log_file" basic "$CONFLUEX_BIN"; then
+    printf 'ASSERT FAILED: missing-command scenario should print top-level help\n' >&2
     exit 1
   fi
-  assert_contains 'ERROR: missing command' "$log_file"
+  assert_contains 'Usage' "$log_file"
+  assert_contains 'Commands' "$log_file"
+  assert_contains 'export     materialized export workflow' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1411,7 +1471,8 @@ test_help_does_not_create_output_dirs() {
   local log_file="$TEST_ROOT/help.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --help
 
-  assert_contains 'Usage:' "$log_file"
+  assert_contains 'Usage' "$log_file"
+  assert_contains 'Commands' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1419,34 +1480,52 @@ test_help_mentions_subcommands_and_safe_mode() {
   local log_file="$TEST_ROOT/help-subcommands.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" --help
 
-  assert_contains 'confluex export --page-id <id> [OPTIONS]' "$log_file"
-  assert_contains 'confluex plan --page-id <id> [OPTIONS]' "$log_file"
-  assert_contains 'confluex doctor [--page-id <id>]' "$log_file"
-  assert_contains 'confluex config [--encryption-key KEY | --clear-encryption-key]' "$log_file"
-  assert_contains '--safe' "$log_file"
+  assert_contains 'export     materialized export workflow' "$log_file"
+  assert_contains 'plan       dry-run planning workflow' "$log_file"
+  assert_contains 'doctor     diagnostic workflow' "$log_file"
+  assert_contains 'config     configuration workflow' "$log_file"
+  assert_contains 'install    installation workflow' "$log_file"
+  assert_contains 'uninstall  uninstallation workflow' "$log_file"
 }
 
 test_help_documents_all_public_commands_and_options() {
-  local log_file="$TEST_ROOT/help-options.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" --help
+  local export_help="$TEST_ROOT/export-help.log"
+  local plan_help="$TEST_ROOT/plan-help.log"
+  local doctor_help="$TEST_ROOT/doctor-help.log"
+  local config_help="$TEST_ROOT/config-help.log"
+  local install_help="$TEST_ROOT/install-help.log"
+  local uninstall_help="$TEST_ROOT/uninstall-help.log"
 
-  assert_contains 'confluex install [--install-dir DIR]' "$log_file"
-  assert_contains 'confluex uninstall [--install-dir DIR]' "$log_file"
-  assert_contains '--page-id ID' "$log_file"
-  assert_contains '--out DIR' "$log_file"
-  assert_contains '--dry-run' "$log_file"
-  assert_contains '--no-fail-fast' "$log_file"
-  assert_contains '--keep-metadata' "$log_file"
-  assert_contains '--log-file FILE' "$log_file"
-  assert_contains '--encryption-key KEY' "$log_file"
-  assert_contains '--resume' "$log_file"
-  assert_contains 'fingerprint, long key id' "$log_file"
-  assert_contains 'confluex config [--encryption-key KEY | --clear-encryption-key]' "$log_file"
-  assert_contains '--max-pages N' "$log_file"
-  assert_contains '--max-download-mib N' "$log_file"
-  assert_contains '--sleep-ms N' "$log_file"
-  assert_contains '--max-find-candidates N' "$log_file"
-  assert_contains '--install-dir DIR' "$log_file"
+  run_cmd "$export_help" basic "$CONFLUEX_BIN" export --help
+  assert_contains 'Usage' "$export_help"
+  assert_contains '--page-id <id>' "$export_help"
+  assert_contains '--out <dir>' "$export_help"
+  assert_contains '--page-format <format>      Persist page payload as md or html. Default: md.' "$export_help"
+  assert_contains '--resume' "$export_help"
+  assert_contains '--max-pages <n>' "$export_help"
+  assert_contains '--max-download-mib <n>' "$export_help"
+  assert_contains '--sleep-ms <n>' "$export_help"
+  assert_contains '--max-find-candidates <n>' "$export_help"
+
+  run_cmd "$plan_help" basic "$CONFLUEX_BIN" plan --help
+  assert_contains 'Usage' "$plan_help"
+  assert_contains '--page-id <id>' "$plan_help"
+  assert_contains '--keep-metadata' "$plan_help"
+  assert_not_contains '--page-format <format>' "$plan_help"
+
+  run_cmd "$doctor_help" basic "$CONFLUEX_BIN" doctor --help
+  assert_contains '--verify-encryption' "$doctor_help"
+  assert_contains '--encryption-key <value>' "$doctor_help"
+
+  run_cmd "$config_help" basic "$CONFLUEX_BIN" config --help
+  assert_contains '--encryption-key <value>' "$config_help"
+  assert_contains '--clear-encryption-key' "$config_help"
+
+  run_cmd "$install_help" basic "$CONFLUEX_BIN" install --help
+  assert_contains '--install-dir <dir>' "$install_help"
+
+  run_cmd "$uninstall_help" basic "$CONFLUEX_BIN" uninstall --help
+  assert_contains '--install-dir <dir>' "$uninstall_help"
 }
 
 test_install_writes_executable_to_requested_dir() {
@@ -1456,7 +1535,7 @@ test_install_writes_executable_to_requested_dir() {
 
   assert_file_exists "$install_dir/confluex"
   run_cmd "$TEST_ROOT/install-help.log" basic "$install_dir/confluex" --help
-  assert_contains 'Usage:' "$TEST_ROOT/install-help.log"
+  assert_contains 'Usage' "$TEST_ROOT/install-help.log"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1467,7 +1546,7 @@ test_install_subcommand_works() {
 
   assert_file_exists "$install_dir/confluex"
   run_cmd "$TEST_ROOT/install-subcommand-help.log" basic "$install_dir/confluex" --help
-  assert_contains 'Usage:' "$TEST_ROOT/install-subcommand-help.log"
+  assert_contains 'Usage' "$TEST_ROOT/install-subcommand-help.log"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1507,7 +1586,7 @@ test_uninstall_subcommand_works() {
 
   assert_path_missing "$install_dir/confluex"
   assert_path_missing "$install_lib_dir"
-  assert_contains "Removed $install_dir/confluex" "$uninstall_log"
+  assert_contains "uninstall_result=removed target=\"$install_dir\"" "$uninstall_log"
 }
 
 test_uninstall_is_idempotent() {
@@ -1519,7 +1598,7 @@ test_uninstall_is_idempotent() {
   run_cmd "$uninstall_log" basic "$CONFLUEX_BIN" uninstall --install-dir "$install_dir"
   run_cmd "$uninstall_again_log" basic "$CONFLUEX_BIN" uninstall --install-dir "$install_dir"
 
-  assert_contains "Nothing to uninstall from $install_dir" "$uninstall_again_log"
+  assert_contains "uninstall_result=absent target=\"$install_dir\"" "$uninstall_again_log"
 }
 
 test_uninstall_rejects_export_only_options() {
@@ -1552,9 +1631,9 @@ test_basic_export_downloads_tree_and_linked_page() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
 
-  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
-  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "basic processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "basic resolved_links"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" root_pages)" "basic root_pages"
@@ -1562,9 +1641,9 @@ test_basic_export_downloads_tree_and_linked_page() {
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" linked_pages)" "basic linked_pages"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" other_pages)" "basic other_pages"
   assert_path_exists "$out_dir/summary.txt"
-  assert_contains 'downloaded_total_bytes=' "$out_dir/summary.txt"
-  assert_contains 'downloaded_content_bytes=' "$out_dir/summary.txt"
-  assert_contains 'downloaded_metadata_bytes=' "$out_dir/summary.txt"
+  assert_contains 'downloaded_mib_total=' "$out_dir/summary.txt"
+  assert_contains 'downloaded_mib_content=' "$out_dir/summary.txt"
+  assert_contains 'downloaded_mib_metadata=' "$out_dir/summary.txt"
   assert_equal "1" "$(awk -F'\t' 'NR > 1 && $1 == 100 { print $7 }' "$out_dir/manifest.tsv")" "basic root attachment count"
   assert_equal "1" "$(awk -F'\t' 'NR > 1 && $1 == 200 { print $7 }' "$out_dir/manifest.tsv")" "basic child attachment count"
   assert_equal "1" "$(awk -F'\t' 'NR > 1 && $1 == 300 { print $7 }' "$out_dir/manifest.tsv")" "basic linked attachment count"
@@ -1590,17 +1669,21 @@ test_plan_subcommand_works() {
   assert_report_invariants "$out_dir"
   assert_path_missing "$out_dir/pages/ENG/Root_Page__100/page.html"
   assert_equal "plan" "$(summary_value "$out_dir/summary.txt" command)" "plan-subcommand command"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" dry_run)" "plan-subcommand dry_run"
+  assert_equal "none" "$(summary_value "$out_dir/summary.txt" page_payload_format)" "plan-subcommand page_payload_format"
 }
 
 test_doctor_without_page_id_reports_skipped_auth() {
   local log_file="$TEST_ROOT/doctor-no-page.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" doctor
 
-  assert_contains 'confluex doctor' "$log_file"
-  assert_contains '[OK] node:' "$log_file"
-  assert_contains '[OK] confluence:' "$log_file"
-  assert_contains '[WARN] auth check skipped (no --page-id)' "$log_file"
+  assert_contains 'dependency_parser_runtime=' "$log_file"
+  assert_contains 'dependency_confluence_cli=' "$log_file"
+  assert_contains 'dependency_gpg=' "$log_file"
+  assert_contains 'page_access=skipped' "$log_file"
+  assert_contains 'encryption_recipient=skipped' "$log_file"
+  assert_contains 'support_profile=default' "$log_file"
+  assert_contains 'supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title' "$log_file"
+  assert_contains 'next_action=none' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1608,20 +1691,18 @@ test_doctor_with_page_id_succeeds() {
   local log_file="$TEST_ROOT/doctor-page.log"
   run_cmd "$log_file" basic "$CONFLUEX_BIN" doctor --page-id 100
 
-  assert_contains '[OK] access to page 100' "$log_file"
-  assert_contains 'title: Root Page' "$log_file"
-  assert_contains 'space: ENG' "$log_file"
+  assert_contains 'page_access=ok' "$log_file"
+  assert_contains 'page_identity=100' "$log_file"
+  assert_contains 'next_action=none' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
 test_doctor_with_inaccessible_page_fails() {
   local log_file="$TEST_ROOT/doctor-page-fail.log"
-  if run_cmd "$log_file" preflight_failure "$CONFLUEX_BIN" doctor --page-id 100; then
-    printf 'ASSERT FAILED: doctor should fail for inaccessible page\n' >&2
-    exit 1
-  fi
+  run_cmd "$log_file" preflight_failure "$CONFLUEX_BIN" doctor --page-id 100
 
-  assert_contains '[FAIL] cannot access page 100 via confluence-cli' "$log_file"
+  assert_contains 'page_access=failed' "$log_file"
+  assert_contains 'next_action=check_page_access' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1652,9 +1733,7 @@ test_config_shows_not_set_by_default() {
   reset_config_file
   run_cmd "$log_file" basic "$CONFLUEX_BIN" config
 
-  assert_contains 'confluex config' "$log_file"
-  assert_contains "config file: $(config_file_path)" "$log_file"
-  assert_contains 'default encryption key: <not set>' "$log_file"
+  assert_contains 'default_encryption_key=none' "$log_file"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1665,7 +1744,7 @@ test_config_saves_default_encryption_key() {
   run_cmd "$log_file" basic "$CONFLUEX_BIN" config --encryption-key "$key_fpr"
 
   assert_file_exists "$(config_file_path)"
-  assert_contains "Saved default encryption key to $(config_file_path)" "$log_file"
+  assert_contains "default_encryption_key=$key_fpr" "$log_file"
   assert_contains "encryption_key=$key_fpr" "$(config_file_path)"
   assert_no_default_output_dirs "$WORK_DIR"
   reset_config_file
@@ -1680,7 +1759,7 @@ test_config_shows_saved_encryption_key() {
   run_cmd "$save_log" basic "$CONFLUEX_BIN" config --encryption-key "$key_fpr"
   run_cmd "$show_log" basic "$CONFLUEX_BIN" config
 
-  assert_contains "default encryption key: $key_fpr" "$show_log"
+  assert_contains "default_encryption_key=$key_fpr" "$show_log"
   assert_no_default_output_dirs "$WORK_DIR"
   reset_config_file
 }
@@ -1696,8 +1775,8 @@ test_config_clears_default_encryption_key() {
   run_cmd "$show_log" basic "$CONFLUEX_BIN" config
 
   assert_path_missing "$(config_file_path)"
-  assert_contains "Cleared default encryption key from $(config_file_path)" "$clear_log"
-  assert_contains 'default encryption key: <not set>' "$show_log"
+  assert_contains 'default_encryption_key=none' "$clear_log"
+  assert_contains 'default_encryption_key=none' "$show_log"
   assert_no_default_output_dirs "$WORK_DIR"
 }
 
@@ -1745,7 +1824,7 @@ test_linked_page_does_not_pull_its_descendants() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
 
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_path_missing "$out_dir/pages/ENG/Linked_Descendant__400"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "no-descendants processed_pages"
 }
@@ -1824,7 +1903,7 @@ test_ambiguous_title_stays_unresolved() {
   assert_path_missing "$out_dir/pages/ENG/Common_Page__600"
   assert_path_missing "$out_dir/pages/ENG/Common_Page__601"
   assert_equal "1" "$(awk 'NR > 1 { count += 1 } END { print count + 0 }' "$out_dir/unresolved-links.tsv")" "ambiguous unresolved rows"
-  assert_contains $'100\tRoot Page\tENG\ttitle\tENG:Common Page' "$out_dir/unresolved-links.tsv"
+  assert_contains $'100\tRoot Page\tpage_ref\tENG:Common Page\tnot_unique' "$out_dir/unresolved-links.tsv"
 }
 
 test_cross_space_title_link_resolves_correctly() {
@@ -1835,7 +1914,7 @@ test_cross_space_title_link_resolves_correctly() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
 
-  assert_file_exists "$out_dir/pages/OTHER/Shared_Page__500/page.html"
+  assert_page_exported "$out_dir" OTHER Shared_Page 500
   assert_equal "2" "$(manifest_row_count "$out_dir/manifest.tsv")" "cross-space manifest rows"
 }
 
@@ -1860,7 +1939,7 @@ test_page_param_with_colon_space_stays_same_space_title() {
   assert_report_invariants "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "title-with-colon resolved_links"
-  assert_file_exists "$out_dir/pages/ENG/API_Overview__800/page.html"
+  assert_page_exported "$out_dir" ENG API_Overview 800
 }
 
 test_title_resolution_is_case_sensitive() {
@@ -1988,10 +2067,10 @@ test_same_page_found_through_four_forms_exports_once() {
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "same-page-four-forms processed_pages"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
+  assert_equal "4" "$(summary_value "$out_dir/summary.txt" resolved_links)" "same-page-four-forms resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 300)" "same-page-four-forms manifest page 300 count"
-  assert_equal "1" "$(awk 'NR > 1 { count += 1 } END { print count + 0 }' "$out_dir/resolved-links.tsv")" "same-page-four-forms resolved rows"
-  assert_equal "300" "$(awk -F'\t' 'NR > 1 { print $5 }' "$out_dir/resolved-links.tsv")" "same-page-four-forms resolved target"
+  assert_equal "4" "$(awk 'NR > 1 { count += 1 } END { print count + 0 }' "$out_dir/resolved-links.tsv")" "same-page-four-forms resolved rows"
+  assert_equal "300" "$(awk -F'\t' 'NR > 1 { print $5 }' "$out_dir/resolved-links.tsv" | sort -u)" "same-page-four-forms resolved target"
 }
 
 test_pageid_text_inside_code_blocks_is_ignored() {
@@ -2021,7 +2100,7 @@ test_children_command_failure_falls_back_to_root_only() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-command-fails processed_pages"
   assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "children-command-fails manifest rows"
-  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_page_exported "$out_dir" ENG Root_Page 100
   assert_contains 'failed to collect children for root page 100; continuing with root page only' "$log_file"
 }
 
@@ -2035,7 +2114,7 @@ test_children_malformed_json_falls_back_to_root_only() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-malformed-json processed_pages"
   assert_equal "1" "$(manifest_row_count "$out_dir/manifest.tsv")" "children-malformed-json manifest rows"
-  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_page_exported "$out_dir" ENG Root_Page 100
   assert_contains 'failed to parse children list for root page 100; continuing with root page only' "$log_file"
 }
 
@@ -2074,7 +2153,7 @@ test_find_resolution_survives_partial_candidate_info_failure() {
   assert_report_invariants "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "find-partial-candidate-info-failure resolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Exact_Match_Page__961/page.html"
+  assert_page_exported "$out_dir" ENG Exact_Match_Page 961
 }
 
 test_repeated_title_links_use_single_find_resolution() {
@@ -2117,7 +2196,7 @@ test_content_id_only_page_link_is_downloaded() {
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "content-id-only-link processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "content-id-only-link resolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_page_exported "$out_dir" ENG Linked_Page 300
 }
 
 test_mixed_valid_and_broken_links_still_download_valid_target() {
@@ -2130,7 +2209,7 @@ test_mixed_valid_and_broken_links_still_download_valid_target() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "mixed-valid-and-broken-links resolved_links"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "mixed-valid-and-broken-links unresolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_page_exported "$out_dir" ENG Linked_Page 300
 }
 
 test_mixed_valid_broken_and_ambiguous_links_behave_independently() {
@@ -2143,7 +2222,7 @@ test_mixed_valid_broken_and_ambiguous_links_behave_independently() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "mixed-valid-broken-ambiguous-links resolved_links"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "mixed-valid-broken-ambiguous-links unresolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_page_exported "$out_dir" ENG Linked_Page 300
   assert_path_missing "$out_dir/pages/ENG/Common_Page__600"
   assert_path_missing "$out_dir/pages/ENG/Common_Page__601"
 }
@@ -2158,7 +2237,7 @@ test_conflicting_content_id_and_title_prefers_content_id() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "conflicting-content-id-and-title resolved_links"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" unresolved_links)" "conflicting-content-id-and-title unresolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
+  assert_page_exported "$out_dir" ENG Linked_Page 300
 }
 
 test_linked_page_edit_failure_after_resolution_is_reported() {
@@ -2172,7 +2251,7 @@ test_linked_page_edit_failure_after_resolution_is_reported() {
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "linked-page-edit-failure-after-resolution processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "linked-page-edit-failure-after-resolution resolved_links"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "linked-page-edit-failure-after-resolution failed_operations"
-  assert_path_missing "$out_dir/pages/ENG/Locked_Page__998/page.html"
+  assert_path_missing "$(page_payload_path_for_out_dir "$out_dir" ENG Locked_Page 998)"
 }
 
 test_root_referenced_again_via_title_and_id_is_not_reexported() {
@@ -2186,7 +2265,7 @@ test_root_referenced_again_via_title_and_id_is_not_reexported() {
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_page_exported "$out_dir" ENG Child_Page 200
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "root-referenced-again processed_pages"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "root-referenced-again resolved_links"
+  assert_equal "2" "$(summary_value "$out_dir/summary.txt" resolved_links)" "root-referenced-again resolved_links"
   assert_equal "1" "$(manifest_page_count "$out_dir/manifest.tsv" 100)" "root-referenced-again root manifest count"
 }
 
@@ -2199,7 +2278,7 @@ test_unicode_and_entities_titles_resolve_correctly() {
   assert_report_invariants "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "unicode-entity-title resolved_links"
-  assert_file_exists "$out_dir/pages/ENG/R&D_Привет__930/page.html"
+  assert_page_exported "$out_dir" ENG "R&D_Привет" 930
 }
 
 test_single_quoted_multiline_page_link_resolves() {
@@ -2211,7 +2290,7 @@ test_single_quoted_multiline_page_link_resolves() {
   assert_report_invariants "$out_dir"
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resolved_links)" "single-quote-multiline-page-link resolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Single_Quote_Page__980/page.html"
+  assert_page_exported "$out_dir" ENG Single_Quote_Page 980
 }
 
 test_broken_storage_xml_does_not_abort_run() {
@@ -2224,7 +2303,7 @@ test_broken_storage_xml_does_not_abort_run() {
 
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" processed_pages)" "broken-storage-xml processed_pages"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" resolved_links)" "broken-storage-xml resolved_links"
-  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_page_exported "$out_dir" ENG Root_Page 100
 }
 
 test_mixed_link_forms_are_detected() {
@@ -2235,9 +2314,9 @@ test_mixed_link_forms_are_detected() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
 
-  assert_file_exists "$out_dir/pages/ENG/Linked_Page__300/page.html"
-  assert_file_exists "$out_dir/pages/OTHER/Param_Linked__501/page.html"
-  assert_file_exists "$out_dir/pages/ENG/Href_Linked__502/page.html"
+  assert_page_exported "$out_dir" ENG Linked_Page 300
+  assert_page_exported "$out_dir" OTHER Param_Linked 501
+  assert_page_exported "$out_dir" ENG Href_Linked 502
   assert_equal "4" "$(manifest_row_count "$out_dir/manifest.tsv")" "link-forms manifest rows"
   assert_not_contains '999' "$out_dir/resolved-links.tsv"
 }
@@ -2296,7 +2375,7 @@ test_children_title_is_ignored_in_favor_of_info_title() {
   assert_report_invariants "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "children-title-mismatch processed_pages"
-  assert_file_exists "$out_dir/pages/ENG/Actual_Child_Page__200/page.html"
+  assert_page_exported "$out_dir" ENG Actual_Child_Page 200
   assert_path_missing "$out_dir/pages/ENG/Stale_Child_Title__200"
 }
 
@@ -2320,7 +2399,7 @@ test_empty_title_in_info_uses_fallback_folder_name() {
   assert_report_invariants "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "empty-title-info processed_pages"
-  assert_file_exists "$out_dir/pages/ENG/page_992__992/page.html"
+  assert_page_exported "$out_dir" ENG page_992 992
 }
 
 test_space_key_is_recovered_from_url_when_missing_in_info() {
@@ -2332,7 +2411,7 @@ test_space_key_is_recovered_from_url_when_missing_in_info() {
   assert_report_invariants "$out_dir"
 
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "space-from-url-only processed_pages"
-  assert_file_exists "$out_dir/pages/OPS/URL_Space_Page__994/page.html"
+  assert_page_exported "$out_dir" OPS URL_Space_Page 994
 }
 
 test_multiple_broken_links_including_invalid_id_are_handled_independently() {
@@ -2353,7 +2432,7 @@ test_multiple_broken_links_including_invalid_id_are_handled_independently() {
 test_dry_run_minimal_artifacts() {
   local out_dir="$WORK_DIR/dry-run-minimal"
   local log_file="$TEST_ROOT/dry-run-minimal.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2370,7 +2449,7 @@ test_dry_run_minimal_artifacts() {
 test_dry_run_keep_metadata() {
   local out_dir="$WORK_DIR/dry-run-keep"
   local log_file="$TEST_ROOT/dry-run-keep.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --keep-metadata --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --keep-metadata --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2383,7 +2462,7 @@ test_dry_run_keep_metadata() {
 test_dry_run_attachment_listing_failure_does_not_abort_plan() {
   local out_dir="$WORK_DIR/dry-run-attachments-fail"
   local log_file="$TEST_ROOT/dry-run-attachments-fail.log"
-  run_cmd "$log_file" dry_run_attachments_failure "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"
+  run_cmd "$log_file" dry_run_attachments_failure "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2447,7 +2526,7 @@ test_export_default_does_not_persist_metadata_files() {
 test_dry_run_default_does_not_persist_metadata_files() {
   local out_dir="$WORK_DIR/dry-run-no-metadata"
   local log_file="$TEST_ROOT/dry-run-no-metadata.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2460,7 +2539,7 @@ test_dry_run_with_log_file_writes_log_without_html() {
   local out_dir="$WORK_DIR/dry-run-with-log"
   local explicit_log="$WORK_DIR/dry-run.log"
   local log_file="$TEST_ROOT/dry-run-with-log.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir" --log-file "$explicit_log"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir" --log-file "$explicit_log"
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
@@ -2477,7 +2556,7 @@ test_encryption_key_creates_gpg_archive_and_removes_output_dir() {
   local archive_listing="$TEST_ROOT/encrypted-export.contents"
   local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
 
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encryption-key "$key_fpr"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt --encryption-key "$key_fpr"
 
   assert_path_missing "$out_dir"
   assert_file_exists "$archive_path"
@@ -2485,12 +2564,10 @@ test_encryption_key_creates_gpg_archive_and_removes_output_dir() {
   tar -tzf "$archive_path" | sort > "$archive_listing"
   assert_contains 'encrypted-export/manifest.tsv' "$archive_listing"
   assert_contains 'encrypted-export/summary.txt' "$archive_listing"
-  assert_contains 'encrypted-export/pages/ENG/Root_Page__100/page.html' "$archive_listing"
-  assert_contains 'decrypt with:' "$log_file"
-  assert_contains 'extract with:' "$log_file"
-  assert_contains 'instructions file:' "$log_file"
+  assert_contains 'encrypted-export/pages/ENG/Root_Page__100/page.md' "$archive_listing"
+  assert_contains 'RUN_PHASE phase=encryption' "$log_file"
   assert_contains "GPG key identity: $key_fpr" "$instructions_path"
-  assert_contains 'gpg --output encrypted-export.tar.gz --decrypt' "$instructions_path"
+  assert_contains 'gpg --output encrypted-export.tar.gz --decrypt encrypted-export.tar.gz.gpg' "$instructions_path"
   assert_contains 'tar -xzf encrypted-export.tar.gz' "$instructions_path"
   assert_contains 'gpg --decrypt encrypted-export.tar.gz.gpg > encrypted-export.tar.gz && tar -xzf encrypted-export.tar.gz' "$instructions_path"
 }
@@ -2502,7 +2579,7 @@ test_plan_can_be_encrypted_and_removes_output_dir() {
   local instructions_path="${archive_path}.txt"
   local archive_listing="$TEST_ROOT/encrypted-plan.contents"
 
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir" --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir" --encrypt --encryption-key 0123456789ABCDEF0123456789ABCDEF01234567
 
   assert_path_missing "$out_dir"
   assert_file_exists "$archive_path"
@@ -2521,7 +2598,7 @@ test_encryption_key_failure_keeps_plain_output_dir() {
   local archive_path="${out_dir}.tar.gz.gpg"
   local key_fpr="0123456789ABCDEF0123456789ABCDEF01234567"
 
-  if run_cmd "$log_file" basic env MOCK_GPG_FAIL=1 "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encryption-key "$key_fpr"; then
+  if run_cmd "$log_file" basic env MOCK_GPG_FAIL=1 "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt --encryption-key "$key_fpr"; then
     printf 'ASSERT FAILED: encryption failure scenario should return non-zero\n' >&2
     exit 1
   fi
@@ -2543,7 +2620,7 @@ test_configured_encryption_key_is_used_by_default() {
 
   reset_config_file
   run_cmd "$config_log" basic "$CONFLUEX_BIN" config --encryption-key "$key_fpr"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt
 
   assert_path_missing "$out_dir"
   assert_file_exists "$archive_path"
@@ -2563,7 +2640,7 @@ test_cli_encryption_key_overrides_configured_default() {
 
   reset_config_file
   run_cmd "$config_log" basic "$CONFLUEX_BIN" config --encryption-key "$configured_key"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encryption-key "$override_key"
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --encrypt --encryption-key "$override_key"
 
   assert_path_missing "$out_dir"
   assert_file_exists "$archive_path"
@@ -2598,7 +2675,7 @@ test_default_output_dir_avoids_collision() {
 
 test_default_output_dir_is_generated_for_dry_run() {
   local log_file="$TEST_ROOT/default-out-dry.log"
-  run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --dry-run
+  run_cmd "$log_file" basic "$CONFLUEX_BIN" plan --page-id 100
 
   local generated_dir
   generated_dir="$(assert_single_generated_dir "$WORK_DIR" 'confluence_plan_*')"
@@ -2615,12 +2692,8 @@ test_preflight_failure_stops_before_any_export() {
     exit 1
   fi
 
-  assert_file_exists "$out_dir/manifest.tsv"
-  assert_file_exists "$out_dir/resolved-links.tsv"
-  assert_file_exists "$out_dir/unresolved-links.tsv"
-  assert_file_exists "$out_dir/failed-pages.tsv"
-  assert_path_missing "$out_dir/summary.txt"
-  assert_path_missing "$out_dir/pages/ENG/Root_Page__100"
+  assert_contains 'preflight failed: cannot access page 100' "$log_file"
+  assert_path_missing "$out_dir"
 }
 
 test_safe_mode_applies_default_limits() {
@@ -2630,10 +2703,8 @@ test_safe_mode_applies_default_limits() {
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" safe_mode)" "safe-mode summary flag"
-  assert_equal "200" "$(summary_value "$out_dir/summary.txt" max_pages)" "safe-mode max-pages"
-  assert_equal "256" "$(summary_value "$out_dir/summary.txt" max_download_mib)" "safe-mode max-download"
-  assert_equal "200" "$(summary_value "$out_dir/summary.txt" sleep_ms)" "safe-mode sleep-ms"
+  assert_equal "success" "$(summary_value "$out_dir/summary.txt" final_status)" "safe-mode final_status"
+  assert_not_contains 'effectively unbounded' "$log_file"
 }
 
 test_safe_mode_keeps_explicit_overrides() {
@@ -2643,9 +2714,8 @@ test_safe_mode_keeps_explicit_overrides() {
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
-  assert_equal "10" "$(summary_value "$out_dir/summary.txt" max_pages)" "safe-mode override max-pages"
-  assert_equal "12" "$(summary_value "$out_dir/summary.txt" max_download_mib)" "safe-mode override max-download"
-  assert_equal "50" "$(summary_value "$out_dir/summary.txt" sleep_ms)" "safe-mode override sleep-ms"
+  assert_equal "success" "$(summary_value "$out_dir/summary.txt" final_status)" "safe-mode override final_status"
+  assert_not_contains 'effectively unbounded' "$log_file"
 }
 
 test_explicit_output_dir_must_not_exist() {
@@ -2689,24 +2759,23 @@ test_resume_reuses_prior_payload_after_fail_fast_failure() {
     exit 1
   fi
 
-  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
-  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_page_exported "$out_dir" ENG Root_Page 100
+  assert_page_exported "$out_dir" ENG Child_Page 200
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
-  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
-  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_contains 'scenario resume_reuse_fail' "$(page_payload_path_for_out_dir "$out_dir" ENG Root_Page 100)"
+  assert_contains 'scenario resume_reuse_fail' "$(page_payload_path_for_out_dir "$out_dir" ENG Child_Page 200)"
 
   run_cmd "$resume_log" resume_reuse_success "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir" --resume
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
-  assert_contains 'reusing existing page HTML + attachments from prior run' "$resume_log"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" resume_mode)" "resume-reuse resume_mode"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" reused_pages)" "resume-reuse reused_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" fresh_pages)" "resume-reuse fresh_pages"
   assert_equal "0" "$(summary_value "$out_dir/summary.txt" failed_operations)" "resume-reuse failed_operations"
-  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Root_Page__100/page.html"
-  assert_contains 'scenario resume_reuse_fail' "$out_dir/pages/ENG/Child_Page__200/page.html"
-  assert_contains 'scenario resume_reuse_success' "$out_dir/pages/ENG/Later_Page__900/page.html"
+  assert_contains 'scenario resume_reuse_fail' "$(page_payload_path_for_out_dir "$out_dir" ENG Root_Page 100)"
+  assert_contains 'scenario resume_reuse_fail' "$(page_payload_path_for_out_dir "$out_dir" ENG Child_Page 200)"
+  assert_contains 'scenario resume_reuse_success' "$(page_payload_path_for_out_dir "$out_dir" ENG Later_Page 900)"
 }
 
 test_max_pages_stops_early() {
@@ -2719,8 +2788,8 @@ test_max_pages_stops_early() {
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "max-pages incomplete"
-  assert_equal "max_pages_reached" "$(summary_value "$out_dir/summary.txt" interrupt_reason)" "max-pages reason"
+  assert_equal "incomplete" "$(summary_value "$out_dir/summary.txt" final_status)" "max-pages final_status"
+  assert_equal "max_pages_limit_reached" "$(summary_value "$out_dir/summary.txt" interrupt_reason)" "max-pages reason"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "max-pages processed"
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_page_exported "$out_dir" ENG Child_Page 200
@@ -2737,8 +2806,8 @@ test_max_download_mib_stops_early() {
 
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "max-download incomplete"
-  assert_equal "max_download_mib_reached" "$(summary_value "$out_dir/summary.txt" interrupt_reason)" "max-download reason"
+  assert_equal "incomplete" "$(summary_value "$out_dir/summary.txt" final_status)" "max-download final_status"
+  assert_equal "max_download_limit_reached" "$(summary_value "$out_dir/summary.txt" interrupt_reason)" "max-download reason"
   assert_page_exported "$out_dir" ENG Root_Page 100
 }
 
@@ -2780,10 +2849,10 @@ test_basic_export_reports_match_contract_exactly() {
 
   run_cmd "$log_file" basic "$CONFLUEX_BIN" export --page-id 100 --out "$out_dir"
 
-  expected_manifest=$'page_id\tspace_key\ttitle\tfolder\tdiscovered_by\tmode\tattachment_count\n100\tENG\tRoot Page\t'"$(basename "$out_dir")"$'/pages/ENG/Root_Page__100\troot\texport\t1\n200\tENG\tChild Page\t'"$(basename "$out_dir")"$'/pages/ENG/Child_Page__200\tchild:100\texport\t1\n300\tENG\tLinked Page\t'"$(basename "$out_dir")"$'/pages/ENG/Linked_Page__300\tlink-title:100\texport\t1\n'
-  expected_resolved=$'from_page_id\tfrom_title\tlink_type\tlink_value\tresolved_page_id\tresolved_title\tresolved_space\n100\tRoot Page\ttitle\tENG:Linked Page\t300\tLinked Page\tENG\n'
-  expected_unresolved=$'from_page_id\tfrom_title\tspace_key\tlink_type\tlink_value\n'
-  expected_failed=''
+  expected_manifest=$'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count\n100\tENG\tRoot Page\tpages/ENG/Root_Page__100\troot\texport\t1\n200\tENG\tChild Page\tpages/ENG/Child_Page__200\ttree\texport\t1\n300\tENG\tLinked Page\tpages/ENG/Linked_Page__300\tlinked\texport\t1\n'
+  expected_resolved=$'source_page_id\tsource_title\tlink_kind\traw_link_value\ttarget_page_id\ttarget_space_key\ttarget_title\n100\tRoot Page\tpage_ref\tENG:Linked Page\t300\tENG\tLinked Page\n'
+  expected_unresolved=$'source_page_id\tsource_title\tlink_kind\traw_link_value\tresolution_reason\n'
+  expected_failed=$'page_id\tpage_title\toperation\terror_summary\n'
 
   assert_file_exact "$out_dir/manifest.tsv" "$expected_manifest"
   assert_file_exact "$out_dir/resolved-links.tsv" "$expected_resolved"
@@ -2818,7 +2887,7 @@ test_fail_fast_stops_after_first_page_failure() {
   assert_report_invariants "$out_dir"
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_page_html_missing "$out_dir" ENG Child_Page 200
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "fail-fast incomplete"
+  assert_equal "incomplete" "$(summary_value "$out_dir/summary.txt" final_status)" "fail-fast final_status"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "fail-fast processed_pages"
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
 }
@@ -2835,10 +2904,10 @@ test_fail_fast_stops_after_edit_failure() {
   assert_report_invariants "$out_dir"
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_page_html_missing "$out_dir" ENG Child_Page 200
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "edit-fail-fast incomplete"
+  assert_equal "incomplete" "$(summary_value "$out_dir/summary.txt" final_status)" "edit-fail-fast final_status"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "edit-fail-fast processed_pages"
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
-  assert_contains $'200\tedit' "$out_dir/failed-pages.tsv"
+  assert_contains $'200\tChild Page\tstorage_content\tstorage content unavailable' "$out_dir/failed-pages.tsv"
 }
 
 test_fail_fast_stops_after_info_failure() {
@@ -2853,10 +2922,10 @@ test_fail_fast_stops_after_info_failure() {
   assert_report_invariants "$out_dir"
   assert_page_exported "$out_dir" ENG Root_Page 100
   assert_page_missing "$out_dir" ENG Child_Page 200
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "info-fail-fast incomplete"
+  assert_equal "incomplete" "$(summary_value "$out_dir/summary.txt" final_status)" "info-fail-fast final_status"
   assert_equal "2" "$(summary_value "$out_dir/summary.txt" processed_pages)" "info-fail-fast processed_pages"
   assert_path_missing "$out_dir/pages/ENG/Later_Page__900"
-  assert_contains $'200\tinfo' "$out_dir/failed-pages.tsv"
+  assert_contains $'200\tnone\tpage_metadata\tpage metadata unavailable' "$out_dir/failed-pages.tsv"
 }
 
 test_no_fail_fast_continues_after_failure() {
@@ -2867,10 +2936,10 @@ test_no_fail_fast_continues_after_failure() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
 
-  assert_equal "0" "$(summary_value "$out_dir/summary.txt" incomplete)" "no-fail-fast incomplete"
+  assert_equal "success_with_findings" "$(summary_value "$out_dir/summary.txt" final_status)" "no-fail-fast final_status"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "no-fail-fast processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "no-fail-fast failed_operations"
-  assert_file_exists "$out_dir/pages/ENG/Later_Page__900/page.html"
+  assert_page_exported "$out_dir" ENG Later_Page 900
 }
 
 test_partial_export_failure_is_reported_without_losing_downloaded_html() {
@@ -2881,10 +2950,10 @@ test_partial_export_failure_is_reported_without_losing_downloaded_html() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
   assert_page_exported "$out_dir" ENG Root_Page 100
-  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_page_exported "$out_dir" ENG Child_Page 200
   assert_file_exists "$out_dir/pages/ENG/Child_Page__200/attachments/readme.txt"
   assert_page_exported "$out_dir" ENG Later_Page 900
-  assert_contains $'200\texport' "$out_dir/failed-pages.tsv"
+  assert_contains $'200\tChild Page\tpage_payload\tpage payload export failed' "$out_dir/failed-pages.tsv"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "partial-export-failure failed_operations"
 }
 
@@ -2896,10 +2965,10 @@ test_no_fail_fast_continues_after_inaccessible_tree_page() {
   assert_standard_report_files "$out_dir"
   assert_report_invariants "$out_dir"
 
-  assert_equal "0" "$(summary_value "$out_dir/summary.txt" incomplete)" "inaccessible-tree-page incomplete"
+  assert_equal "success_with_findings" "$(summary_value "$out_dir/summary.txt" final_status)" "inaccessible-tree-page final_status"
   assert_equal "3" "$(summary_value "$out_dir/summary.txt" processed_pages)" "inaccessible-tree-page processed_pages"
   assert_equal "1" "$(summary_value "$out_dir/summary.txt" failed_operations)" "inaccessible-tree-page failed_operations"
-  assert_file_exists "$out_dir/pages/ENG/Child_Page__200/page.html"
+  assert_page_exported "$out_dir" ENG Child_Page 200
   assert_path_missing "$out_dir/pages/NO_SPACE/Forbidden_Page__940"
 }
 
@@ -2932,9 +3001,9 @@ test_interrupt_export_marks_incomplete_and_keeps_partial_data() {
   assert_exit_code 130 "$exit_code" "interrupt-export exit code"
   assert_standard_report_files "$out_dir"
   assert_file_exists "$out_dir/INCOMPLETE"
-  assert_equal "1" "$(summary_value "$out_dir/summary.txt" incomplete)" "interrupt-export incomplete"
-  assert_equal "SIGINT" "$(summary_value "$out_dir/summary.txt" interrupt_reason)" "interrupt-export reason"
-  assert_file_exists "$out_dir/pages/ENG/Root_Page__100/page.html"
+  assert_equal "interrupted" "$(summary_value "$out_dir/summary.txt" final_status)" "interrupt-export final_status"
+  assert_equal "signal_interrupt" "$(summary_value "$out_dir/summary.txt" interrupt_reason)" "interrupt-export reason"
+  assert_page_exported "$out_dir" ENG Root_Page 100
 }
 
 test_interrupt_dry_run_removes_output_dir() {
@@ -2942,7 +3011,7 @@ test_interrupt_dry_run_removes_output_dir() {
   local log_file="$TEST_ROOT/interrupt-dry-run.log"
   local exit_code=0
 
-  if run_cmd "$log_file" interrupt_dry_run "$CONFLUEX_BIN" export --page-id 100 --dry-run --out "$out_dir"; then
+  if run_cmd "$log_file" interrupt_dry_run "$CONFLUEX_BIN" plan --page-id 100 --out "$out_dir"; then
     printf 'ASSERT FAILED: interrupt-dry-run scenario should return non-zero\n' >&2
     exit 1
   else
