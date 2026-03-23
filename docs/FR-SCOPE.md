@@ -191,17 +191,13 @@ surfaced as scope findings.
    `space/title` path, the run records exactly one `scope-findings.tsv` row with
    `finding_area=unsupported_pattern` and
    `finding_type=unsupported_internal_pattern`.
-2. If at least one scope finding exists, `summary.txt` reports
-   `scope_trust=degraded`.
-3. If no scope findings exist, `summary.txt` reports `scope_trust=trusted`.
 
 **Dependencies**:
 - `FR-0089`
-- `FR-0114`
 
 **Traceability**:
 - Area: scope discovery
-- Observable evidence: scope-findings report, summary scope-trust field
+- Observable evidence: scope-findings report
 
 ### FR-0067
 **Requirement**: Duplicate discovery paths and cycles shall not cause duplicate

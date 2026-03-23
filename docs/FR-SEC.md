@@ -13,7 +13,7 @@ encrypted archive plus decrypt/extract instructions.
 
 **Acceptance Criteria**:
 1. Successful encryption creates `<out>.tar.gz.gpg`.
-2. Successful encryption creates `<out>.tar.gz.gpg.txt`.
+2. Successful encryption creates the instruction sidecar defined by `FR-0083`.
 3. After successful encryption, the plain output root is removed from disk.
 4. If the encrypted archive is decrypted and extracted into an empty directory,
    extraction creates exactly one top-level directory whose basename is the
@@ -73,8 +73,8 @@ encryption failure.
 **Acceptance Criteria**:
 1. If encryption fails in standard encrypted mode, the plain output root remains
    available on disk.
-2. If encryption fails in standard encrypted mode, `summary.txt` reports
-   `final_status=encryption_failed`.
+2. If encryption fails in standard encrypted mode, the final status follows the
+   encryption-failure outcome defined by `FR-0113`.
 3. If encryption fails in standard encrypted mode, the failed encrypted path is
    not presented as a successful encrypted result.
 
@@ -101,8 +101,8 @@ encryption failure.
 **Acceptance Criteria**:
 1. If `--confidential` is in effect and encryption fails after any plaintext run
    artifact has been written, the plain output root is removed from disk.
-2. If `--confidential` encryption fails, the product creates `<out>.status.txt`.
-3. `<out>.status.txt` contains the line `final_status=encryption_failed`.
+2. If `--confidential` encryption fails, the product applies the status-sidecar
+   contract defined by `FR-0084`.
 
 **Dependencies**:
 - `FR-0025`
