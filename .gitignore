@@ -4,6 +4,8 @@ package-lock.json
 tmp/
 docs/superpowers/
 .idea/
+.agents/
+.ralph/
 
 # Ignore dotfiles and dot-directories whose names contain "ai".
 .*ai*
