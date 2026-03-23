@@ -3,6 +3,8 @@ node_modules/
 package-lock.json
 tmp/
 .idea/
+.agents/
+.ralph/
 
 # Ignore dotfiles and dot-directories whose names contain "ai".
 .*ai*
