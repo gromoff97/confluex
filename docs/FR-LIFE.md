@@ -26,7 +26,9 @@
 8. The install manifest lists each Confluex-owned path exactly once as a
    relative path inside `<target>`, including
    `.confluex-install-manifest.txt` itself.
-9. A valid install manifest is UTF-8 text with LF line endings that contains
+9. Install-manifest lines are sorted in ascending bytewise lexicographic order
+   of the serialized relative path.
+10. A valid install manifest is UTF-8 text with LF line endings that contains
    one relative path per line, contains no empty lines, absolute paths, `.`
    segments, or `..` segments, and lists no path outside `<target>`.
 
@@ -51,13 +53,14 @@ result line.
 **Acceptance Criteria**:
 1. An accepted `install` invocation emits exactly one stdout line
    `install_result=installed target="<absolute_path>"`.
-2. `<absolute_path>` is the resolved absolute installation target serialized as a
-   quoted path string.
+2. `<absolute_path>` is the resolved absolute installation target serialized as
+   the quoted path string defined by `FR-0124`.
 3. Accepted `install` invocations write nothing to `stderr` and exit `0`.
 
 **Dependencies**:
 - `FR-0048`
 - `FR-0010`
+- `FR-0124`
 
 **Traceability**:
 - Area: installation lifecycle
@@ -115,13 +118,14 @@ machine-readable result line.
    stdout line `uninstall_result=removed target="<absolute_path>"`.
 2. If no Confluex-owned footprint was present to remove, `uninstall` emits
    exactly one stdout line `uninstall_result=absent target="<absolute_path>"`.
-3. `<absolute_path>` is the resolved absolute target serialized as a quoted path
-   string.
+3. `<absolute_path>` is the resolved absolute target serialized as the quoted
+   path string defined by `FR-0124`.
 4. Accepted `uninstall` invocations write nothing to `stderr` and exit `0`.
 
 **Dependencies**:
 - `FR-0050`
 - `FR-0010`
+- `FR-0124`
 
 **Traceability**:
 - Area: installation lifecycle

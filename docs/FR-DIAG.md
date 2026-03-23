@@ -50,11 +50,13 @@ dependencies.
    accessible.
 4. `doctor --page-id <id>` emits exactly one stdout line
    `page_identity=<page_id>` only when page access succeeds.
-5. In `page_identity=<page_id>`, `<page_id>` is the canonical resolved page
-   identifier rather than merely the raw command-line token.
+5. In `page_identity=<page_id>`, `<page_id>` uses the canonical
+   page-identifier syntax required by `FR-0014` and reports the resolved page
+   identifier rather than merely echoing the raw command-line token.
 
 **Dependencies**:
 - `FR-0020`
+- `FR-0014`
 
 **Traceability**:
 - Area: diagnostics
@@ -124,10 +126,11 @@ diagnostics.
 
 **Acceptance Criteria**:
 1. `doctor` emits exactly one stdout line `next_action=<value>`.
-2. `<value>` uses either `none` or a comma-separated list of one or more unique
-   tokens chosen from `install_parser_runtime`, `install_confluence_cli`,
-   `install_gpg`, `check_page_access`, `set_encryption_key`, and
-   `fix_encryption_key`.
+2. `<value>` uses either the shared absence token defined by `FR-0125` or a
+   comma-delimited list serialized with the shared token-list form defined by
+   `FR-0126` and containing one or more unique tokens chosen from
+   `install_parser_runtime`, `install_confluence_cli`, `install_gpg`,
+   `check_page_access`, `set_encryption_key`, and `fix_encryption_key`.
 3. If all checked dependencies are present, `page_access` is not `failed`, and
    `encryption_recipient` is neither `missing` nor `failed`,
    `next_action=none`.
@@ -139,6 +142,8 @@ diagnostics.
 - `FR-0038`
 - `FR-0039`
 - `FR-0040`
+- `FR-0125`
+- `FR-0126`
 
 **Traceability**:
 - Area: diagnostics

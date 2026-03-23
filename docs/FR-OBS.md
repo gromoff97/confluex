@@ -2,11 +2,12 @@
 
 
 ### FR-0113
-**Requirement**: `summary.txt` shall use a stable vocabulary for final run
-status.
+**Requirement**: Serialized `final_status` values shall use a stable vocabulary
+for final run status.
 
 **Applicability**:
 - all report sets
+- confidential-mode status sidecars
 
 **Rationale**:
 - Operators need one stable final-status vocabulary across clean completion,
@@ -32,11 +33,16 @@ status.
 - `FR-0096`
 - `FR-0097`
 - `FR-0100`
+- `FR-0102`
 - `FR-0109`
+- `FR-0110`
+- `FR-0116`
+- `FR-0084`
 
 **Traceability**:
 - Area: observability and outcomes
-- Observable evidence: `summary.txt` final-status field, `RUN_COMPLETE`
+- Observable evidence: `summary.txt` final-status field, status-sidecar
+  `final_status` line, `RUN_COMPLETE`
 
 ### FR-0114
 **Requirement**: `summary.txt` shall use a stable vocabulary for scope trust.
@@ -98,25 +104,39 @@ reasons and interrupt reasons.
   success.
 
 **Acceptance Criteria**:
-1. `blocking_reasons` uses `none` or a comma-separated list of one or more
-   unique tokens chosen from `unresolved_links`, `scope_findings`, and
-   `failed_operations`.
-2. If `blocking_reasons` is not `none`, tokens appear only in this order:
+1. `blocking_reasons` uses either the shared absence token defined by
+   `FR-0125` or a comma-delimited list serialized with the shared token-list
+   form defined by `FR-0126` and containing one or more unique tokens chosen
+   from `unresolved_links`, `scope_findings`, and `failed_operations`.
+2. If `blocking_reasons` is not the shared absence token, tokens appear only in
+   this order:
    `unresolved_links`, `scope_findings`, `failed_operations`.
 3. `interrupt_reason` uses only `none`, `max_pages_limit_reached`,
    `max_download_limit_reached`, `runtime_error`, or `signal_interrupt`.
-4. `blocking_reasons=none` if and only if `summary.txt` reports
+4. If `--max-pages` stops the run, `interrupt_reason=max_pages_limit_reached`.
+5. If `--max-download-mib` stops the run,
+   `interrupt_reason=max_download_limit_reached`.
+6. If runtime failure after accepted run execution has begun stops a run whose
+   retained result includes `summary.txt`, `interrupt_reason=runtime_error`.
+7. If signal interruption stops a run whose retained result includes
+   `summary.txt`, `interrupt_reason=signal_interrupt`.
+8. `blocking_reasons=none` if and only if `summary.txt` reports
    `unresolved_links=0`, `scope_findings=0`, and `failed_operations=0`.
-5. If `summary.txt` reports a value greater than `0` for `unresolved_links`,
+9. If `summary.txt` reports a value greater than `0` for `unresolved_links`,
    `scope_findings`, or `failed_operations`, the corresponding token appears
    exactly once in `blocking_reasons`.
-6. `interrupt_reason=none` for completed runs and for encryption failures that
-   occur after a completed pre-encryption run result has been produced.
+10. `interrupt_reason=none` for completed runs and for encryption failures that
+    occur after a completed pre-encryption run result has been produced.
 
 **Dependencies**:
 - `FR-0097`
+- `FR-0100`
 - `FR-0102`
+- `FR-0109`
+- `FR-0112`
 - `FR-0092`
+- `FR-0125`
+- `FR-0126`
 
 **Traceability**:
 - Area: observability and outcomes
@@ -165,12 +185,15 @@ fields.
    complete according to the requirements corpus exit `0`.
 4. `policy_failed` exits `2`.
 5. Configured stop conditions exit `3`.
-6. Runtime failure after command work has started exits `4`.
+6. Runtime failure after accepted run execution has begun exits `4`.
 7. `encryption_failed` exits `5`.
 8. Signal interruption exits `130`.
 
 **Dependencies**:
 - `FR-0019`
+- `FR-0113`
+- `FR-0100`
+- `FR-0101`
 - `FR-0102`
 - `FR-0097`
 
@@ -194,10 +217,11 @@ the remaining required keys.
 2. `support_profile` uses only `default`.
 3. If `command=export`, `page_payload_format` uses only `md` or `html` and
    reports the effective page payload format for that run.
-4. If `command=plan`, `page_payload_format=none`.
+4. If `command=plan`, `page_payload_format` uses the shared absence token
+   defined by `FR-0125`.
 5. `output_root` reports the absolute logical plain output-root path serialized
-   as a quoted path string, even if encryption later removes that directory from
-   disk.
+   as the quoted path string defined by `FR-0124`, even if encryption later
+   removes that directory from disk.
 6. `page_id` reports the canonical resolved root page identifier.
 7. `encryption_enabled=1` if encryption was requested; otherwise `0`.
 8. `encryption_successful=1` if and only if an encrypted archive was created
@@ -205,8 +229,11 @@ the remaining required keys.
 
 **Dependencies**:
 - `FR-0090`
+- `FR-0017`
 - `FR-0112`
 - `FR-0121`
+- `FR-0124`
+- `FR-0125`
 
 **Traceability**:
 - Area: observability and outcomes

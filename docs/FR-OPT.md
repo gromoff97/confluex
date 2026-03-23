@@ -44,9 +44,11 @@ export-related runs.
 2. If `<dir>` is relative, the product resolves it against the process current
    working directory and collapses `.` and `..` segments before existence checks
    and artifact creation.
-3. Unless the resolved path is a filesystem root path, the logical plain output
-   root is normalized to remove trailing path separators before later path
-   comparison, artifact naming, summary reporting, or sidecar-path derivation.
+3. Unless the resolved path is exactly a filesystem root (`/` on POSIX, a
+   Windows drive root such as `C:\`, or a UNC share root), the logical plain
+   output root is normalized to remove trailing path separators before later
+   path comparison, artifact naming, summary reporting, or sidecar-path
+   derivation.
 4. If the operator omits `--out`, the product generates the output root
    automatically.
 
@@ -104,6 +106,7 @@ export-related runs.
 3. Any command other than `export` or `plan` used with `--critical` is rejected.
 
 **Dependencies**:
+- `FR-0022`
 - `FR-0096`
 
 **Traceability**:
@@ -164,6 +167,7 @@ with plaintext cleanup on encryption failure.
 
 **Dependencies**:
 - `FR-0024`
+- `FR-0023`
 - `FR-0110`
 - `FR-0111`
 - `FR-0037`
@@ -237,21 +241,17 @@ artifacts.
 **Acceptance Criteria**:
 1. `--keep-metadata` requests persistence of per-page metadata artifacts that
    would otherwise be omitted from the final output.
-2. In `export`, if `--keep-metadata` is in effect and page-level metadata
-   acquisition succeeds for a processed page, the product persists `_info.txt`
-   and `_storage.xml`.
-3. In `plan`, if `--keep-metadata` is in effect and page-level metadata
-   acquisition succeeds for a processed page, the product persists `_info.txt`
-   and `_storage.xml` but does not thereby request page payload persistence.
-4. In `plan`, if `--keep-metadata` is in effect and attachment-preview data is
-   acquired for a page, the product also persists `_attachments_preview.txt`
-   for that page but does not thereby request downloaded attachment payload
-   persistence.
+2. In `export`, if `--keep-metadata` is in effect, persisted export page folders
+   follow the metadata-retention behavior defined by `FR-0080`.
+3. In `plan`, if `--keep-metadata` is in effect, persisted plan page folders
+   follow the metadata-retention behavior defined by `FR-0081`.
+4. `--keep-metadata` does not by itself request page payload persistence or
+   downloaded attachment payload persistence beyond what the authoritative
+   output-structure and data-acquisition cards already require.
 5. Any command other than `export` or `plan` used with `--keep-metadata` is
    rejected.
 
 **Dependencies**:
-- `FR-0073`
 - `FR-0080`
 - `FR-0081`
 
@@ -313,11 +313,11 @@ encryption-recipient identity.
    for the current run and overrides any saved default.
 2. In `doctor --verify-encryption`, `--encryption-key <value>` is the effective
    recipient to verify.
-3. In `config`, `--encryption-key <value>` saves that value as the default
-   encryption recipient.
+3. In `config`, `--encryption-key <value>` requests the saved-default-recipient
+   write defined by `FR-0046`.
 4. The value is rejected if it contains TAB, LF, or CR.
 5. The exact value `none` is rejected because `none` is the reserved absence
-   token in the requirements corpus.
+   token defined by `FR-0125`.
 6. In `doctor`, `--encryption-key <value>` without `--verify-encryption` is
    rejected.
 
@@ -325,6 +325,7 @@ encryption-recipient identity.
 - `FR-0013`
 - `FR-0046`
 - `FR-0031`
+- `FR-0125`
 
 **Traceability**:
 - Area: option semantics
@@ -368,8 +369,8 @@ default encryption recipient.
 - Operators need an explicit way to remove the saved default recipient.
 
 **Acceptance Criteria**:
-1. `config --clear-encryption-key` removes the saved default encryption
-   recipient.
+1. `config --clear-encryption-key` requests the saved-default-recipient removal
+   defined by `FR-0047`.
 2. Any command other than `config` used with `--clear-encryption-key` is
    rejected.
 
@@ -393,8 +394,10 @@ directory.
 - Operators need deterministic control over the installation target.
 
 **Acceptance Criteria**:
-1. `install --install-dir <dir>` installs into that target location.
-2. `uninstall --install-dir <dir>` uninstalls from that target location.
+1. `install --install-dir <dir>` selects the target installation directory used
+   by the installation behavior defined in `FR-0048`.
+2. `uninstall --install-dir <dir>` selects the target installation directory
+   used by the uninstallation behavior defined in `FR-0050`.
 3. If `<dir>` is relative, the product resolves it against the process current
    working directory and collapses `.` and `..` segments before lifecycle
    validation begins.
@@ -403,7 +406,7 @@ directory.
 
 **Dependencies**:
 - `FR-0048`
-- `FR-0049`
+- `FR-0050`
 
 **Traceability**:
 - Area: option semantics
@@ -427,8 +430,9 @@ runs.
 1. `--max-pages <n>` stops further page processing when `n` processed pages have
    been reached.
 2. `--max-download-mib <n>` stops further page or attachment download activity
-   once the accumulated downloaded volume reaches or exceeds
-   `n * 1,048,576` bytes.
+   once the current run's accumulated downloaded volume reaches or exceeds
+   `n * 1,048,576` bytes, where the counted volume is exactly the sum of the
+   content-byte and metadata-byte counters defined by `FR-0120`.
 3. If either configured stop limit stops the run, the result is reported as a
    configured stop condition.
 4. Any command other than `export` or `plan` used with either option is
@@ -438,6 +442,8 @@ runs.
 - `FR-0014`
 - `FR-0094`
 - `FR-0097`
+- `FR-0127`
+- `FR-0120`
 
 **Traceability**:
 - Area: option semantics
@@ -470,6 +476,7 @@ candidate breadth.
 **Dependencies**:
 - `FR-0014`
 - `FR-0064`
+- `FR-0127`
 
 **Traceability**:
 - Area: option semantics
@@ -572,10 +579,10 @@ payload format for `export`.
    page content in `export`.
 2. Without `--page-format`, the effective page payload format is Markdown
    (`md`).
-3. `--page-format md` selects Markdown page export and requests persistence of
-   `page.md` for successfully materialized pages.
-4. `--page-format html` selects HTML page export and requests persistence of
-   `page.html` for successfully materialized pages.
+3. `--page-format md` selects the Markdown materialization branch defined by
+   `FR-0074` and `FR-0080`.
+4. `--page-format html` selects the HTML materialization branch defined by
+   `FR-0074` and `FR-0080`.
 5. Any command other than `export` used with `--page-format` is rejected.
 
 **Dependencies**:

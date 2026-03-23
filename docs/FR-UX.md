@@ -54,14 +54,17 @@ correctly.
 3. A trailing `Notes` section is allowed only when the command needs to explain
    mutually exclusive or dependent options.
 4. If a command has no required options, the `Required options` section states
-   `none`.
+   the shared absence token defined by `FR-0125`.
 5. If a command has no optional options, the `Optional options` section states
-   `none`.
+   the shared absence token defined by `FR-0125`.
 6. Each supported option of the target command appears exactly once under either
    `Required options` or `Optional options`.
-7. Command help includes at least one example invocation that is accepted under
+7. Within `Required options` and `Optional options`, entries appear in the same
+   relative order as that command's supported option list in `FR-0036`,
+   restricted to the options assigned to that section.
+8. Command help includes at least one example invocation that is accepted under
    this document when its placeholders are replaced with conforming values.
-8. Command help exits `0`, writes nothing to `stderr`, and performs no command
+9. Command help exits `0`, writes nothing to `stderr`, and performs no command
    work other than rendering help.
 
 **Dependencies**:
@@ -72,6 +75,7 @@ correctly.
 - `FR-0005`
 - `FR-0006`
 - `FR-0036`
+- `FR-0125`
 
 **Traceability**:
 - Area: operator experience
@@ -165,3 +169,94 @@ export formats explicitly.
 **Traceability**:
 - Area: operator experience
 - Observable evidence: `confluex export --help` option text and examples
+
+### FR-0124
+**Requirement**: Quoted path strings shall use one stable serialization across
+governed CLI text and report files.
+
+**Applicability**:
+- all governed stdout lines, stderr lines, and report-file fields that use a
+  quoted path string
+
+**Rationale**:
+- Operators and automation need one reusable path-serialization rule rather than
+  card-local quoting conventions.
+
+**Acceptance Criteria**:
+1. A quoted path string begins with `"` and ends with `"` and has no
+   surrounding whitespace outside those delimiters.
+2. The interior is serialized exactly as a JSON string body for the path value
+   with UTF-8 text preserved directly and only the required JSON escapes used.
+3. Deserializing that JSON string body yields the exact path value with no
+   added, removed, or normalized path characters.
+4. Cards that reuse the quoted path-string primitive may constrain whether the
+   underlying path must be absolute, relative, existing, or non-existing, but
+   they do not redefine the quoting or escaping rules.
+
+**Dependencies**:
+- `FR-0010`
+
+**Traceability**:
+- Area: operator experience
+- Observable evidence: quoted path values in stdout, stderr, and report files
+
+### FR-0125
+**Requirement**: The shared absence token shall use one stable serialization
+across governed CLI text and report files.
+
+**Applicability**:
+- all governed stdout lines, stderr lines, and report-file fields that use a
+  scalar absence token
+
+**Rationale**:
+- Operators and automation need one reusable absence-token rule rather than
+  card-local spellings for missing values.
+
+**Acceptance Criteria**:
+1. The shared absence token is exactly the lowercase ASCII text `none`.
+2. When a governed line or field uses the shared absence token, the entire
+   serialized field value is exactly `none` with no quoting, surrounding
+   whitespace, or additional delimiters.
+3. Cards that reuse the shared absence token may constrain what absence means
+   for that specific field or line, but they do not redefine the token's
+   spelling, casing, or surrounding serialization.
+4. A more specific card may replace the shared absence token only by explicitly
+   defining another absence representation for that exact field or line.
+
+**Dependencies**:
+
+**Traceability**:
+- Area: operator experience
+- Observable evidence: stable missing-value serialization in governed text and
+  report fields
+
+### FR-0126
+**Requirement**: Delimited token lists shall use one stable serialization across
+governed CLI text and report files.
+
+**Applicability**:
+- all governed stdout lines, stderr lines, and report-file fields that use a
+  token list rather than a scalar token
+
+**Rationale**:
+- Operators and automation need one reusable list-serialization rule rather than
+  card-local delimiter and spacing conventions.
+
+**Acceptance Criteria**:
+1. A delimited token list serializes items using ASCII commas with no
+   surrounding spaces.
+2. A serialized token list contains no empty elements, leading delimiter,
+   trailing delimiter, or repeated delimiter.
+3. A single-item token list serializes as that one token with no comma.
+4. Cards that reuse the delimited token-list primitive may constrain the token
+   vocabulary, ordering, uniqueness, and whether the shared absence token
+   defined by `FR-0125` may replace the list entirely, but they do not redefine
+   the delimiter or spacing rules.
+
+**Dependencies**:
+- `FR-0125`
+
+**Traceability**:
+- Area: operator experience
+- Observable evidence: stable token-list serialization in governed text and
+  report fields

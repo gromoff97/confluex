@@ -2,8 +2,8 @@
 
 
 ### FR-0085
-**Requirement**: Every retained run result that the requirements corpus defines as a
-report-set container shall contain a complete report set.
+**Requirement**: Every retained run result that remains a report-set container
+shall preserve one closed report-file set.
 
 **Applicability**:
 - plain output roots that remain on disk
@@ -13,19 +13,22 @@ report-set container shall contain a complete report set.
 - Operators need one standard report set to interpret any retained result.
 
 **Acceptance Criteria**:
-1. If a plain `export` or `plan` output root remains on disk after a run, it
-   contains `manifest.tsv`, `resolved-links.tsv`, `unresolved-links.tsv`,
-   `failed-pages.tsv`, `scope-findings.tsv`, and `summary.txt`.
-2. If the final result is an encrypted artifact, the report set is included
-   inside that encrypted result under the single extracted top-level directory
-   defined by `FR-0107`.
-3. If a `plan` run removes its output root after interruption or runtime failure,
-   the removed path does not retain a partial report set.
+1. The closed report-file set is exactly `manifest.tsv`, `resolved-links.tsv`,
+   `unresolved-links.tsv`, `failed-pages.tsv`, `scope-findings.tsv`, and
+   `summary.txt`.
+2. If a plain `export` output root remains on disk after a run, it retains that
+   exact closed report-file set.
+3. If a plain `plan` output root remains on disk after a run, it retains that
+   exact closed report-file set.
+4. If the final result is an encrypted artifact, extracting it yields that same
+   exact closed report-file set inside the extracted top-level directory.
+5. If a `plan` run removes its output root after interruption or runtime
+   failure, the removed path does not retain a partial report set.
 
 **Dependencies**:
-- `FR-0077`
-- `FR-0078`
 - `FR-0107`
+- `FR-0101`
+- `FR-0102`
 
 **Traceability**:
 - Area: reports
@@ -49,12 +52,17 @@ classification vocabulary.
 3. `manifest.tsv` contains exactly one data row for each processed page.
 4. Data rows are sorted first by `discovery_source` using the order `root`,
    `tree`, `linked`, then by ascending lexicographic order of the serialized
-   `folder` value, with `none` sorted before any relative path value.
-5. `folder` is the authoritative relative payload-folder path when per-page
-   artifacts for that page remain on disk; otherwise `folder=none`.
+   `folder` value, with the shared absence token defined by `FR-0125` sorted
+   before any relative path value, then by ascending lexicographic order of the
+   serialized `page_id` value.
+5. `folder` is the canonical relative payload-folder path defined by `FR-0079`
+   when per-page artifacts for that page are retained in the final run result,
+   whether in a plain output root or inside a retained encrypted archive;
+   otherwise `folder` uses the shared absence token defined by `FR-0125`.
 6. `run_mode` uses only `export` or `plan`.
 7. `discovery_source` uses only `root`, `tree`, or `linked`.
-8. `attachment_count` uses either a non-negative base-10 integer or `none`.
+8. `attachment_count` uses either a non-negative base-10 integer or the shared
+   absence token defined by `FR-0125`.
 9. Each manifest row's `discovery_source` value follows the classification rules
    in `FR-0068`.
 
@@ -65,7 +73,13 @@ classification vocabulary.
 - `FR-0068`
 - `FR-0061`
 - `FR-0073`
+- `FR-0074`
 - `FR-0075`
+- `FR-0081`
+- `FR-0107`
+- `FR-0125`
+- `FR-0127`
+- `FR-0128`
 
 **Traceability**:
 - Area: reports
@@ -126,7 +140,8 @@ failures.
    `title_resolution`, `attachment_preview`, `page_payload`, or
    `attachment_download`.
 5. If a failed page-local operation cannot be attributed to a known page
-   identifier or title at reporting time, the unavailable field value is `none`.
+   identifier or title at reporting time, the unavailable field value is the
+   shared absence token defined by `FR-0125`.
 
 **Dependencies**:
 - `FR-0069`
@@ -136,6 +151,7 @@ failures.
 - `FR-0073`
 - `FR-0074`
 - `FR-0075`
+- `FR-0125`
 
 **Traceability**:
 - Area: reports
@@ -163,7 +179,7 @@ support-profile findings.
    `storage_unavailable`, `storage_uninterpretable`,
    `candidate_visibility_incomplete`, or `unsupported_internal_pattern`.
 6. If a finding cannot be attributed to one page identity, the `page_id` value
-   is `none`.
+   is the shared absence token defined by `FR-0125`.
 
 **Dependencies**:
 - `FR-0060`
@@ -171,6 +187,7 @@ support-profile findings.
 - `FR-0070`
 - `FR-0071`
 - `FR-0072`
+- `FR-0125`
 
 **Traceability**:
 - Area: reports
@@ -200,13 +217,14 @@ support-profile findings.
 3. Count keys use non-negative base-10 integers unless a more specific
    requirement defines decimal formatting.
 4. Boolean-like keys use `0` or `1`.
-5. Token-like keys use `none` when no value applies unless a more specific
-   requirement defines another value.
+5. Token-like keys use the shared absence token defined by `FR-0125` when no
+   value applies unless a more specific requirement defines another value.
 
 **Dependencies**:
 - `FR-0113`
 - `FR-0120`
 - `FR-0121`
+- `FR-0125`
 
 **Traceability**:
 - Area: reports
@@ -266,6 +284,7 @@ consistent.
 **Dependencies**:
 - `FR-0086`
 - `FR-0117`
+- `FR-0127`
 - `FR-0120`
 
 **Traceability**:
