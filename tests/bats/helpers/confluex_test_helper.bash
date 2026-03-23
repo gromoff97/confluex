@@ -98,9 +98,29 @@ assert_output_not_contains() {
   [[ "$CONFLUEX_LAST_OUTPUT" != *"$needle"* ]] || fail_test "did not expect output to contain '$needle', got: $CONFLUEX_LAST_OUTPUT"
 }
 
+assert_stdout_contains() {
+  local needle="$1"
+  [[ "$CONFLUEX_LAST_STDOUT" == *"$needle"* ]] || fail_test "expected stdout to contain '$needle', got: $CONFLUEX_LAST_STDOUT"
+}
+
+assert_stdout_not_contains() {
+  local needle="$1"
+  [[ "$CONFLUEX_LAST_STDOUT" != *"$needle"* ]] || fail_test "did not expect stdout to contain '$needle', got: $CONFLUEX_LAST_STDOUT"
+}
+
 assert_stdout_equals() {
   local expected="$1"
   [[ "$CONFLUEX_LAST_STDOUT" == "$expected" ]] || fail_test "expected stdout to equal '$expected', got: $CONFLUEX_LAST_STDOUT"
+}
+
+assert_stderr_contains() {
+  local needle="$1"
+  [[ "$CONFLUEX_LAST_STDERR" == *"$needle"* ]] || fail_test "expected stderr to contain '$needle', got: $CONFLUEX_LAST_STDERR"
+}
+
+assert_stderr_not_contains() {
+  local needle="$1"
+  [[ "$CONFLUEX_LAST_STDERR" != *"$needle"* ]] || fail_test "did not expect stderr to contain '$needle', got: $CONFLUEX_LAST_STDERR"
 }
 
 assert_stderr_empty() {
@@ -219,14 +239,25 @@ assert_summary_has_keys() {
   done
 }
 
+assert_summary_keys_exact() {
+  local file="$1"
+  shift
+  local actual_keys
+  local expected_keys
+
+  actual_keys="$(awk -F= 'NF == 0 { next } { print $1 }' "$file")"
+  expected_keys="$(printf '%s\n' "$@")"
+  [[ "$actual_keys" == "$expected_keys" ]] || fail_test "expected exact summary key order in $file, got: $actual_keys"
+}
+
 assert_summary_is_key_value_file() {
   local file="$1"
   awk 'NF == 0 { next } /^[^=]+=.*/ { next } { exit 1 }' "$file" || fail_test "expected key=value lines only in $file"
 }
 
-assert_failed_pages_two_columns() {
+assert_failed_pages_four_columns() {
   local file="$1"
-  awk -F'\t' 'NF != 2 { exit 1 }' "$file" || fail_test "expected failed-pages.tsv to have exactly 2 tab-separated columns in every row"
+  awk -F'\t' 'NF != 4 { exit 1 }' "$file" || fail_test "expected failed-pages.tsv to have exactly 4 tab-separated columns in every row"
 }
 
 assert_scope_findings_four_columns() {
@@ -239,12 +270,51 @@ assert_manifest_folders_relative() {
   awk -F'\t' 'NR == 1 { next } $4 ~ /^\// { exit 1 }' "$file" || fail_test "expected manifest folder values to stay relative in $file"
 }
 
+page_payload_file_name_for_out_dir() {
+  local out_dir="$1"
+  local format
+
+  format="$(summary_value "$out_dir/summary.txt" page_payload_format)"
+  if [[ "$format" == "md" ]]; then
+    printf 'page.md\n'
+    return 0
+  fi
+
+  printf 'page.html\n'
+}
+
+assert_page_exported_as() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+  local payload_file="$5"
+
+  assert_file_exists "$out_dir/pages/$space_key/${folder_name}__${page_id}/$payload_file"
+}
+
 assert_page_exported() {
   local out_dir="$1"
   local space_key="$2"
   local folder_name="$3"
   local page_id="$4"
-  assert_file_exists "$out_dir/pages/$space_key/${folder_name}__${page_id}/page.html"
+  assert_page_exported_as "$out_dir" "$space_key" "$folder_name" "$page_id" "$(page_payload_file_name_for_out_dir "$out_dir")"
+}
+
+assert_page_markdown_exported() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+  assert_page_exported_as "$out_dir" "$space_key" "$folder_name" "$page_id" "page.md"
+}
+
+assert_page_html_exported() {
+  local out_dir="$1"
+  local space_key="$2"
+  local folder_name="$3"
+  local page_id="$4"
+  assert_page_exported_as "$out_dir" "$space_key" "$folder_name" "$page_id" "page.html"
 }
 
 assert_page_missing() {
@@ -285,17 +355,17 @@ assert_page_dir_component_length_at_most() {
 
 assert_report_invariants() {
   local out_dir="$1"
-  local dry_run
-  local base_dir
-  local incomplete
+  local command
+  local final_status
+  local payload_file
 
-  dry_run="$(summary_value "$out_dir/summary.txt" dry_run)"
-  incomplete="$(summary_value "$out_dir/summary.txt" incomplete)"
-  base_dir="$(dirname "$out_dir")"
+  command="$(summary_value "$out_dir/summary.txt" command)"
+  final_status="$(summary_value "$out_dir/summary.txt" final_status)"
+  payload_file="$(page_payload_file_name_for_out_dir "$out_dir")"
 
-  if [[ "$dry_run" == "1" ]]; then
-    awk -F'\t' 'NR == 1 { next } $6 != "dry-run" { exit 1 }' "$out_dir/manifest.tsv" ||
-      fail_test "dry-run manifest contains non-dry-run rows in $out_dir/manifest.tsv"
+  if [[ "$command" == "plan" ]]; then
+    awk -F'\t' 'NR == 1 { next } $6 != "plan" { exit 1 }' "$out_dir/manifest.tsv" ||
+      fail_test "plan manifest contains non-plan rows in $out_dir/manifest.tsv"
     return 0
   fi
 
@@ -304,15 +374,15 @@ assert_report_invariants() {
 
   awk -F'\t' 'NR == 1 { next } { print $1 "\t" $4 }' "$out_dir/manifest.tsv" |
     while IFS=$'\t' read -r page_id folder; do
-      [[ -z "$folder" ]] && continue
+      [[ -z "$folder" || "$folder" == "none" ]] && continue
       if [[ "$folder" != /* ]]; then
-        folder="$base_dir/$folder"
+        folder="$out_dir/$folder"
       fi
       [[ -e "$folder" ]] || exit 9
-      if [[ -f "$folder/page.html" ]]; then
+      if [[ -f "$folder/$payload_file" ]]; then
         continue
       fi
-      awk -F'\t' -v page_id="$page_id" '$1 == page_id && $2 == "export" { found = 1 } END { exit(found ? 0 : 1) }' "$out_dir/failed-pages.tsv" ||
+      awk -F'\t' -v page_id="$page_id" 'NR == 1 { next } $1 == page_id && $3 == "page_payload" { found = 1 } END { exit(found ? 0 : 1) }' "$out_dir/failed-pages.tsv" ||
         exit 10
     done
   case "$?" in
@@ -320,14 +390,14 @@ assert_report_invariants() {
       fail_test "manifest folder path missing in $out_dir"
       ;;
     10)
-      fail_test "manifest row without page.html has no matching export failure in $out_dir"
+      fail_test "manifest row without payload file has no matching export failure in $out_dir"
       ;;
   esac
 
   awk -F'\t' 'NR == 1 { next } { print $1 }' "$out_dir/manifest.tsv" | sort -u > "$CONFLUEX_TEST_ROOT/manifest_ids.tmp"
-  awk -F'\t' '{ print $1 }' "$out_dir/failed-pages.tsv" | sort -u > "$CONFLUEX_TEST_ROOT/failed_ids.tmp"
+  awk -F'\t' 'NR == 1 { next } { print $1 }' "$out_dir/failed-pages.tsv" | sort -u > "$CONFLUEX_TEST_ROOT/failed_ids.tmp"
 
-  if [[ "$incomplete" != "1" ]]; then
+  if [[ "$final_status" != "incomplete" && "$final_status" != "interrupted" ]]; then
     awk -F'\t' 'NR == 1 { next } { print $5 }' "$out_dir/resolved-links.tsv" | sort -u > "$CONFLUEX_TEST_ROOT/resolved_ids.tmp"
     while IFS= read -r target_id; do
       [[ -z "$target_id" ]] && continue
