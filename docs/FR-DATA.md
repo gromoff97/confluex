@@ -32,6 +32,7 @@ black-box reporting.
 - `FR-0085`
 - `FR-0088`
 - `FR-0095`
+- `FR-0127`
 
 **Traceability**:
 - Area: data acquisition
@@ -76,6 +77,7 @@ supported link discovery.
 - `FR-0088`
 - `FR-0089`
 - `FR-0095`
+- `FR-0127`
 
 **Traceability**:
 - Area: data acquisition
@@ -117,6 +119,7 @@ recursive root-tree traversal.
 - `FR-0088`
 - `FR-0089`
 - `FR-0095`
+- `FR-0127`
 
 **Traceability**:
 - Area: data acquisition
@@ -159,6 +162,7 @@ title-based link resolution is attempted.
 - `FR-0088`
 - `FR-0089`
 - `FR-0095`
+- `FR-0127`
 
 **Traceability**:
 - Area: data acquisition
@@ -194,6 +198,7 @@ downloading attachment payload files.
 - `FR-0085`
 - `FR-0095`
 - `FR-0081`
+- `FR-0127`
 
 **Traceability**:
 - Area: data acquisition
@@ -230,6 +235,8 @@ selected format.
 - `FR-0095`
 - `FR-0121`
 - `FR-0080`
+- `FR-0127`
+- `FR-0128`
 
 **Traceability**:
 - Area: data acquisition
@@ -270,6 +277,8 @@ attachments are present.
 - `FR-0095`
 - `FR-0080`
 - `FR-0086`
+- `FR-0127`
+- `FR-0128`
 
 **Traceability**:
 - Area: data acquisition

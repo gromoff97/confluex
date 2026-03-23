@@ -19,7 +19,8 @@ recovery criteria.
    `support_profile=default`, `page_payload_format` equal to the current
    invocation's effective page payload format, `resume_mode=0`,
    `encryption_successful=0`, and `resume_schema_version=2`, and its `page_id`
-   value equals the current invocation's `--page-id` value.
+   value equals the current invocation's canonical resolved root page
+   identifier established by root-page preflight under `FR-0017`.
 3. The prior `summary.txt` reports `final_status=incomplete` or
    `final_status=interrupted`.
 4. Report counts in the existing output root remain internally consistent with
@@ -29,6 +30,7 @@ recovery criteria.
 
 **Dependencies**:
 - `FR-0026`
+- `FR-0017`
 - `FR-0092`
 - `FR-0090`
 - `FR-0117`
@@ -85,6 +87,7 @@ recovery criteria.
 
 **Dependencies**:
 - `FR-0103`
+- `FR-0079`
 - `FR-0086`
 - `FR-0080`
 - `FR-0121`

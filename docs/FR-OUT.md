@@ -45,8 +45,9 @@ artifact layout.
    the top level also contains `INCOMPLETE`.
 
 **Dependencies**:
-- `FR-0085`
+- `FR-0097`
 - `FR-0100`
+- `FR-0102`
 
 **Traceability**:
 - Area: output structure
@@ -72,7 +73,6 @@ artifact layout.
    configured stop condition, the top level also contains `INCOMPLETE`.
 
 **Dependencies**:
-- `FR-0085`
 - `FR-0097`
 
 **Traceability**:
@@ -93,24 +93,26 @@ per-page artifacts are persisted.
 **Acceptance Criteria**:
 1. Each persisted page has exactly one payload folder under `pages/`.
 2. If the page source provides a space key, the payload folder path is
-   `pages/<space_key_segment>/<page_folder>/`.
+   `pages/<space_key_segment>/<page_folder>`.
 3. If the page source does not provide a space key, the payload folder path is
-   `pages/_no_space/<page_folder>/`.
+   `pages/_no_space/<page_folder>`.
 4. `<page_folder>` is exactly `page__<page_id>`.
 5. For a non-empty `space_key`, `<space_key_segment>` is one deterministic
-   single-segment encoding of that exact `space_key`.
+   single-segment encoding of that exact `space_key`, defined as `space__`
+   followed by the uppercase hexadecimal encoding of the UTF-8 bytes of the
+   exact `space_key` with no separators.
 6. Within one run, identical non-empty `space_key` values map to the same
    `<space_key_segment>`, and different non-empty `space_key` values map to
    different `<space_key_segment>` values.
 7. `<space_key_segment>` and `<page_folder>` each occupy exactly one filesystem
    path segment and do not contain path separators, `.` segments, or `..`
    segments.
-8. For each persisted page, the `folder` field in `manifest.tsv` is the
-   authoritative relative path to that payload folder.
+8. This card defines the canonical relative payload-folder path for each
+   persisted page, serialized with `/` path separators and no trailing slash.
 
 **Dependencies**:
 - `FR-0069`
-- `FR-0085`
+- `FR-0127`
 
 **Traceability**:
 - Area: output structure
@@ -139,6 +141,7 @@ per-page artifacts are persisted.
 **Dependencies**:
 - `FR-0074`
 - `FR-0075`
+- `FR-0128`
 - `FR-0028`
 - `FR-0121`
 
@@ -218,15 +221,26 @@ instruction sidecar derived from the logical plain output-root path.
 **Acceptance Criteria**:
 1. If encryption succeeds, the product creates `<out>.tar.gz.gpg.txt`.
 2. That instruction sidecar is UTF-8 text with LF line endings.
-3. The instruction sidecar contains at least one line explaining how to decrypt
-   the encrypted archive and at least one line explaining how to extract the
-   decrypted archive.
-4. The instruction sidecar path is a sibling path derived by
+3. The instruction sidecar contains exactly these four lines in this exact
+   order:
+   `archive_path=<quoted_path_string>`
+   `decrypt_output_path=<quoted_path_string>`
+   `decrypt_command=gpg --output <quoted_path_string> --decrypt <quoted_path_string>`
+   `extract_command=tar -xzf <quoted_path_string>`.
+4. In line 1, `<quoted_path_string>` is the absolute path to
+   `<out>.tar.gz.gpg` serialized with the quoted path-string rules in
+   `FR-0124`.
+5. In lines 2 through 4, `<quoted_path_string>` is the absolute sibling path
+   `<out>.tar.gz` serialized with the quoted path-string rules in `FR-0124`,
+   except that the second quoted path string in line 3 is again the absolute
+   path to `<out>.tar.gz.gpg`.
+6. The instruction sidecar path is a sibling path derived by
    appending its suffix to the logical plain output-root path string and is not
    created outside that parent directory.
 
 **Dependencies**:
 - `FR-0107`
+- `FR-0124`
 
 **Traceability**:
 - Area: output structure
@@ -258,3 +272,35 @@ deterministic status sidecar derived from the logical plain output-root path.
 **Traceability**:
 - Area: output structure
 - Observable evidence: status sidecar path and contents
+
+### FR-0128
+**Requirement**: Failed per-page export materialization shall not leave
+ambiguous partial payload artifacts in the final run result.
+
+**Applicability**:
+- accepted `export` runs
+
+**Rationale**:
+- Operators need retained export artifacts to show only successful payload
+  materialization and successful attachment retention, not half-written files.
+
+**Acceptance Criteria**:
+1. If `page_payload` fails for a processed page, the final run result does not
+   retain `page.md` or `page.html` for that page.
+2. If `attachment_download` fails for a processed page, the final run result
+   does not retain any attachment payload file for that page.
+3. Cleanup required by criteria 1 or 2 does not remove other per-page artifacts
+   for that page whose retention is still required elsewhere in the corpus.
+4. If a processed page retains no per-page artifacts in the final run result
+   after applying this cleanup, the product need not retain a payload folder for
+   that page.
+
+**Dependencies**:
+- `FR-0074`
+- `FR-0075`
+- `FR-0086`
+- `FR-0127`
+
+**Traceability**:
+- Area: output structure
+- Observable evidence: retained page folders and files after page-local failure

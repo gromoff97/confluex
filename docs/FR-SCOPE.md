@@ -117,7 +117,6 @@ for link-driven scope expansion.
    forms.
 
 **Dependencies**:
-- `FR-0107`
 
 **Traceability**:
 - Area: scope discovery
@@ -193,6 +192,7 @@ surfaced as scope findings.
    `finding_type=unsupported_internal_pattern`.
 
 **Dependencies**:
+- `FR-0063`
 - `FR-0089`
 
 **Traceability**:
@@ -218,6 +218,7 @@ page processing or unbounded traversal.
 **Dependencies**:
 - `FR-0061`
 - `FR-0062`
+- `FR-0127`
 
 **Traceability**:
 - Area: scope discovery
@@ -249,6 +250,7 @@ page processing or unbounded traversal.
 - `FR-0060`
 - `FR-0061`
 - `FR-0062`
+- `FR-0127`
 
 **Traceability**:
 - Area: scope discovery

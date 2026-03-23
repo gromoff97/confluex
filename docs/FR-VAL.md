@@ -95,7 +95,9 @@ option values before command work begins.
 - Operators need deterministic numeric validation boundaries.
 
 **Acceptance Criteria**:
-1. `--page-id` requires a canonical page identifier.
+1. `--page-id` requires a non-empty canonical page identifier serialized as one
+   base-10 integer with no sign character, decimal point, grouping characters,
+   or surrounding whitespace.
 2. `--max-find-candidates` requires a positive integer.
 3. `--max-pages` requires a positive integer.
 4. `--max-download-mib` requires a positive integer.
@@ -184,11 +186,13 @@ output-root reuse begins.
    report generation, or output-root reuse begins.
 3. Rejection output identifies the target `--page-id`.
 4. If root-page preflight succeeds, it establishes one canonical resolved root
-   page identifier for that run, and later requirements that refer to the run's
+   page identifier for that run, serialized with the canonical page-identifier
+   syntax required by `FR-0014`, and later requirements that refer to the run's
    root `page_id` use that resolved identifier.
 
 **Dependencies**:
 - `FR-0020`
+- `FR-0014`
 - `FR-0052`
 
 **Traceability**:

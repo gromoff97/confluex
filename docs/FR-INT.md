@@ -14,12 +14,15 @@ plain output root.
 
 **Acceptance Criteria**:
 1. Already written artifacts in the plain output root remain on disk.
-2. The top level contains `INCOMPLETE`.
-3. `summary.txt` reports `final_status=interrupted` and
-   `interrupt_reason=signal_interrupt`.
+2. The retained plain output root satisfies the interrupted-or-incomplete
+   top-level export layout required by `FR-0077`.
+3. The retained plain output root is reported using the signal-interruption
+   outcome defined by `FR-0113` and `FR-0116`.
 
 **Dependencies**:
+- `FR-0077`
 - `FR-0098`
+- `FR-0113`
 - `FR-0116`
 
 **Traceability**:
@@ -43,34 +46,40 @@ output root.
 
 **Dependencies**:
 - `FR-0099`
+- `FR-0085`
 
 **Traceability**:
 - Area: interruption
 - Observable evidence: absence of the interrupted plan output root
 
 ### FR-0102
-**Requirement**: Runtime failure after command work has started shall be
+**Requirement**: Runtime failure after accepted run execution has begun shall be
 reported explicitly.
 
 **Applicability**:
-- accepted invocations that fail after command work has started
+- accepted `export` and `plan` runs that fail after root-page preflight
+  succeeds and after any output-root creation, resume-reuse work, page
+  processing, report generation, or encryption work for that run begins
 
 **Rationale**:
 - Operators need a runtime failure to be visible and distinguishable from
   configured-stop or clean outcomes.
 
 **Acceptance Criteria**:
-1. If a runtime failure stops an `export` run after work has started, the plain
-   output root remains on disk and `summary.txt` reports
-   `final_status=incomplete` and `interrupt_reason=runtime_error`.
-2. If a runtime failure stops a `plan` run after work has started, the product
-   removes the plain output root created for that run and does not leave a
-   partial report set behind at that path.
-3. Runtime failure after command work has started causes exit code `4` for all
-   accepted workflows governed by this document.
+1. If a runtime failure stops an `export` run after accepted run execution has
+   begun, the plain output root remains on disk and the retained result is
+   reported using the runtime-failure incomplete outcome defined by `FR-0113`
+   and `FR-0116`.
+2. If a runtime failure stops a `plan` run after accepted run execution has
+   begun, the product removes the plain output root created for that run and
+   does not leave a partial report set behind at that path.
+3. Runtime failure after accepted run execution has begun causes exit code `4`
+   for all workflows governed by this card.
 
 **Dependencies**:
+- `FR-0085`
 - `FR-0098`
+- `FR-0113`
 - `FR-0116`
 - `FR-0118`
 

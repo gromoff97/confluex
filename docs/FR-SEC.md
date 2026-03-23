@@ -26,6 +26,8 @@ encrypted archive plus decrypt/extract instructions.
 **Dependencies**:
 - `FR-0083`
 - `FR-0085`
+- `FR-0077`
+- `FR-0078`
 
 **Traceability**:
 - Area: encryption

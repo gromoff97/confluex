@@ -97,17 +97,17 @@ outcomes.
   clean success.
 
 **Acceptance Criteria**:
-1. If `--max-pages` stops the run, `summary.txt` reports
-   `final_status=incomplete` and `interrupt_reason=max_pages_limit_reached`.
-2. If `--max-download-mib` stops the run, `summary.txt` reports
-   `final_status=incomplete` and
-   `interrupt_reason=max_download_limit_reached`.
+1. If `--max-pages` stops the run, the run ends in the configured-stop outcome
+   defined by `FR-0113` and `FR-0116`.
+2. If `--max-download-mib` stops the run, the run ends in the configured-stop
+   outcome defined by `FR-0113` and `FR-0116`.
 3. If a configured stop condition occurs in `export`, the plain output root
    remains on disk as an inspectable partial result.
 4. A configured stop condition causes exit code `3`.
 
 **Dependencies**:
 - `FR-0034`
+- `FR-0113`
 - `FR-0116`
 - `FR-0118`
 
@@ -126,14 +126,17 @@ outcomes.
 
 **Acceptance Criteria**:
 1. If a partial plain output root remains on disk, it still contains the full
-   report set.
-2. If a partial plain output root remains on disk, the top level contains
-   `INCOMPLETE`.
-3. A partial result that remains on disk after signal interruption, runtime
+   report set and top-level artifact layout required by the authoritative cards
+   for that command and outcome.
+2. A partial result that remains on disk after signal interruption, runtime
    failure, or configured stop is distinguishable from clean success without
    reading internal logs.
+3. A retained partial result's top-level artifacts keep the stable meanings
+   defined by `FR-0082`.
 
 **Dependencies**:
+- `FR-0077`
+- `FR-0078`
 - `FR-0085`
 - `FR-0082`
 
