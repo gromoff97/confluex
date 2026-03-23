@@ -7,6 +7,7 @@ docs/superpowers/
 .agents/
 .ralph/
 ralph.yml
+PROMPT.md
 
 # Ignore dotfiles and dot-directories whose names contain "ai".
 .*ai*
