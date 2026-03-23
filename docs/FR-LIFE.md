@@ -26,7 +26,9 @@
 8. The install manifest lists each Confluex-owned path exactly once as a
    relative path inside `<target>`, including
    `.confluex-install-manifest.txt` itself.
-9. The install manifest is a valid install manifest as defined in Section 3.
+9. A valid install manifest is UTF-8 text with LF line endings that contains
+   one relative path per line, contains no empty lines, absolute paths, `.`
+   segments, or `..` segments, and lists no path outside `<target>`.
 
 **Dependencies**:
 - `FR-0033`

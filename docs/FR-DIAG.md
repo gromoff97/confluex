@@ -102,12 +102,12 @@ diagnostics.
 
 **Acceptance Criteria**:
 1. `doctor` emits exactly one stdout line `support_profile=default`.
-2. In every `export` or `plan` report set, `summary.txt` reports
-   `support_profile=default`.
+2. The `support_profile` token emitted by `doctor` matches the
+   `support_profile` token used by `summary.txt` in `export` and `plan` report
+   sets.
 
 **Dependencies**:
 - `FR-0119`
-- `FR-0090`
 
 **Traceability**:
 - Area: diagnostics

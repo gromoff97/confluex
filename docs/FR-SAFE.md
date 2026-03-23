@@ -156,10 +156,10 @@ misleading abnormal partial results.
 1. If a `plan` run ends because `--max-pages` or `--max-download-mib` was
    reached, the plain output root remains on disk as an inspectable partial
    result.
-2. If a `plan` run ends because of signal interruption, the product removes the
-   plain output root created for that run.
-3. If a `plan` run ends because of a runtime failure after work has started, the
-   product removes the plain output root created for that run.
+2. If a `plan` run ends because of signal interruption, plain-output-root
+   retention follows `FR-0101`.
+3. If a `plan` run ends because of a runtime failure after work has started,
+   plain-output-root retention follows `FR-0102`.
 
 **Dependencies**:
 - `FR-0097`

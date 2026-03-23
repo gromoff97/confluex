@@ -99,14 +99,12 @@ export-related runs.
 
 **Acceptance Criteria**:
 1. `--critical` applies the semantic effect of `--safe`.
-2. If a completed run under `--critical` still has unresolved links, scope
-   findings, or failed page-local operations, the run uses
-   `final_status=policy_failed`.
+2. A completed run under `--critical` is evaluated under the fail-closed outcome
+   rule defined by `FR-0096`.
 3. Any command other than `export` or `plan` used with `--critical` is rejected.
 
 **Dependencies**:
 - `FR-0096`
-- `FR-0113`
 
 **Traceability**:
 - Area: option semantics
@@ -157,7 +155,7 @@ with plaintext cleanup on encryption failure.
 2. Under `--confidential`, the effective encryption recipient must be expressed
    as a full 40-hex GPG fingerprint; otherwise the invocation is rejected.
 3. If encryption fails after any plaintext run artifact has been written, the
-   run applies the plaintext-cleanup and status-sidecar behavior defined by
+   run applies the confidentiality-preserving failure behavior defined by
    `FR-0110`.
 4. `--encrypt --confidential` has the same accepted semantics as
    `--confidential` alone.
