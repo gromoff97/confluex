@@ -1,0 +1,15 @@
+# CX Link Of Link
+
+This page is discovered through another linked page. It contains a small but varied mix of content, including escaped XML \<link-of-link> and a stale marker.
+
+| Kind     | Value                                                                |
+| :------- | :------------------------------------------------------------------- |
+| Backlink | [CX Linked Scope Root](../page__<page-id:linked_scope_root>/page.md)                      |
+| Invalid  | [missing link-of-link page](/pages/viewpage.action?pageId=777777777) |
+
+```java
+
+// Code literal should stay code.
+const linkOfLink = '/display/CX/DoNotResolveLinkOfLinkLiteral';
+
+```

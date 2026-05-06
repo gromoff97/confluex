@@ -1,0 +1,88 @@
+{
+  "pages": [
+    {
+      "logical_name": "root_page",
+      "macro_classes": ["info", "note", "panel", "tip", "toc", "warning"],
+      "verdict": "degraded",
+      "reason": "TOC and callouts stay readable, but macro output adds extra warning blocks and unresolved noise to an already dense hub page."
+    },
+    {
+      "logical_name": "child_page",
+      "macro_classes": ["status", "tip", "warning"],
+      "verdict": "degraded",
+      "reason": "Status collapses to plain shouted text while the warning and task list remain understandable enough for AI extraction."
+    },
+    {
+      "logical_name": "grandchild_page",
+      "macro_classes": ["expand"],
+      "verdict": "good",
+      "reason": "The expand macro becomes a clean details block and preserves the leaf-page narrative without major structural noise."
+    },
+    {
+      "logical_name": "messy_code_macro_page",
+      "macro_classes": ["code", "noformat"],
+      "verdict": "good",
+      "reason": "Code and noformat blocks stay sharply delimited, so the page remains one of the clearest macro-heavy Markdown outputs."
+    },
+    {
+      "logical_name": "messy_table_page",
+      "macro_classes": ["details", "detailssummary"],
+      "verdict": "degraded",
+      "reason": "Page Properties turns into front-matter-like text and Page Properties Report degrades into a thin placeholder table, so meaning survives but shape is lossy."
+    },
+    {
+      "logical_name": "messy_links_page",
+      "macro_classes": ["children", "excerpt", "excerpt-include", "pagetree"],
+      "verdict": "bad_but_stable",
+      "reason": "Navigation macros dump mixed headings, expand/collapse chrome, duplicated excerpt content, and one raw pageId URL, which is stable but poor for AI comprehension."
+    },
+    {
+      "logical_name": "messy_attachment_page",
+      "macro_classes": ["attachments", "gallery", "panel"],
+      "verdict": "degraded",
+      "reason": "Gallery and attachments macros materialize as bulky Markdown tables that are readable but noisy and repetitive."
+    },
+    {
+      "logical_name": "messy_russian_page",
+      "macro_classes": ["note", "status"],
+      "verdict": "bad_but_stable",
+      "reason": "Status collapses to bare uppercase text and the image attachment turns into an unknown-attachment placeholder, so semantic loss is obvious even though export stays stable."
+    },
+    {
+      "logical_name": "messy_deep_level_1",
+      "macro_classes": ["expand", "children"],
+      "verdict": "degraded",
+      "reason": "The expand block is fine, but the children macro injects extra heading/list structure that muddies the deep-branch narrative."
+    },
+    {
+      "logical_name": "messy_deep_level_2",
+      "macro_classes": ["excerpt"],
+      "verdict": "good",
+      "reason": "The excerpt lands as a plain readable paragraph, so the page stays coherent despite the surrounding clutter."
+    },
+    {
+      "logical_name": "messy_deep_level_3",
+      "macro_classes": ["panel", "warning"],
+      "verdict": "good",
+      "reason": "Both callouts map cleanly to admonition-style Markdown and keep the leaf-page warnings explicit."
+    },
+    {
+      "logical_name": "messy_wide_child_a",
+      "macro_classes": ["info"],
+      "verdict": "good",
+      "reason": "The info macro becomes a short admonition and does not materially damage this otherwise simple sibling page."
+    },
+    {
+      "logical_name": "messy_wide_child_b",
+      "macro_classes": ["note"],
+      "verdict": "good",
+      "reason": "The note macro is compact and readable, and the rest of the page structure stays conventional Markdown."
+    },
+    {
+      "logical_name": "messy_wide_child_c",
+      "macro_classes": ["tip"],
+      "verdict": "degraded",
+      "reason": "The tip remains readable, but attachment references degrade to hash links and the page carries heavy unresolved-title noise."
+    }
+  ]
+}

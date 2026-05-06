@@ -1,0 +1,43 @@
+source_page_id	source_title	link_kind	raw_link_value	resolution_reason
+<page-id:root_page>	CX Root	href_page_id	page_id:999999999	insufficient_data
+<page-id:root_page>	CX Root	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=20;title=Shared Fixture Title	not_unique
+<page-id:root_page>	CX Root	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=24;title=Missing Root Archive 000	not_found
+<page-id:child_page>	CX Child	href_page_id	page_id:111111111	insufficient_data
+<page-id:child_page>	CX Child	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:child_page>	CX Child	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=30;title=Missing Child Operational Note	not_found
+<page-id:grandchild_page>	CX Grandchild	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:grandchild_page>	CX Grandchild	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=26;title=Missing Grandchild Archive	not_found
+<page-id:messy_table_page>	Messy Table Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_table_page>	Messy Table Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=24;title=Missing Table Row Target	not_found
+<page-id:messy_russian_page>	Русская страница — черновик	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_russian_page>	Русская страница — черновик	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=58;title=Отсутствующая русская страница	not_found
+<page-id:messy_punctuation_page>	Messy: punctuation / spaces?	href_space_title	space_key_present=1;space_key_bytes=2;space_key=CX;title_bytes=30;title=Missing: punctuation / spaces?	not_found
+<page-id:messy_punctuation_page>	Messy: punctuation / spaces?	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=20;title=Shared Fixture Title	not_unique
+<page-id:messy_punctuation_page>	Messy: punctuation / spaces?	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_deep_level_1>	Messy Deep Level 1	href_space_title	space_key_present=1;space_key_bytes=2;space_key=CX;title_bytes=25;title=Missing Deep Level 2 Copy	not_found
+<page-id:messy_deep_level_1>	Messy Deep Level 1	macro_param	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=19;title=<ac:link></ac:link>	not_found
+<page-id:messy_deep_level_1>	Messy Deep Level 1	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_deep_level_2>	Messy Deep Level 2	href_page_id	page_id:222222222	insufficient_data
+<page-id:messy_deep_level_2>	Messy Deep Level 2	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_deep_level_2>	Messy Deep Level 2	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=25;title=Missing Deep Level 2 Note	not_found
+<page-id:messy_deep_level_3>	Messy Deep Level 3	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=17;title=Missing Deep Leaf	not_found
+<page-id:messy_deep_level_3>	Messy Deep Level 3	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_wide_child_a>	Messy Wide Child A	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=21;title=Missing Wide A Target	not_found
+<page-id:messy_wide_child_a>	Messy Wide Child A	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_wide_child_b>	Messy Wide Child B	href_page_id	page_id:333333333	insufficient_data
+<page-id:messy_wide_child_b>	Messy Wide Child B	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=21;title=Missing Wide B Target	not_found
+<page-id:messy_wide_child_b>	Messy Wide Child B	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_wide_child_c>	Messy Wide Child C	href_space_title	space_key_present=1;space_key_bytes=2;space_key=CX;title_bytes=14;title=Missing Wide C	not_found
+<page-id:messy_wide_child_c>	Messy Wide Child C	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=20;title=Shared Fixture Title	not_unique
+<page-id:messy_wide_child_c>	Messy Wide Child C	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_attachment_page>	Messy Attachment Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_attachment_page>	Messy Attachment Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=25;title=Missing Attachment Target	not_found
+<page-id:messy_links_page>	Messy Links Page	href_page_id	page_id:444444444	insufficient_data
+<page-id:messy_links_page>	Messy Links Page	href_space_title	space_key_present=1;space_key_bytes=2;space_key=CX;title_bytes=26;title=Missing Display Links Page	not_found
+<page-id:messy_links_page>	Messy Links Page	macro_param	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=19;title=<ac:link></ac:link>	not_found
+<page-id:messy_links_page>	Messy Links Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=20;title=Shared Fixture Title	not_unique
+<page-id:messy_links_page>	Messy Links Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=25;title=Missing Links Page Target	not_found
+<page-id:messy_links_page>	Messy Links Page	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=25;title=Missing Macro Link Target	not_found
+<page-id:messy_code_macro_page>	Messy Code And Macro	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=20;title=Shared Fixture Title	not_unique
+<page-id:messy_code_macro_page>	Messy Code And Macro	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=23;title=Missing Appendix Target	not_found
+<page-id:messy_code_macro_page>	Messy Code And Macro	page_ref	space_key_present=0;space_key_bytes=0;space_key=;title_bytes=30;title=Missing Macro Parameter Target	not_found

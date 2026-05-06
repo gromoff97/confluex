@@ -1,0 +1,32 @@
+<h1>Messy Wide Child C</h1>
+<p>Wide child C is the compact-but-not-empty sibling. It keeps unique edge classes: an attachment link to a different page name, a duplicate title link, and a malformed literal.</p>
+<ul>
+  <li>Root link: <ac:link><ri:page ri:content-title="CX Root"/></ac:link>.</li>
+  <li>Duplicate title: <ac:link><ri:page ri:content-title="Shared Fixture Title"/></ac:link>.</li>
+  <li>Attachment by filename that exists elsewhere: <ac:link><ri:attachment ri:filename="link-targets.txt"/></ac:link>.</li>
+  <li>Missing wide C: <a href="/display/CX/Missing+Wide+C">missing wide C</a>.</li>
+</ul>
+<table>
+  <tbody>
+    <tr><th>Case</th><th>Value</th></tr>
+    <tr><td>0</td><td>no local attachments</td></tr>
+    <tr><td>1</td><td>one duplicate title link</td></tr>
+    <tr><td>many</td><td>many sibling pages</td></tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="tip" ac:schema-version="1" ac:macro-id="5b000000-0000-4000-8000-000000000001"><ac:parameter ac:name="icon">false</ac:parameter><ac:parameter ac:name="title">Wide C navigation hint</ac:parameter><ac:rich-text-body><p>Resolve the duplicate-title ambiguity before following <ac:link><ri:page ri:content-title="Shared Fixture Title"/></ac:link>, and keep attachment links like <ac:link><ri:attachment ri:filename="link-targets.txt"/></ac:link> local.</p></ac:rich-text-body></ac:structured-macro>
+<p>Literal malformed text: [not really a link](broken-wide-c and invalid-wide-c://value.</p>
+<ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000013"><ac:rich-text-body><p>Panel content with Русский fragment and <ac:link><ri:page ri:content-title="Messy Code And Macro"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>
+<p>Wide C density tail with duplicate title risk, attachment filename confusion, zero local ownership, one duplicate title, many sibling links, and broken-wide-c-tail://literal.</p>

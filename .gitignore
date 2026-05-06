@@ -5,6 +5,7 @@ tmp/
 .idea/
 .agents/
 .ralph/
+.playwright-mcp/
 ralph.yml
 PROMPT.md
 

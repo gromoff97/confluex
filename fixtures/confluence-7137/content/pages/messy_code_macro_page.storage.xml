@@ -1,0 +1,37 @@
+<h1>Messy Code And Macro</h1>
+<p>This page keeps fixed macro IDs for stability and adds code, preformatted text, macro links, invalid-looking text outside code, and table content.</p>
+<ac:structured-macro ac:name="code" ac:schema-version="1" ac:macro-id="11111111-1111-4111-8111-111111111111"><ac:parameter ac:name="language">javascript</ac:parameter><ac:plain-text-body><![CDATA[
+function messy(value) {
+  const literal = '/display/CX/DoNotParseFromCode';
+  const xml = '<node attr="value">text</node>';
+  return value && value.trim();
+}
+]]></ac:plain-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="22222222-2222-4222-8222-222222222222"><ac:rich-text-body><p>Note macro with <ac:link><ri:content-entity ri:content-id="{{page_id:messy_links_page}}"/></ac:link> and out-of-tree <ac:link><ri:page ri:content-title="CX Linked"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="code" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000006"><ac:parameter ac:name="language">bash</ac:parameter><ac:plain-text-body><![CDATA[
+curl http://broken.invalid.local/inside-code
+printf '<not-real-link />\n'
+]]></ac:plain-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="noformat" ac:schema-version="1" ac:macro-id="53000000-0000-4000-8000-000000000001"><ac:parameter ac:name="nopanel">true</ac:parameter><ac:plain-text-body><![CDATA[Literal noformat block keeps /display/CX/DoNotParseFromNoformat and invalid-noformat://outside untouched.]]></ac:plain-text-body></ac:structured-macro>
+<p>Visible messy input includes code literal <code>/display/CX/Missing Code Macro Page</code> and invalid-code-macro://outside.</p>
+<table>
+  <tbody>
+    <tr><th>Macro</th><th>Parameter</th><th>Link</th></tr>
+    <tr><td>code</td><td>javascript</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td></tr>
+    <tr><td>note</td><td>rich body</td><td><ac:link><ri:page ri:content-title="Messy Attachment Page"/></ac:link></td></tr>
+    <tr><td>missing</td><td>literal</td><td><ac:link><ri:page ri:content-title="Missing Macro Parameter Target"/></ac:link></td></tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000007"><ac:rich-text-body><p>Panel macro references duplicate title <ac:link><ri:page ri:content-title="Shared Fixture Title"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>

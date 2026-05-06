@@ -1,0 +1,32 @@
+<h1>CX Linked Scope Root</h1>
+<p>This out-of-tree root proves that link traversal can discover another small graph. It links by runtime content id, title, relative URL, and a broken page id.</p>
+<ol>
+  <li>Runtime content id: <ac:link><ri:content-entity ri:content-id="{{page_id:linked_scope_linked_page}}"/></ac:link>.</li>
+  <li>Title link to link-of-link: <ac:link><ri:page ri:content-title="CX Link Of Link"/></ac:link>.</li>
+  <li>Relative missing id: <a href="/pages/viewpage.action?pageId=888888888">missing linked scope id</a>.</li>
+</ol>
+<table>
+  <tbody>
+    <tr>
+      <th>Level</th>
+      <th>Page</th>
+      <th>Expected role</th>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>this page</td>
+      <td>linked root</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td><ac:link><ri:content-entity ri:content-id="{{page_id:linked_scope_linked_page}}"/></ac:link></td>
+      <td>linked child by content id</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><ac:link><ri:page ri:content-title="CX Linked Scope Descendant"/></ac:link></td>
+      <td>child-tree descendant outside root tree</td>
+    </tr>
+  </tbody>
+</table>
+<p>Unsupported-looking code literal: <code>/display/CX/Linked Scope Missing Title</code> should remain visible as messy source text.</p>

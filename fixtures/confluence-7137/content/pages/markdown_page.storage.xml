@@ -1,0 +1,34 @@
+<h1>CX Markdown Fixture</h1>
+<p>This legacy markdown fixture page is now also rich enough to avoid being a thin side page. It keeps its attachment and adds Markdown-sensitive structures.</p>
+<p>Attachment: <ac:link><ri:attachment ri:filename="markdown-note.txt"/></ac:link>. Root link: <ac:link><ri:page ri:content-title="CX Root"/></ac:link>. Missing markdown title: <ac:link><ri:page ri:content-title="Missing Markdown Fixture Target"/></ac:link>.</p>
+<table>
+  <tbody>
+    <tr><th>Markdown risk</th><th>Storage source</th><th>Expected review</th></tr>
+    <tr><td>table</td><td>storage table</td><td>readable Markdown table</td></tr>
+    <tr><td>code</td><td><code>inlineMarkdown()</code></td><td>no accidental indentation</td></tr>
+    <tr><td>whitespace</td><td>normal paragraph</td><td>no trailing whitespace</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>Bullet with <strong>bold</strong>.</li>
+  <li>Bullet with <em>italic</em>.</li>
+  <li>Bullet with escaped XML &lt;markdown-fixture&gt;.</li>
+</ul>
+<ac:structured-macro ac:name="code" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000017"><ac:plain-text-body><![CDATA[
+# markdown-like code that should stay code
+* not a real list
+[not a real link](/display/CX/DoNotParseMarkdownCode)
+]]></ac:plain-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000018"><ac:rich-text-body><p>Panel links to <ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>

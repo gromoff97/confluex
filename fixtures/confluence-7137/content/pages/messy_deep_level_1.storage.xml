@@ -1,0 +1,39 @@
+<h1>Messy Deep Level 1</h1>
+<p>First level of a deliberately deep branch. It links down, back to root, sideways, and outside the tree.</p>
+<ul>
+  <li>Down: <ac:link><ri:page ri:content-title="Messy Deep Level 2"/></ac:link>.</li>
+  <li>Root: <ac:link><ri:page ri:content-title="CX Root"/></ac:link>.</li>
+  <li>Sideways: <ac:link><ri:page ri:content-title="Messy Wide Child A"/></ac:link>.</li>
+  <li>Outside: <ac:link><ri:page ri:content-title="CX Linked Scope Root"/></ac:link>.</li>
+</ul>
+<table>
+  <tbody>
+    <tr><th>Depth</th><th>Expected</th><th>Noise</th></tr>
+    <tr><td>1</td><td>has one child</td><td>deep-one://literal</td></tr>
+    <tr><td>2</td><td><ac:link><ri:page ri:content-title="Messy Deep Level 2"/></ac:link></td><td><a href="/display/CX/Missing+Deep+Level+2+Copy">missing deep copy</a></td></tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="expand" ac:schema-version="1" ac:macro-id="58000000-0000-4000-8000-000000000001"><ac:parameter ac:name="">Deep branch operator note</ac:parameter><ac:rich-text-body><p>Expanded content points to <ac:link><ri:page ri:content-title="Messy Deep Level 2"/></ac:link>, <ac:link><ri:page ri:content-title="Messy Wide Child A"/></ac:link>, and broken literal deep1-expand://value.</p></ac:rich-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="children" ac:schema-version="2" ac:macro-id="58000000-0000-4000-8000-000000000002"><ac:parameter ac:name="all">true</ac:parameter><ac:parameter ac:name="depth">2</ac:parameter><ac:parameter ac:name="style">h4</ac:parameter><ac:parameter ac:name="sort">creation</ac:parameter><ac:parameter ac:name="page"><ac:link><ri:page ri:content-title="Messy Deep Level 1" /></ac:link></ac:parameter><ac:parameter ac:name="reverse">true</ac:parameter><ac:parameter ac:name="excerpt">true</ac:parameter><ac:parameter ac:name="first">99</ac:parameter><ac:parameter ac:name="excerptType">simple</ac:parameter></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>
+<p>Repeated section name: Deep notes. Repeated section name: Deep notes. Русский фрагмент для глубокой ветки.</p>
+<ac:structured-macro ac:name="info" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000008"><ac:rich-text-body><p>Deep level 1 info macro links to <ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<table>
+  <tbody>
+    <tr><th>Boundary</th><th>Value</th><th>Comment</th></tr>
+    <tr><td>0</td><td>zero</td><td>no attachment on this page</td></tr>
+    <tr><td>1</td><td>one</td><td>one direct child</td></tr>
+    <tr><td>many</td><td>many links</td><td>root, child, sibling, out-of-tree</td></tr>
+  </tbody>
+</table>

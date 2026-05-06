@@ -1,0 +1,36 @@
+# Messy: punctuation / spaces?
+
+This page stresses punctuation in titles, quotes, slashes, question marks, apostrophes, repeated words, and path-looking text. It links to [CX Root](../page__<page-id:root_page>/page.md) and Shared Fixture Title [unresolved: page; reason=not_unique; target_hint=title; value="CX:Shared Fixture Title"].
+
+Quoted values: "double", 'single', path-like `/not/a/markdown/path`, XML \<punctuation>, and stale literal broken-punctuation://spaces?value=1.
+
+| Raw                | Meaning            | Link                                                                                                                              |
+| :----------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+| spaces in title    | title encoding     | [Messy Table Page](../page__<page-id:messy_table_page>/page.md)                                                                                       |
+| slash / question ? | special characters | [Messy: punctuation / spaces?](page.md)                                                                                           |
+| missing ?          | invalid            | missing punctuation display [unresolved: page; reason=not_found; target_hint=title; value="CX:Missing: punctuation / spaces?"] |
+
+1. Ordered one with **bold punctuation!**
+2. Ordered two with *italic punctuation?*
+3. Ordered three with `punctuation("value")`
+
+| Duplicate   | Duplicate   | Duplicate   |
+| :---------- | :---------- | :---------- |
+| same header | same header | same header |
+| 0           | 1           | many        |
+
+> \[!IMPORTANT]
+> Info macro points to [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md).
+
+## Audit appendix
+
+The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.
+
+| Audit field | Value   | Reference                                                   | Noise                   |
+| :---------- | :------ | :---------------------------------------------------------- | :---------------------- |
+| primary     | 0       | [Messy Links Page](../page__<page-id:messy_links_page>/page.md)                 | appendix-zero           |
+| secondary   | 1       | [CX Linked](../page__<page-id:linked_page>/page.md)                        | appendix-one            |
+| overflow    | many    | [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md) | appendix-many           |
+| stale       | missing | \[\[Missing Appendix Target]]                               | broken-appendix://value |
+
+Appendix prose includes escaped XML \<appendix attr="value">, Cyrillic пример, inline `appendixCheck()`, and code literal `/display/CX/Missing Appendix Literal`.

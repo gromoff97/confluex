@@ -1,13 +1,22 @@
 {
   "name": "confluex",
+  "version": "0.1.0",
   "private": true,
   "description": "Linting helpers for the Confluex repository",
   "scripts": {
+    "test:node": "node --test",
     "lint:js": "scripts/lint-js.sh",
     "lint:shell": "scripts/lint-shell.sh",
     "lint": "npm run lint:js && npm run lint:shell"
   },
   "devDependencies": {
     "standard": "^17.1.2"
+  },
+  "dependencies": {
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-gfm": "^3.1.0",
+    "mdast-util-to-markdown": "^2.1.2",
+    "micromark-extension-gfm": "^3.0.0",
+    "unist-util-visit": "^5.1.0"
   }
 }

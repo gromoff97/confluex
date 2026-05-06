@@ -1,0 +1,38 @@
+{
+  "macro_classes": [
+    { "macro_name": "attachments", "category": "media" },
+    { "macro_name": "children", "category": "navigation" },
+    { "macro_name": "code", "category": "code" },
+    { "macro_name": "details", "category": "metadata" },
+    { "macro_name": "detailssummary", "category": "metadata" },
+    { "macro_name": "excerpt-include", "category": "navigation" },
+    { "macro_name": "excerpt", "category": "navigation" },
+    { "macro_name": "expand", "category": "display" },
+    { "macro_name": "gallery", "category": "media" },
+    { "macro_name": "info", "category": "display" },
+    { "macro_name": "noformat", "category": "code" },
+    { "macro_name": "note", "category": "display" },
+    { "macro_name": "panel", "category": "display" },
+    { "macro_name": "pagetree", "category": "navigation" },
+    { "macro_name": "status", "category": "workflow" },
+    { "macro_name": "tip", "category": "display" },
+    { "macro_name": "toc", "category": "navigation" },
+    { "macro_name": "warning", "category": "display" }
+  ],
+  "page_targets": {
+    "root_page": ["info", "note", "panel", "tip", "toc", "warning"],
+    "child_page": ["status", "tip", "warning"],
+    "grandchild_page": ["expand"],
+    "messy_code_macro_page": ["code", "noformat"],
+    "messy_table_page": ["details", "detailssummary"],
+    "messy_links_page": ["children", "excerpt", "excerpt-include", "pagetree"],
+    "messy_attachment_page": ["attachments", "gallery", "panel"],
+    "messy_russian_page": ["note", "status"],
+    "messy_deep_level_1": ["expand", "children"],
+    "messy_deep_level_2": ["excerpt"],
+    "messy_deep_level_3": ["panel", "warning"],
+    "messy_wide_child_a": ["info"],
+    "messy_wide_child_b": ["note"],
+    "messy_wide_child_c": ["tip"]
+  }
+}

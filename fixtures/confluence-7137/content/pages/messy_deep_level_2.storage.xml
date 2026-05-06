@@ -1,0 +1,30 @@
+<h1>Messy Deep Level 2</h1>
+<p>Second level keeps the chain narrow but content rich. It links to <ac:link><ri:page ri:content-title="Messy Deep Level 3"/></ac:link>, parent <ac:link><ri:page ri:content-title="Messy Deep Level 1"/></ac:link>, and outside page <ac:link><ri:page ri:content-title="CX Linked"/></ac:link>.</p>
+<table>
+  <tbody>
+    <tr><th>Column A</th><th>Column B</th><th>Column C</th><th>Column D</th></tr>
+    <tr><td>alpha</td><td>0</td><td><code>deep2()</code></td><td><ac:link><ri:page ri:content-title="Messy Deep Level 3"/></ac:link></td></tr>
+    <tr><td>beta</td><td>1</td><td>Русский</td><td><a href="/pages/viewpage.action?pageId=222222222">missing deep 2 id</a></td></tr>
+    <tr><td>gamma</td><td>many</td><td>&lt;escaped&gt;</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td></tr>
+  </tbody>
+</table>
+<ol>
+  <li>Ordered deep value 0.</li>
+  <li>Ordered deep value 1.</li>
+  <li>Ordered deep many values with broken-deep2://literal.</li>
+</ol>
+<ac:structured-macro ac:name="excerpt" ac:schema-version="1" ac:macro-id="59000000-0000-4000-8000-000000000001"><ac:parameter ac:name="hidden">false</ac:parameter><ac:parameter ac:name="atlassian-macro-output-type">BLOCK</ac:parameter><ac:rich-text-body><p>Deep level 2 excerpt mentions <ac:link><ri:page ri:content-title="Messy Deep Level 3"/></ac:link>, <ac:link><ri:page ri:content-title="CX Linked"/></ac:link>, and the stale href <a href="/pages/viewpage.action?pageId=222222222">missing deep 2 id</a>.</p></ac:rich-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000009"><ac:rich-text-body><p>Deep level 2 note includes stale title <ac:link><ri:page ri:content-title="Missing Deep Level 2 Note"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>
+<p>Deep level 2 density tail: repeated review labels, stale owner field, zero-one-many summary, and broken-deep2-tail://literal.</p>

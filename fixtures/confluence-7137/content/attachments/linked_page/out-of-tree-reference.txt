@@ -1,0 +1,2 @@
+Out-of-tree synthetic attachment.
+Used to verify linked pages outside the root child tree.

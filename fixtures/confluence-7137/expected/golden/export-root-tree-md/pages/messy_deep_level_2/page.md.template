@@ -1,0 +1,33 @@
+# Messy Deep Level 2
+
+Second level keeps the chain narrow but content rich. It links to [Messy Deep Level 3](../page__<page-id:messy_deep_level_3>/page.md), parent [Messy Deep Level 1](../page__<page-id:messy_deep_level_1>/page.md), and outside page [CX Linked](../page__<page-id:linked_page>/page.md).
+
+| Column A | Column B | Column C   | Column D                                                                                                   |
+| :------- | :------- | :--------- | :--------------------------------------------------------------------------------------------------------- |
+| alpha    | 0        | `deep2()`  | [Messy Deep Level 3](../page__<page-id:messy_deep_level_3>/page.md)                                                              |
+| beta     | 1        | Русский    | missing deep 2 id [unresolved: page; reason=insufficient_data; target_hint=page_id; value="222222222"] |
+| gamma    | many     | \<escaped> | [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md)                                                |
+
+1. Ordered deep value 0.
+2. Ordered deep value 1.
+3. Ordered deep many values with broken-deep2://literal.
+
+Deep level 2 excerpt mentions [Messy Deep Level 3](../page__<page-id:messy_deep_level_3>/page.md), [CX Linked](../page__<page-id:linked_page>/page.md), and the stale href missing deep 2 id [unresolved: page; reason=insufficient_data; target_hint=page_id; value="222222222"].
+
+> \[!WARNING]
+> Deep level 2 note includes stale title \[\[Missing Deep Level 2 Note]].
+
+## Audit appendix
+
+The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.
+
+| Audit field | Value   | Reference                                                   | Noise                   |
+| :---------- | :------ | :---------------------------------------------------------- | :---------------------- |
+| primary     | 0       | [Messy Links Page](../page__<page-id:messy_links_page>/page.md)                 | appendix-zero           |
+| secondary   | 1       | [CX Linked](../page__<page-id:linked_page>/page.md)                        | appendix-one            |
+| overflow    | many    | [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md) | appendix-many           |
+| stale       | missing | \[\[Missing Appendix Target]]                               | broken-appendix://value |
+
+Appendix prose includes escaped XML \<appendix attr="value">, Cyrillic пример, inline `appendixCheck()`, and code literal `/display/CX/Missing Appendix Literal`.
+
+Deep level 2 density tail: repeated review labels, stale owner field, zero-one-many summary, and broken-deep2-tail://literal.

@@ -1,0 +1,51 @@
+# Messy Code And Macro
+
+This page keeps fixed macro IDs for stability and adds code, preformatted text, macro links, invalid-looking text outside code, and table content.
+
+```javascript
+
+function messy(value) {
+  const literal = '/display/CX/DoNotParseFromCode';
+  const xml = '<node attr="value">text</node>';
+  return value && value.trim();
+}
+
+```
+
+> \[!WARNING]
+> Note macro with [Messy Links Page](../page__<page-id:messy_links_page>/page.md) and out-of-tree [CX Linked](../page__<page-id:linked_page>/page.md).
+
+```bash
+
+curl http://broken.invalid.local/inside-code
+printf '<not-real-link />\n'
+
+```
+
+```
+Literal noformat block keeps /display/CX/DoNotParseFromNoformat and invalid-noformat://outside untouched.
+```
+
+Visible messy input includes code literal `/display/CX/Missing Code Macro Page` and invalid-code-macro://outside.
+
+| Macro   | Parameter  | Link                                             |
+| :------ | :--------- | :----------------------------------------------- |
+| code    | javascript | [Messy Links Page](../page__<page-id:messy_links_page>/page.md)      |
+| note    | rich body  | [Messy Attachment Page](../page__<page-id:messy_attachment_page>/page.md) |
+| missing | literal    | \[\[Missing Macro Parameter Target]]             |
+
+> \[!NOTE]
+> Panel macro references duplicate title Shared Fixture Title [unresolved: page; reason=not_unique; target_hint=title; value="CX:Shared Fixture Title"].
+
+## Audit appendix
+
+The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.
+
+| Audit field | Value   | Reference                                                   | Noise                   |
+| :---------- | :------ | :---------------------------------------------------------- | :---------------------- |
+| primary     | 0       | [Messy Links Page](../page__<page-id:messy_links_page>/page.md)                 | appendix-zero           |
+| secondary   | 1       | [CX Linked](../page__<page-id:linked_page>/page.md)                        | appendix-one            |
+| overflow    | many    | [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md) | appendix-many           |
+| stale       | missing | \[\[Missing Appendix Target]]                               | broken-appendix://value |
+
+Appendix prose includes escaped XML \<appendix attr="value">, Cyrillic пример, inline `appendixCheck()`, and code literal `/display/CX/Missing Appendix Literal`.

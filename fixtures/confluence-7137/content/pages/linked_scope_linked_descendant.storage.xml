@@ -1,0 +1,26 @@
+<h1>CX Linked Scope Descendant</h1>
+<p>Descendant content includes nested list shape and a same-space backlink. It is deliberately synthetic and does not copy any reference document.</p>
+<ul>
+  <li>Parent: <ac:link><ri:page ri:content-title="CX Linked Scope Linked"/></ac:link>
+    <ul>
+      <li>Nested bullet with value 0.</li>
+      <li>Nested bullet with value 1.</li>
+      <li>Nested bullet with many values: alpha, beta, gamma.</li>
+    </ul>
+  </li>
+  <li>Broken descendant href: <a href="/display/CX/Missing+Linked+Descendant">missing descendant display link</a>.</li>
+</ul>
+<table>
+  <tbody>
+    <tr>
+      <th>Duplicate</th>
+      <th>Duplicate</th>
+      <th>Why</th>
+    </tr>
+    <tr>
+      <td>header</td>
+      <td>header</td>
+      <td>repeated header stress case</td>
+    </tr>
+  </tbody>
+</table>

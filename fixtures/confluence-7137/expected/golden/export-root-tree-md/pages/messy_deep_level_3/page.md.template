@@ -1,0 +1,41 @@
+# Messy Deep Level 3
+
+Third level is a leaf in the deep branch. It has no children, but it still includes tables, links, literals, and formatting.
+
+Backlinks: [Messy Deep Level 2](../page__<page-id:messy_deep_level_2>/page.md), root [CX Root](../page__<page-id:root_page>/page.md), and out-of-tree [CX Link Of Link](../page__<page-id:linked_scope_link_of_link>/page.md).
+
+| Leaf       | Value | Mess                                        |
+| :--------- | :---- | :------------------------------------------ |
+| children   | 0     | explicit zero                               |
+| parents    | 1     | one structural parent                       |
+| references | many  | [Messy Links Page](../page__<page-id:messy_links_page>/page.md) |
+
+* **Bold deep leaf**
+* *Italic deep leaf*
+* `deepLeaf(0, 1, many)`
+* Missing title \[\[Missing Deep Leaf]]
+
+Literal XML \<deep-leaf> and broken-deep-leaf://value stay in body.
+
+> \[!NOTE]
+> Panel in a deep leaf references [Messy Table Page](../page__<page-id:messy_table_page>/page.md).
+
+> \[!CAUTION]
+> Leaf isolation warning
+>
+> This leaf has no children, but it still carries stale targets like \[\[Missing Deep Leaf]] and out-of-tree references to [CX Link Of Link](../page__<page-id:linked_scope_link_of_link>/page.md).
+
+## Audit appendix
+
+The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.
+
+| Audit field | Value   | Reference                                                   | Noise                   |
+| :---------- | :------ | :---------------------------------------------------------- | :---------------------- |
+| primary     | 0       | [Messy Links Page](../page__<page-id:messy_links_page>/page.md)                 | appendix-zero           |
+| secondary   | 1       | [CX Linked](../page__<page-id:linked_page>/page.md)                        | appendix-one            |
+| overflow    | many    | [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md) | appendix-many           |
+| stale       | missing | \[\[Missing Appendix Target]]                               | broken-appendix://value |
+
+Appendix prose includes escaped XML \<appendix attr="value">, Cyrillic пример, inline `appendixCheck()`, and code literal `/display/CX/Missing Appendix Literal`.
+
+Deep level 3 density tail: leaf pages still carry copied review notes, zero children, one parent, many stale references, and broken-deep3-tail://literal.

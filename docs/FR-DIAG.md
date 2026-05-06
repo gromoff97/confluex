@@ -6,28 +6,60 @@
 dependencies.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
-- Operators need a deterministic readiness report before they start using the
-  CLI.
+- Operators need a deterministic readiness report for the local executables that
+  gate self-test bootstrap, live regression, and encryption work.
 
 **Acceptance Criteria**:
 1. `doctor` checks exactly these environment-readiness dependencies:
-   `parser_runtime`, `confluence_cli`, and `gpg`.
+   `docker_cli` for the `docker` executable required to create and inspect the
+   product-owned self-test Docker environment under `FR-0132`, `bats_cli` for
+   the `bats` executable required to start governed live regression under
+   `FR-0138`, and `gpg` for the `gpg` executable required for
+   encryption-recipient validation under `FR-0108`.
 2. `doctor` emits exactly one stdout line for each dependency in the format
    `dependency_<label>=<state>`.
 3. Dependency lines appear in this exact order:
-   `dependency_parser_runtime=...`,
-   `dependency_confluence_cli=...`,
+   `dependency_docker_cli=...`,
+   `dependency_bats_cli=...`,
    `dependency_gpg=...`.
 4. `<state>` uses only `absent`, `present:unknown_version`, or
    `present:<version_text>`.
-5. In `present:<version_text>`, `<version_text>` is trimmed of leading and
-   trailing whitespace and contains no TAB, LF, or CR.
+5. The exact dependency executable names are `docker` for `docker_cli`, `bats`
+   for `bats_cli`, and `gpg` for `gpg`.
+6. A dependency is `absent` when its executable name cannot be resolved to an
+   executable on `PATH`.
+7. When a dependency executable is present, the version probe is
+   `<executable> --version`.
+8. A dependency is `present:unknown_version` when the version probe exits
+   non-zero, when its stdout bytes are not valid UTF-8, when its UTF-8 stdout
+   contains no non-empty line after removing leading and trailing ASCII space,
+   TAB, LF, and CR, when the first such non-empty line contains any ASCII
+   control character with code point `0x00` through `0x1F` or `0x7F`, or when
+   the first such non-empty line after removing leading and trailing ASCII
+   space, TAB, LF, and CR is exactly `unknown_version`.
+9. A dependency is `present:<version_text>` when the version probe exits `0` and
+   its stdout bytes are valid UTF-8, and the decoded stdout contains at least
+   one non-empty line after removing leading and trailing ASCII space, TAB, LF,
+   and CR, and the first such non-empty line contains no ASCII control
+   character with code point `0x00` through `0x1F` or `0x7F` and is not
+   exactly `unknown_version`.
+10. In `present:<version_text>`, `<version_text>` is the first non-empty stdout
+   line from criterion 9 after removing leading and trailing ASCII space, TAB,
+   LF, and CR; stderr from the version probe is ignored.
+11. The serialized `<version_text>` contains no ASCII control character with code
+   point `0x00` through `0x1F` or `0x7F` and does not begin or end with an
+   ASCII space.
+12. ASCII space inside `<version_text>` is part of `<version_text>` and does not
+   delimit additional fields.
 
 **Dependencies**:
-- `FR-0010`
+- `FR-0108`
+- `FR-0132`
+- `FR-0138`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics
@@ -37,26 +69,37 @@ dependencies.
 **Requirement**: `doctor` shall support optional page-access diagnostics.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
 - Operators need a deterministic way to confirm whether a candidate root page is
   accessible before planning or exporting.
 
 **Acceptance Criteria**:
-1. `doctor` without `--page-id` emits exactly one stdout line `page_access=skipped`.
-2. `doctor --page-id <id>` emits `page_access=ok` when the page is accessible.
-3. `doctor --page-id <id>` emits `page_access=failed` when the page is not
-   accessible.
-4. `doctor --page-id <id>` emits exactly one stdout line
+1. `doctor` without `--page-id` emits the stdout line
+   `page_access=skipped` exactly once.
+2. `doctor --page-id <id>` uses the remote-access context from `FR-0216`,
+   resolves the supplied page-id input to one canonical page identity, and
+   treats page access as successful only when that context is usable for the
+   current invocation and the target page is not missing, is not inaccessible,
+   and can be resolved to a page identity, matching the root-page preflight
+   success condition in `FR-0017`; otherwise page access fails.
+3. `doctor --page-id <id>` emits the stdout line `page_access=ok` exactly once
+   when the predicate from criterion 2 succeeds.
+4. `doctor --page-id <id>` emits the stdout line `page_access=failed` exactly
+   once when the predicate from criterion 2 fails.
+5. `doctor --page-id <id>` emits the stdout line
    `page_identity=<page_id>` only when page access succeeds.
-5. In `page_identity=<page_id>`, `<page_id>` uses the canonical
+6. In `page_identity=<page_id>`, `<page_id>` uses the canonical
    page-identifier syntax required by `FR-0014` and reports the resolved page
    identifier rather than merely echoing the raw command-line token.
 
 **Dependencies**:
 - `FR-0020`
 - `FR-0014`
+- `FR-0017`
+- `FR-0216`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics
@@ -67,26 +110,27 @@ dependencies.
 diagnostics.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
 - Operators need to know whether the effective recipient is missing, valid, or
   invalid before requesting encrypted runs.
 
 **Acceptance Criteria**:
-1. `doctor` without `--verify-encryption` emits exactly one stdout line
-   `encryption_recipient=skipped`.
-2. `doctor --verify-encryption` with no effective recipient emits exactly one
-   stdout line `encryption_recipient=missing`.
-3. `doctor --verify-encryption` with a valid effective recipient emits exactly
-   one stdout line `encryption_recipient=ok`.
-4. `doctor --verify-encryption` with an invalid effective recipient emits
-   exactly one stdout line `encryption_recipient=failed`.
+1. `doctor` without `--verify-encryption` emits the stdout line
+   `encryption_recipient=skipped` exactly once.
+2. `doctor --verify-encryption` with no effective recipient emits the stdout
+   line `encryption_recipient=missing` exactly once.
+3. `doctor --verify-encryption` with a valid effective recipient emits the
+   stdout line `encryption_recipient=ok` exactly once.
+4. `doctor --verify-encryption` with an invalid effective recipient emits the
+   stdout line `encryption_recipient=failed` exactly once.
 
 **Dependencies**:
 - `FR-0030`
-- `FR-0031`
 - `FR-0037`
+- `FR-0108`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics
@@ -96,20 +140,25 @@ diagnostics.
 **Requirement**: `doctor` shall report the active support profile.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
 - Operators need to know what internal-link profile the product claims to
   support.
 
 **Acceptance Criteria**:
-1. `doctor` emits exactly one stdout line `support_profile=default`.
-2. The `support_profile` token emitted by `doctor` matches the
+1. `doctor` emits the stdout line `support_profile=<support_profile>` exactly
+   once.
+2. `<support_profile>` uses the support-profile value contract governed by
+   `FR-0119`.
+3. The `support_profile` token emitted by `doctor` matches the
    `support_profile` token used by `summary.txt` in `export` and `plan` report
    sets.
 
 **Dependencies**:
+- `FR-0090`
 - `FR-0119`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics
@@ -119,23 +168,32 @@ diagnostics.
 **Requirement**: `doctor` shall expose machine-readable next-step guidance.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
 - Operators need a machine-readable summary of what to fix next.
 
 **Acceptance Criteria**:
-1. `doctor` emits exactly one stdout line `next_action=<value>`.
+1. `doctor` emits the stdout line `next_action=<value>` exactly once.
 2. `<value>` uses either the shared absence token defined by `FR-0125` or a
    comma-delimited list serialized with the shared token-list form defined by
    `FR-0126` and containing one or more unique tokens chosen from
-   `install_parser_runtime`, `install_confluence_cli`, `install_gpg`,
+   `install_docker_cli`, `install_bats_cli`, `install_gpg`,
    `check_page_access`, `set_encryption_key`, and `fix_encryption_key`.
-3. If all checked dependencies are present, `page_access` is not `failed`, and
-   `encryption_recipient` is neither `missing` nor `failed`,
+3. `install_docker_cli` appears if and only if
+   `dependency_docker_cli=absent`.
+4. `install_bats_cli` appears if and only if
+   `dependency_bats_cli=absent`.
+5. `install_gpg` appears if and only if `dependency_gpg=absent`.
+6. `check_page_access` appears if and only if `page_access=failed`.
+7. `set_encryption_key` appears if and only if
+   `encryption_recipient=missing`.
+8. `fix_encryption_key` appears if and only if
+   `encryption_recipient=failed` and `dependency_gpg` is not `absent`.
+9. If none of the conditions in criteria 3 through 8 apply,
    `next_action=none`.
-4. If `next_action` is not `none`, tokens appear only in this order:
-   `install_parser_runtime`, `install_confluence_cli`, `install_gpg`,
+10. If `next_action` is not `none`, tokens appear only in this order:
+   `install_docker_cli`, `install_bats_cli`, `install_gpg`,
    `check_page_access`, `set_encryption_key`, `fix_encryption_key`.
 
 **Dependencies**:
@@ -144,17 +202,18 @@ diagnostics.
 - `FR-0040`
 - `FR-0125`
 - `FR-0126`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics
 - Observable evidence: `next_action` line
 
 ### FR-0043
-**Requirement**: Accepted `doctor` invocations shall use one closed stdout
-contract.
+**Requirement**: Accepted `doctor` invocations that complete shall use one closed
+stdout contract.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
 - Operators and automation need a deterministic, line-oriented diagnostic
@@ -165,16 +224,22 @@ contract.
    dependency lines, `page_access`, optional `page_identity`,
    `encryption_recipient`, `support_profile`, `supported_link_forms`,
    `next_action`.
-2. Accepted `doctor` invocations emit no additional informational stdout lines.
-3. Accepted `doctor` invocations write no informational output to `stderr`.
-4. Accepted `doctor` invocations exit `0`.
+2. Accepted `doctor` invocations emit no additional stdout lines.
+3. Accepted `doctor` invocations write nothing to `stderr`.
+4. The accepted invocation exit code is governed by `FR-0118`.
+5. If an accepted `doctor` invocation fails under `FR-0142`, stdout, stderr, and
+   exit code are governed by `FR-0142` instead of criteria 1 through 4.
 
 **Dependencies**:
 - `FR-0038`
+- `FR-0039`
+- `FR-0040`
 - `FR-0041`
 - `FR-0042`
 - `FR-0044`
 - `FR-0010`
+- `FR-0118`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics
@@ -184,20 +249,22 @@ contract.
 **Requirement**: `doctor` shall report the documented supported link forms.
 
 **Applicability**:
-- accepted non-help `doctor` invocations
+- accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
 - Operators need an explicit machine-readable statement of which internal-link
   forms are actually supported for link-driven scope expansion.
 
 **Acceptance Criteria**:
-1. `doctor` emits exactly one stdout line
-   `supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title`.
-2. The serialized supported-link-form set matches the documented support set for
-   scope expansion.
+1. `doctor` emits the stdout line `supported_link_forms=<forms>` exactly once.
+2. `<forms>` uses the delimited token-list serialization defined by `FR-0126`.
+3. `<forms>` is exactly the supported discovery-form vocabulary from `FR-0063`,
+   in `FR-0063` order.
 
 **Dependencies**:
 - `FR-0063`
+- `FR-0126`
+- `FR-0142`
 
 **Traceability**:
 - Area: diagnostics

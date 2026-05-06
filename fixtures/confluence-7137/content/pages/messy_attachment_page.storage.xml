@@ -1,0 +1,42 @@
+<h1>Messy Attachment Page</h1>
+<p>This page has many attachments, referenced and unreferenced files, image embeds, regular attachment links, zero-byte edge file, CSV, PDF, and binary payloads.</p>
+<h2>Embedded media</h2>
+<p><ac:image><ri:attachment ri:filename="diagram-final.png"/></ac:image></p>
+<p><ac:image><ri:attachment ri:filename="diagram-final-copy.png"/></ac:image></p>
+<ac:structured-macro ac:name="gallery" ac:schema-version="1" ac:macro-id="57000000-0000-4000-8000-000000000001"><ac:parameter ac:name="columns">3</ac:parameter><ac:parameter ac:name="sort">size</ac:parameter><ac:parameter ac:name="title">Attachment gallery</ac:parameter><ac:parameter ac:name="reverse">true</ac:parameter></ac:structured-macro>
+<h2>Attachment table</h2>
+<table>
+  <tbody>
+    <tr><th>File</th><th>Kind</th><th>Usage</th></tr>
+    <tr><td><ac:link><ri:attachment ri:filename="notes-with-spaces.txt"/></ac:link></td><td>text</td><td>referenced</td></tr>
+    <tr><td><ac:link><ri:attachment ri:filename="data.csv"/></ac:link></td><td>csv</td><td>referenced</td></tr>
+    <tr><td><ac:link><ri:attachment ri:filename="blob.bin"/></ac:link></td><td>binary</td><td>referenced</td></tr>
+    <tr><td><ac:link><ri:attachment ri:filename="report-synthetic.pdf"/></ac:link></td><td>pdf</td><td>referenced</td></tr>
+    <tr><td><ac:link><ri:attachment ri:filename="table-export-cyrillic.csv"/></ac:link></td><td>cyrillic csv payload</td><td>referenced</td></tr>
+    <tr><td><ac:link><ri:attachment ri:filename="empty-note.txt"/></ac:link></td><td>zero bytes</td><td>referenced edge</td></tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="attachments" ac:schema-version="1" ac:macro-id="57000000-0000-4000-8000-000000000002"><ac:parameter ac:name="old">false</ac:parameter><ac:parameter ac:name="patterns">.*png,.*jpg</ac:parameter><ac:parameter ac:name="sortOrder">descending</ac:parameter><ac:parameter ac:name="sortBy">name</ac:parameter></ac:structured-macro>
+<p>Other pages: <ac:link><ri:page ri:content-title="CX Root"/></ac:link>, <ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link>, <ac:link><ri:page ri:content-title="CX Linked"/></ac:link>, and missing attachment page <ac:link><ri:page ri:content-title="Missing Attachment Target"/></ac:link>.</p>
+<ac:structured-macro ac:name="panel" ac:schema-version="1" ac:macro-id="57000000-0000-4000-8000-000000000003"><ac:parameter ac:name="title">Attachment operations panel</ac:parameter><ac:rich-text-body><p>Cross-check copied files against <ac:link><ri:attachment ri:filename="report-synthetic.pdf"/></ac:link>, <ac:link><ri:attachment ri:filename="data.csv"/></ac:link>, and <ac:image><ri:attachment ri:filename="diagram-final.png" /></ac:image>.</p></ac:rich-text-body></ac:structured-macro>
+<table>
+  <tbody>
+    <tr><th>Boundary</th><th>Attachment count</th><th>Comment</th></tr>
+    <tr><td>0</td><td>empty-note.txt has 0 bytes</td><td>zero size</td></tr>
+    <tr><td>1</td><td>one PDF-like file</td><td>single kind</td></tr>
+    <tr><td>many</td><td>text, csv, image, pdf, binary</td><td>diverse kind</td></tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="info" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000014"><ac:rich-text-body><p>Attachment info macro includes broken-attachment-literal://value and escaped &lt;attachment&gt; text.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>

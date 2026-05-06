@@ -12,12 +12,22 @@
   exist.
 
 **Acceptance Criteria**:
-1. An unknown top-level command causes immediate rejection.
-2. Rejection output identifies the rejected command token.
-3. No command workflow begins.
+1. If the invocation is not one of the exact help shapes governed by `FR-0007`
+   or `FR-0008` and the first argv token after the program path is not a
+   supported command, the invocation is rejected under the rejected-invocation
+   stream, side-effect, and exit-code contracts governed by `FR-0019` and
+   `FR-0118`.
+2. The first stderr line uses the exact unknown-command diagnostic template
+   governed by `FR-0146`.
+3. Because criterion 1 takes the `FR-0019` rejected-invocation branch, no
+   accepted-command workflow or product-owned state mutation begins.
 
 **Dependencies**:
-- `FR-0009`
+- `FR-0007`
+- `FR-0008`
+- `FR-0019`
+- `FR-0118`
+- `FR-0146`
 
 **Traceability**:
 - Area: invocation validation
@@ -42,6 +52,9 @@ combinations before command work begins.
    root reuse begins.
 3. If the rejected command is `doctor`, `config`, `install`, or `uninstall`,
    rejection occurs before command-specific state changes begin.
+4. If the rejected command is `selftest`, rejection occurs before self-test
+   report-root creation, target access, fixture preparation, expected-data
+   preparation, or live regression execution begins.
 
 **Dependencies**:
 - `FR-0001`
@@ -73,40 +86,62 @@ option values before command work begins.
 2. Omitting a required value for an option that takes a value causes rejection.
 3. An empty string supplied to `--out`, `--log-file`, `--install-dir`, or
    `--encryption-key` causes rejection.
+4. Omitting `--url`, `--login`, or `--password` from `selftest` causes
+   rejection.
+5. An empty string supplied to `selftest` `--url`, `--login`, or `--password`
+   causes rejection.
+6. For every valued option defined by `FR-0036`, the option consumes the
+   immediately following argv token as its value even when that token begins with
+   `-` or `--`.
+7. If no argv token follows a valued option, the invocation is rejected for a
+   missing required value before value-specific validation.
 
 **Dependencies**:
 - `FR-0020`
 - `FR-0021`
-- `FR-0029`
 - `FR-0030`
+- `FR-0034`
+- `FR-0035`
+- `FR-0157`
 - `FR-0033`
+- `FR-0036`
+- `FR-0121`
+- `FR-0131`
 
 **Traceability**:
 - Area: invocation validation
 - Observable evidence: stderr error output, absence of command work
 
 ### FR-0014
-**Requirement**: The product shall reject malformed numeric option values.
+**Requirement**: Canonical numeric product values shall use one deterministic
+decimal syntax.
 
 **Applicability**:
 - non-help invocations using numeric options
+- governed report fields, lifecycle lines, artifact paths, and fixture identity
+  files that serialize canonical page identifiers
 
 **Rationale**:
 - Operators need deterministic numeric validation boundaries.
 
 **Acceptance Criteria**:
-1. `--page-id` requires a non-empty canonical page identifier serialized as one
-   base-10 integer with no sign character, decimal point, grouping characters,
-   or surrounding whitespace.
-2. `--max-find-candidates` requires a positive integer.
-3. `--max-pages` requires a positive integer.
-4. `--max-download-mib` requires a positive integer.
-5. `--sleep-ms` requires a non-negative integer.
+1. A canonical non-negative integer value is one or more ASCII digits `0`
+   through `9`, contains no sign character, decimal point, grouping character,
+   TAB, LF, CR, leading ASCII space, trailing ASCII space, or leading zero
+   unless the entire value is exactly `0`, and is interpreted in base 10.
+2. A canonical positive integer value is a canonical non-negative integer value
+   whose interpreted numeric value is greater than zero.
+3. A canonical page identifier is a canonical non-negative integer value from
+   criterion 1.
+4. `--page-id` requires a non-empty canonical page identifier.
+5. `--max-find-candidates` requires a canonical positive integer value.
+6. `--max-pages` requires a canonical positive integer value.
+7. `--max-download-mib` requires a canonical positive integer value.
+8. `--sleep-ms` requires a canonical non-negative integer value.
+9. `--link-depth` requires a canonical non-negative integer value.
 
 **Dependencies**:
-- `FR-0020`
-- `FR-0034`
-- `FR-0035`
+- None
 
 **Traceability**:
 - Area: invocation validation
@@ -123,7 +158,8 @@ combinations.
 - Operators need explicit rejection when option intent is contradictory.
 
 **Acceptance Criteria**:
-1. `config --clear-encryption-key --encryption-key <value>` is rejected.
+1. Any `config` invocation that includes both `--clear-encryption-key` and
+   `--encryption-key <value>` is rejected regardless of token order.
 2. `export` or `plan` with both `--critical` and `--no-fail-fast` is rejected.
 3. `export` or `plan` with both `--confidential` and `--no-fail-fast` is
    rejected.
@@ -131,7 +167,7 @@ combinations.
 **Dependencies**:
 - `FR-0023`
 - `FR-0025`
-- `FR-0032`
+- `FR-0027`
 
 **Traceability**:
 - Area: invocation validation
@@ -139,21 +175,22 @@ combinations.
 
 ### FR-0016
 **Requirement**: The product shall reject reuse of an explicit output root unless
-  the invocation is a valid resume scenario.
+the invocation is a valid resume scenario.
 
 **Applicability**:
-- `export` and `plan` with `--out <dir>`
+- `export` and `plan` with `--out <path>`
 
 **Rationale**:
 - Operators need protection against accidental overwrite or silent reuse of prior
   result locations.
 
 **Acceptance Criteria**:
-1. `export` or `plan` with `--out <dir>` pointing to an existing path is rejected
-   unless the invocation is a valid `export --resume --out <dir>` scenario.
+1. `export` or `plan` with `--out <path>` pointing to an existing path is
+   rejected unless the invocation is a valid `export --resume --out <path>`
+   scenario.
 2. `plan` with an existing explicit output root is rejected because `plan` does
    not support resume.
-3. `export --resume --out <dir>` is accepted only when `<dir>` is recovery
+3. `export --resume --out <path>` is accepted only when `<path>` is recovery
    compatible under `FR-0103`.
 
 **Dependencies**:
@@ -179,25 +216,132 @@ output-root reuse begins.
   work begins.
 
 **Acceptance Criteria**:
-1. If root-page preflight determines that the target page is missing,
-   inaccessible, or cannot be resolved to a page identity, the invocation is
-   rejected.
-2. Rejection occurs before traversal, payload export, attachment download,
+1. Root-page preflight uses the remote-access context from `FR-0216`.
+2. The governed Confluence request target for root-page preflight is method
+   `GET`, target path `/rest/api/content/<page_id>`, and absent query
+   component, where `<page_id>` is the effective `--page-id` value after
+   command-surface validation under `FR-0014`.
+3. Root-page preflight succeeds only when the effective request from criteria 1
+   and 2 completes with HTTP status `200`, the response body is valid UTF-8
+   JSON text, the JSON value is an object, that object contains string field
+   `id`, and that `id` value is a canonical page identifier under `FR-0014`.
+4. The canonical resolved root page identifier established by a successful
+   root-page preflight is the response object's `id` value from criterion 3,
+   not merely the raw command-line token.
+5. If root-page preflight using the remote-access context from `FR-0216`
+   determines that the target page is missing, inaccessible, cannot be
+   resolved to a page identity, or cannot be tested because that context is
+   unusable for the current invocation, the invocation is rejected.
+6. For criterion 5, missing, inaccessible, unresolved, or untestable includes
+   unusable remote-access context, request creation failure, request transport
+   failure, any HTTP status other than `200`, invalid UTF-8 response bytes,
+   invalid JSON response text, a non-object JSON response, missing `id`, a
+   non-string `id`, or an `id` that is not canonical under `FR-0014`.
+7. Rejection occurs before traversal, payload export, attachment download,
    report generation, or output-root reuse begins.
-3. Rejection output identifies the target `--page-id`.
-4. If root-page preflight succeeds, it establishes one canonical resolved root
+8. Rejection output identifies the target `--page-id`.
+9. If root-page preflight succeeds, it establishes one canonical resolved root
    page identifier for that run, serialized with the canonical page-identifier
    syntax required by `FR-0014`, and later requirements that refer to the run's
    root `page_id` use that resolved identifier.
 
 **Dependencies**:
-- `FR-0020`
 - `FR-0014`
-- `FR-0052`
+- `FR-0216`
 
 **Traceability**:
 - Area: invocation validation
 - Observable evidence: rejection timing, stderr error output
+
+### FR-0212
+**Requirement**: Invocation acceptance shall use one shared threshold.
+
+**Applicability**:
+- all non-help supported invocations
+
+**Rationale**:
+- Rejection, runtime-failure, exit-code, and side-effect rules need one
+  objective boundary between pre-acceptance validation and accepted work.
+
+**Acceptance Criteria**:
+1. An invocation becomes accepted only after every rejection-capable validation
+   and preflight requirement that applies to that command has completed without
+   rejection and immediately before the command-specific accepted-work
+   threshold from criteria 5 through 11 is crossed.
+2. Any failure or validation outcome observed before criterion 1 is
+   pre-acceptance and is not an accepted-command or accepted-run runtime
+   failure.
+3. For `export` and `plan`, pre-acceptance work occurs in this order:
+   command-surface validation; encryption-recipient validation under `FR-0108`
+   when encryption is requested; root-page preflight under `FR-0017`;
+   explicit-output-root rejection under `FR-0016`, including resume-root
+   compatibility evaluation under `FR-0103` when `export --resume --out <path>`
+   applies; and generated output-root candidate selection under `FR-0055` when
+   `--out` is omitted.
+4. Creating or reusing an output root, creating a self-test report root,
+   mutating installation or configuration state, or performing Docker,
+   traversal, report-generation, encryption, or live-regression work occurs
+   only after criterion 1.
+5. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
+   shared accepted-run execution threshold governed by `FR-0180`.
+6. For `selftest`, the accepted-work threshold from criterion 1 is the first
+   self-test report-root candidate evaluation or creation step governed by
+   `FR-0173`.
+7. For `doctor`, the accepted-work threshold from criterion 1 is the first
+   governed diagnostic step needed for that invocation: dependency probing
+   under `FR-0038`, page-access diagnostics under `FR-0039` when `--page-id`
+   is supplied, encryption-recipient diagnostics under `FR-0040` when
+   `--verify-encryption` is supplied, support-profile reporting under
+   `FR-0041`, supported-link-form reporting under `FR-0044`, or next-action
+   computation under `FR-0042`.
+8. For `confluex config` with neither `--encryption-key` nor
+   `--clear-encryption-key`, the accepted-work threshold from criterion 1 is
+   the first operation whose purpose is to observe the shared default
+   encryption-recipient state that `FR-0045` must report.
+9. For `confluex config --encryption-key <value>` and
+   `confluex config --clear-encryption-key`, the accepted-work threshold from
+   criterion 1 is the first operation whose purpose is to mutate the shared
+   default encryption-recipient state governed by `FR-0045`.
+10. For `install`, the accepted-work threshold from criterion 1 is the earliest
+    post-rejection installation-lifecycle step governed by `FR-0166` through
+    `FR-0169`, including support-root or support-descendant evaluation under
+    `FR-0167`, install-footprint enumeration or install-manifest path
+    serialization under `FR-0168`, target-directory creation under `FR-0166`,
+    recursive removal under `FR-0167`, rollback under `FR-0169`, or any later
+    filesystem write, replacement, or manifest write required by `FR-0167` or
+    `FR-0168`.
+11. For `uninstall`, the accepted-work threshold from criterion 1 is the
+    earliest post-rejection uninstall-lifecycle step governed by `FR-0170` or
+    `FR-0171`, including accepted idempotent completion after the absent-target
+    or absent-manifest branches from `FR-0170` are selected, manifest-listed
+    path evaluation under `FR-0171`, or any filesystem removal under
+    `FR-0171`.
+
+**Dependencies**:
+- `FR-0016`
+- `FR-0017`
+- `FR-0038`
+- `FR-0039`
+- `FR-0040`
+- `FR-0041`
+- `FR-0042`
+- `FR-0044`
+- `FR-0045`
+- `FR-0055`
+- `FR-0103`
+- `FR-0108`
+- `FR-0166`
+- `FR-0167`
+- `FR-0168`
+- `FR-0169`
+- `FR-0170`
+- `FR-0171`
+- `FR-0173`
+- `FR-0180`
+
+**Traceability**:
+- Area: invocation validation
+- Observable evidence: branch selection between rejection and accepted work
 
 ### FR-0018
 **Requirement**: Repeated option occurrences shall have deterministic semantics.
@@ -210,8 +354,8 @@ output-root reuse begins.
   valued options.
 
 **Acceptance Criteria**:
-1. Repeating a boolean-like flag is treated as one request rather than rejected
-   solely because the flag was repeated.
+1. Repeating a flag option as defined by `FR-0036` is treated as one request
+   rather than rejected solely because the flag was repeated.
 2. Repeating a valued option makes the last supplied value the effective value.
 3. If repeated values make the invocation invalid under a more specific
    requirement, the invocation is rejected according to that more specific
@@ -219,6 +363,7 @@ output-root reuse begins.
 
 **Dependencies**:
 - `FR-0015`
+- `FR-0036`
 
 **Traceability**:
 - Area: invocation validation
@@ -235,22 +380,157 @@ output-root reuse begins.
   product side effects.
 
 **Acceptance Criteria**:
-1. Rejection output is written to `stderr`.
-2. The first line of rejection output begins with `ERROR: `.
-3. Rejected invocations exit `1`.
-4. If the rejected invocation targets `export` or `plan`, the CLI does not
+1. A rejected invocation is any invocation whose failure is observed before
+   invocation acceptance under `FR-0212`.
+2. Rejection output is written to `stderr`.
+3. The first line of rejection output begins with `ERROR: `.
+4. Rejected invocations write nothing to `stdout`.
+5. Rejection stderr is UTF-8 text with LF line endings and at least one line.
+6. The first stderr line is `ERROR: <message>`, where `<message>` is non-empty
+   after removing leading and trailing ASCII space and contains no TAB, LF, or
+   CR.
+7. Additional stderr lines, if any, are non-governed diagnostic text and do not
+   define additional rejection status values.
+8. If the rejected invocation targets `export` or `plan`, the CLI does not
    create or reuse an output root.
-5. If the operator supplied `--log-file` on a rejected invocation, the CLI does
+9. If the operator supplied `--log-file` on a rejected invocation, the CLI does
    not create, append, or overwrite that persistent log artifact.
+10. If the rejected invocation targets `config`, the CLI does not create, modify,
+   or remove Confluex configuration state.
+11. If the rejected invocation targets `install` or `uninstall`, the CLI does not
+    create, modify, or remove any installation target path or install manifest.
+12. If the rejected invocation targets `selftest`, the CLI does not create a
+    self-test report root, access a Confluence target, mutate Confluence data, or
+    create, start, stop, inspect, list, or remove any Docker container, network,
+    or volume.
+13. If the rejected invocation targets `doctor`, the CLI does not create, modify,
+    or remove any product-owned persistent file, directory, Docker resource, or
+    configuration state.
 
 **Dependencies**:
 - `FR-0009`
-- `FR-0010`
+- `FR-0212`
 
 **Traceability**:
 - Area: invocation validation
 - Observable evidence: stderr, exit code, absence of output-root and log-file
   side effects
+
+### FR-0146
+**Requirement**: Validation rejection diagnostics shall use one deterministic
+first-line precedence and serialization rule.
+
+**Applicability**:
+- rejected invocations
+
+**Rationale**:
+- Operators and tests need one authoritative diagnostic when several validation
+  failures are possible for the same argv.
+
+**Acceptance Criteria**:
+1. The first stderr line for a rejected invocation is exactly one of the
+   templates defined by criteria 10 through 18.
+2. If the first non-help command token is not a supported command, the selected
+   template is `ERROR: unknown_command <command_token>`, where
+   `<command_token>` is that raw argv token serialized as a diagnostic token
+   under criterion 7.
+3. For a known command, the product completes command-surface validation over
+   the complete argv before emitting any command-surface diagnostic. That
+   validation enumerates missing option values, unsupported options, unsupported
+   positional operands, invalid effective option values, invalid option
+   combinations, and missing required options that are determinable without
+   traversal, filesystem mutation, network access, report-root creation, or
+   run-artifact creation.
+4. Command-surface diagnostics from criterion 3 are selected using this
+   precedence order after repeated-option effective values are determined under
+   `FR-0018`: missing option value, unsupported option, unsupported positional
+   operand, invalid option value, invalid option combination, then missing
+   required option.
+5. If multiple command-surface failures in the same precedence class are
+   enumerated by criterion 3, selection is deterministic as follows:
+   missing-option-value selects the earliest raw argv token that is missing its
+   value; unsupported-option selects the earliest raw argv token that began with
+   `-` or `--`; unsupported-positional-operand selects the earliest raw argv
+   token rejected as a positional operand; invalid-option-value selects the
+   canonical option token that appears earliest in that command's supported
+   option list from `FR-0036`; invalid-option-combination selects the involved
+   canonical option-token list whose serialized `<option_tokens>` value is
+   bytewise lexicographically smallest; and missing-required-option selects the
+   missing canonical option token that appears earliest in that command's
+   supported option list from `FR-0036`.
+6. If command-surface validation from criterion 3 finds no failure and a later
+   validation or preflight operation rejects the invocation before command work
+   mutates product-owned state, the product enumerates every such rejection that
+   can be determined before mutation without violating any earlier-timing rule
+   from another applicable rejecting requirement and without executing
+   traversal, filesystem mutation, network access beyond explicitly required
+   preflight probes, report-root creation, or run-artifact creation. If one
+   applicable rejecting requirement explicitly requires the
+   invocation to reject before another rejecting preflight begins, that
+   earlier-ordering rule takes precedence and `FR-0146` does not require the
+   later preflight to be executed or enumerated. The diagnostic class is other
+   validation rejection and the selected `<requirement_id>` is the lowest
+   numeric owning `FR-<NNNN>` id across all enumerated rejecting operations,
+   excluding exactly these generic cards: `FR-0010`, `FR-0019`, and
+   `FR-0118`.
+7. A diagnostic token serializes the raw argv token bytes supplied by the
+   operating system by emitting bytes `0x21` through `0x7E` except `%` as their
+   ASCII character and emitting every other byte, including `%`, as `%` followed
+   by two uppercase hexadecimal digits.
+8. On POSIX, the raw argv token bytes for criterion 7 are the exact bytes
+   supplied to the process argv entry. On Windows, the raw argv token bytes for
+   criterion 7 are the UTF-8 encoding of the Windows argv string after Windows
+   command-line parsing.
+9. The raw argv token bytes do not need to be valid UTF-8 for diagnostic token
+   serialization on platforms that supply argv bytes. The serialized diagnostic
+   token contains no ASCII space, TAB, LF, or CR.
+10. A missing option value diagnostic is exactly
+   `ERROR: missing_option_value <option_token>`, where `<option_token>` is the
+   canonical valued option token from `FR-0036`.
+11. An unsupported option diagnostic is exactly
+   `ERROR: unsupported_option <option_token>`, where `<option_token>` is the raw
+   argv token that began with `-` or `--`, was not accepted as a supported
+   option for that command, and is serialized as a diagnostic token under
+   criterion 7.
+12. An unsupported positional operand diagnostic is exactly
+   `ERROR: unsupported_positional_operand <operand_token>`, where
+   `<operand_token>` is the raw argv token rejected under `FR-0036` and
+   serialized as a diagnostic token under criterion 7.
+13. An invalid option value diagnostic is exactly
+   `ERROR: invalid_option_value <option_token>`, where `<option_token>` is the
+   canonical option token whose effective value failed validation.
+14. An invalid option combination diagnostic is exactly
+   `ERROR: invalid_option_combination <option_tokens>`, where
+   `<option_tokens>` is the involved canonical option tokens sorted in ascending
+   bytewise lexicographic order and serialized as the delimited token-list form
+   defined by `FR-0126`.
+15. A missing required option diagnostic is exactly
+    `ERROR: missing_required_option <option_token>`, where `<option_token>` is
+    the missing canonical option token from `FR-0036`.
+16. An unknown-command diagnostic is exactly the template from criterion 2.
+17. If the selected owning requirement id from criterion 6 is `FR-0017`, the
+    validation rejection diagnostic is exactly
+    `ERROR: validation_failed FR-0017 --page-id <diagnostic_token>`, where
+    `<diagnostic_token>` is the effective `--page-id` value serialized under
+    criterion 7.
+18. Any other validation rejection diagnostic is exactly
+    `ERROR: validation_failed <requirement_id>`, where `<requirement_id>` is the
+    selected owning requirement id from criterion 6.
+19. Additional stderr lines, if any, are non-governed diagnostic text and do not
+    define additional rejection status values or alter the first-line class.
+
+**Dependencies**:
+- `FR-0010`
+- `FR-0017`
+- `FR-0018`
+- `FR-0019`
+- `FR-0036`
+- `FR-0118`
+- `FR-0126`
+
+**Traceability**:
+- Area: invocation validation
+- Observable evidence: first stderr line for rejected invocations
 
 ### FR-0122
 **Requirement**: The product shall reject unsupported page payload format
@@ -279,3 +559,38 @@ values before command work begins.
 - Area: invocation validation
 - Observable evidence: acceptance or rejection of format values, absence of
   command work
+
+### FR-0131
+**Requirement**: `selftest` shall require explicit target-access options.
+
+**Applicability**:
+- non-help `confluex selftest` invocations
+
+**Rationale**:
+- The live-regression contour must be reproducible against the operator-selected
+  stand without hidden defaults or environment-derived target credentials.
+
+**Acceptance Criteria**:
+1. `selftest` requires exactly the target option tokens `--url`, `--login`, and
+   `--password` defined by `FR-0036`; missing any one of those options rejects
+   the invocation before acceptance under `FR-0212`.
+2. `--url`, `--login`, and `--password` each require one non-empty value.
+3. `--url` rejects values containing TAB, LF, or CR.
+4. `--login` rejects values containing TAB, LF, CR, or `:`.
+5. `--password` rejects values containing TAB, LF, or CR.
+6. Repeated `--url`, `--login`, or `--password` occurrences use the repeated
+   valued-option semantics from `FR-0018`.
+7. `selftest` does not read environment variables, saved configuration, or
+   hardcoded defaults to supply missing target option values.
+
+**Dependencies**:
+- `FR-0012`
+- `FR-0015`
+- `FR-0018`
+- `FR-0019`
+- `FR-0036`
+- `FR-0212`
+
+**Traceability**:
+- Area: invocation validation
+- Observable evidence: stderr, exit code, absence of self-test report root

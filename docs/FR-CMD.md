@@ -20,8 +20,7 @@
    than any other workflow.
 
 **Dependencies**:
-- `FR-0011`
-- `FR-0007`
+- None
 
 **Traceability**:
 - Area: command surface
@@ -45,8 +44,7 @@
    than any other workflow.
 
 **Dependencies**:
-- `FR-0011`
-- `FR-0007`
+- None
 
 **Traceability**:
 - Area: command surface
@@ -70,8 +68,7 @@
    any other workflow.
 
 **Dependencies**:
-- `FR-0011`
-- `FR-0007`
+- None
 
 **Traceability**:
 - Area: command surface
@@ -95,8 +92,7 @@
    rather than any other workflow.
 
 **Dependencies**:
-- `FR-0011`
-- `FR-0007`
+- None
 
 **Traceability**:
 - Area: command surface
@@ -120,8 +116,7 @@
    rather than any other workflow.
 
 **Dependencies**:
-- `FR-0011`
-- `FR-0007`
+- None
 
 **Traceability**:
 - Area: command surface
@@ -146,8 +141,34 @@
    rather than any other workflow.
 
 **Dependencies**:
-- `FR-0011`
-- `FR-0007`
+- None
+
+**Traceability**:
+- Area: command surface
+- Observable evidence: top-level help output, command help output, workflow entry
+
+### FR-0129
+**Requirement**: The product shall expose `selftest` as the only supported
+explicit-target live-regression command.
+
+**Applicability**:
+- `confluex --help`
+- `confluex selftest --url <base-url> --login <username> --password <password>`
+- `confluex selftest --help`
+
+**Rationale**:
+- Operators and maintainers need one canonical command that uses an already
+  running Confluence 7.13.7 stand, prepares governed fixture data, and runs the
+  governed live-regression suite against that explicit target.
+
+**Acceptance Criteria**:
+1. Top-level help lists `selftest` as a supported command.
+2. `confluex selftest --help` identifies `selftest` as the live regression
+   self-test workflow.
+3. An accepted `confluex selftest --url <base-url> --login <username> --password <password>` invocation starts the self-test workflow against the operator-supplied target rather than any export, plan, diagnostic, configuration, installation, or uninstallation workflow.
+
+**Dependencies**:
+- None
 
 **Traceability**:
 - Area: command surface

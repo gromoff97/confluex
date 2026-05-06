@@ -1,0 +1,340 @@
+{
+  "spaces": [
+    {
+      "logical_name": "fixture_space",
+      "key": "CX",
+      "name": "Confluex Fixture Space"
+    },
+    {
+      "logical_name": "aux_space",
+      "key": "AUX",
+      "name": "Confluex Auxiliary Space"
+    }
+  ],
+  "pages": [
+    {
+      "logical_name": "linked_page",
+      "space": "fixture_space",
+      "title": "CX Linked",
+      "body_path": "pages/linked_page.storage.xml",
+      "attachments": [
+        "linked_out_of_tree_reference_txt"
+      ]
+    },
+    {
+      "logical_name": "linked_scope_root",
+      "space": "fixture_space",
+      "title": "CX Linked Scope Root",
+      "body_path": "pages/linked_scope_root.storage.xml"
+    },
+    {
+      "logical_name": "linked_scope_linked_page",
+      "space": "fixture_space",
+      "title": "CX Linked Scope Linked",
+      "body_path": "pages/linked_scope_linked_page.storage.xml"
+    },
+    {
+      "logical_name": "linked_scope_linked_descendant",
+      "space": "fixture_space",
+      "title": "CX Linked Scope Descendant",
+      "body_path": "pages/linked_scope_linked_descendant.storage.xml",
+      "parent": "linked_scope_linked_page"
+    },
+    {
+      "logical_name": "linked_scope_link_of_link",
+      "space": "fixture_space",
+      "title": "CX Link Of Link",
+      "body_path": "pages/linked_scope_link_of_link.storage.xml"
+    },
+    {
+      "logical_name": "ambiguous_root_page",
+      "space": "fixture_space",
+      "title": "CX Ambiguous Root",
+      "body_path": "pages/ambiguous_root_page.storage.xml"
+    },
+    {
+      "logical_name": "scope_noise_root",
+      "space": "fixture_space",
+      "title": "CX Scope Noise Root",
+      "body_path": "pages/scope_noise_root.storage.xml"
+    },
+    {
+      "logical_name": "cross_space_page",
+      "space": "aux_space",
+      "title": "AUX Cross Space",
+      "body_path": "pages/cross_space_page.storage.xml",
+      "attachments": [
+        "aux_cross_space_image_png"
+      ]
+    },
+    {
+      "logical_name": "duplicate_title_primary",
+      "space": "fixture_space",
+      "title": "Shared Fixture Title",
+      "body_path": "pages/duplicate_title_primary.storage.xml"
+    },
+    {
+      "logical_name": "duplicate_title_secondary",
+      "space": "aux_space",
+      "title": "Shared Fixture Title",
+      "body_path": "pages/duplicate_title_secondary.storage.xml"
+    },
+    {
+      "logical_name": "download_limit_root_page",
+      "space": "fixture_space",
+      "title": "CX Download Limit Root",
+      "body_path": "pages/download_limit_root_page.storage.xml"
+    },
+    {
+      "logical_name": "download_limit_child_a_page",
+      "space": "fixture_space",
+      "title": "CX Download A",
+      "body_path": "pages/download_limit_child_a_page.storage.xml",
+      "parent": "download_limit_root_page"
+    },
+    {
+      "logical_name": "download_limit_child_b_page",
+      "space": "fixture_space",
+      "title": "CX Download B",
+      "body_path": "pages/download_limit_child_b_page.storage.xml",
+      "parent": "download_limit_root_page"
+    },
+    {
+      "logical_name": "download_limit_child_c_page",
+      "space": "fixture_space",
+      "title": "CX Download C",
+      "body_path": "pages/download_limit_child_c_page.storage.xml",
+      "parent": "download_limit_root_page"
+    },
+    {
+      "logical_name": "download_limit_child_d_page",
+      "space": "fixture_space",
+      "title": "CX Download D",
+      "body_path": "pages/download_limit_child_d_page.storage.xml",
+      "parent": "download_limit_root_page"
+    },
+    {
+      "logical_name": "root_page",
+      "space": "fixture_space",
+      "title": "CX Root",
+      "body_path": "pages/root_page.storage.xml",
+      "attachments": [
+        "root_attachment",
+        "root_overview_chart_png",
+        "root_summary_photo_jpg"
+      ]
+    },
+    {
+      "logical_name": "child_page",
+      "space": "fixture_space",
+      "title": "CX Child",
+      "body_path": "pages/child_page.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "grandchild_page",
+      "space": "fixture_space",
+      "title": "CX Grandchild",
+      "body_path": "pages/grandchild_page.storage.xml",
+      "parent": "child_page"
+    },
+    {
+      "logical_name": "messy_table_page",
+      "space": "fixture_space",
+      "title": "Messy Table Page",
+      "body_path": "pages/messy_table_page.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_russian_page",
+      "space": "fixture_space",
+      "title": "Русская страница — черновик",
+      "body_path": "pages/messy_russian_page.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_punctuation_page",
+      "space": "fixture_space",
+      "title": "Messy: punctuation / spaces?",
+      "body_path": "pages/messy_punctuation_page.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_code_macro_page",
+      "space": "fixture_space",
+      "title": "Messy Code And Macro",
+      "body_path": "pages/messy_code_macro_page.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_deep_level_1",
+      "space": "fixture_space",
+      "title": "Messy Deep Level 1",
+      "body_path": "pages/messy_deep_level_1.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_deep_level_2",
+      "space": "fixture_space",
+      "title": "Messy Deep Level 2",
+      "body_path": "pages/messy_deep_level_2.storage.xml",
+      "parent": "messy_deep_level_1"
+    },
+    {
+      "logical_name": "messy_deep_level_3",
+      "space": "fixture_space",
+      "title": "Messy Deep Level 3",
+      "body_path": "pages/messy_deep_level_3.storage.xml",
+      "parent": "messy_deep_level_2"
+    },
+    {
+      "logical_name": "messy_wide_child_a",
+      "space": "fixture_space",
+      "title": "Messy Wide Child A",
+      "body_path": "pages/messy_wide_child_a.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_wide_child_b",
+      "space": "fixture_space",
+      "title": "Messy Wide Child B",
+      "body_path": "pages/messy_wide_child_b.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_wide_child_c",
+      "space": "fixture_space",
+      "title": "Messy Wide Child C",
+      "body_path": "pages/messy_wide_child_c.storage.xml",
+      "parent": "root_page"
+    },
+    {
+      "logical_name": "messy_attachment_page",
+      "space": "fixture_space",
+      "title": "Messy Attachment Page",
+      "body_path": "pages/messy_attachment_page.storage.xml",
+      "parent": "root_page",
+      "attachments": [
+        "messy_text_attachment",
+        "messy_csv_attachment",
+        "messy_binary_attachment",
+        "messy_diagram_png",
+        "messy_diagram_copy_png",
+        "messy_report_pdf",
+        "messy_cyrillic_csv",
+        "messy_empty_note"
+      ]
+    },
+    {
+      "logical_name": "messy_links_page",
+      "space": "fixture_space",
+      "title": "Messy Links Page",
+      "body_path": "pages/messy_links_page.storage.xml",
+      "parent": "root_page",
+      "attachments": [
+        "messy_links_targets_txt"
+      ]
+    },
+    {
+      "logical_name": "markdown_page",
+      "space": "fixture_space",
+      "title": "CX Markdown Fixture",
+      "body_path": "pages/markdown_page.storage.xml",
+      "attachments": [
+        "markdown_attachment"
+      ]
+    }
+  ],
+  "attachments": [
+    {
+      "logical_name": "root_attachment",
+      "page": "root_page",
+      "path": "attachments/root_page/root-note.txt",
+      "media_type": "text/plain"
+    },
+    {
+      "logical_name": "markdown_attachment",
+      "page": "markdown_page",
+      "path": "attachments/markdown_page/markdown-note.txt",
+      "media_type": "text/plain"
+    },
+    {
+      "logical_name": "messy_text_attachment",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/notes-with-spaces.txt",
+      "media_type": "text/plain"
+    },
+    {
+      "logical_name": "messy_csv_attachment",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/data.csv",
+      "media_type": "text/csv"
+    },
+    {
+      "logical_name": "messy_binary_attachment",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/blob.bin",
+      "media_type": "application/octet-stream"
+    },
+    {
+      "logical_name": "root_overview_chart_png",
+      "page": "root_page",
+      "path": "attachments/root_page/overview-chart.png",
+      "media_type": "image/png"
+    },
+    {
+      "logical_name": "root_summary_photo_jpg",
+      "page": "root_page",
+      "path": "attachments/root_page/summary-photo.jpg",
+      "media_type": "image/jpeg"
+    },
+    {
+      "logical_name": "messy_diagram_png",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/diagram-final.png",
+      "media_type": "image/png"
+    },
+    {
+      "logical_name": "messy_diagram_copy_png",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/diagram-final-copy.png",
+      "media_type": "image/png"
+    },
+    {
+      "logical_name": "messy_report_pdf",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/report-synthetic.pdf",
+      "media_type": "application/pdf"
+    },
+    {
+      "logical_name": "messy_cyrillic_csv",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/table-export-cyrillic.csv",
+      "media_type": "text/csv"
+    },
+    {
+      "logical_name": "messy_empty_note",
+      "page": "messy_attachment_page",
+      "path": "attachments/messy_attachment_page/empty-note.txt",
+      "media_type": "text/plain"
+    },
+    {
+      "logical_name": "messy_links_targets_txt",
+      "page": "messy_links_page",
+      "path": "attachments/messy_links_page/link-targets.txt",
+      "media_type": "text/plain"
+    },
+    {
+      "logical_name": "linked_out_of_tree_reference_txt",
+      "page": "linked_page",
+      "path": "attachments/linked_page/out-of-tree-reference.txt",
+      "media_type": "text/plain"
+    },
+    {
+      "logical_name": "aux_cross_space_image_png",
+      "page": "cross_space_page",
+      "path": "attachments/cross_space_page/aux-image.png",
+      "media_type": "image/png"
+    }
+  ]
+}

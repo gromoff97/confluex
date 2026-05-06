@@ -1,0 +1,65 @@
+# Messy Attachment Page
+
+This page has many attachments, referenced and unreferenced files, image embeds, regular attachment links, zero-byte edge file, CSV, PDF, and binary payloads.
+
+## Embedded media
+
+![](attachments/diagram-final.png)
+
+![](attachments/diagram-final-copy.png)
+
+| Attachment gallery                      |                                    |
+| :-------------------------------------- | :--------------------------------- |
+| ![](attachments/diagram-final-copy.png) | ![](attachments/diagram-final.png) |
+|                                         |                                    |
+
+## Attachment table
+
+| File                                                               | Kind                 | Usage           |
+| :----------------------------------------------------------------- | :------------------- | :-------------- |
+| [notes-with-spaces.txt](attachments/notes-with-spaces.txt)         | text                 | referenced      |
+| [data.csv](attachments/data.csv)                                   | csv                  | referenced      |
+| [blob.bin](attachments/blob.bin)                                   | binary               | referenced      |
+| [report-synthetic.pdf](attachments/report-synthetic.pdf)           | pdf                  | referenced      |
+| [table-export-cyrillic.csv](attachments/table-export-cyrillic.csv) | cyrillic csv payload | referenced      |
+| [empty-note.txt](attachments/empty-note.txt)                       | zero bytes           | referenced edge |
+
+| File                                                               | Modified |
+| :----------------------------------------------------------------- | :------- |
+| [empty-note.txt](attachments/empty-note.txt)                       | by admin |
+| [table-export-cyrillic.csv](attachments/table-export-cyrillic.csv) | by admin |
+| [report-synthetic.pdf](attachments/report-synthetic.pdf)           | by admin |
+| [diagram-final-copy.png](attachments/diagram-final-copy.png)       | by admin |
+| [diagram-final.png](attachments/diagram-final.png)                 | by admin |
+| [blob.bin](attachments/blob.bin)                                   | by admin |
+| [data.csv](attachments/data.csv)                                   | by admin |
+| [notes-with-spaces.txt](attachments/notes-with-spaces.txt)         | by admin |
+
+Other pages: [CX Root](../page__<page-id:root_page>/page.md), [Messy Links Page](../page__<page-id:messy_links_page>/page.md), [CX Linked](../page__<page-id:linked_page>/page.md), and missing attachment page \[\[Missing Attachment Target]].
+
+> \[!NOTE]
+> **Attachment operations panel**
+>
+> Cross-check copied files against [report-synthetic.pdf](attachments/report-synthetic.pdf), [data.csv](attachments/data.csv), and ![](attachments/diagram-final.png).
+
+| Boundary | Attachment count              | Comment      |
+| :------- | :---------------------------- | :----------- |
+| 0        | empty-note.txt has 0 bytes    | zero size    |
+| 1        | one PDF-like file             | single kind  |
+| many     | text, csv, image, pdf, binary | diverse kind |
+
+> \[!IMPORTANT]
+> Attachment info macro includes broken-attachment-literal://value and escaped \<attachment> text.
+
+## Audit appendix
+
+The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.
+
+| Audit field | Value   | Reference                                                   | Noise                   |
+| :---------- | :------ | :---------------------------------------------------------- | :---------------------- |
+| primary     | 0       | [Messy Links Page](../page__<page-id:messy_links_page>/page.md)                 | appendix-zero           |
+| secondary   | 1       | [CX Linked](../page__<page-id:linked_page>/page.md)                        | appendix-one            |
+| overflow    | many    | [AUX Cross Space](../../space__415558/page__<page-id:cross_space_page>/page.md) | appendix-many           |
+| stale       | missing | \[\[Missing Appendix Target]]                               | broken-appendix://value |
+
+Appendix prose includes escaped XML \<appendix attr="value">, Cyrillic пример, inline `appendixCheck()`, and code literal `/display/CX/Missing Appendix Literal`.

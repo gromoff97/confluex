@@ -1,0 +1,22 @@
+<h1>CX Link Of Link</h1>
+<p>This page is discovered through another linked page. It contains a small but varied mix of content, including escaped XML &lt;link-of-link&gt; and a stale marker.</p>
+<table>
+  <tbody>
+    <tr>
+      <th>Kind</th>
+      <th>Value</th>
+    </tr>
+    <tr>
+      <td>Backlink</td>
+      <td><ac:link><ri:page ri:content-title="CX Linked Scope Root"/></ac:link></td>
+    </tr>
+    <tr>
+      <td>Invalid</td>
+      <td><a href="/pages/viewpage.action?pageId=777777777">missing link-of-link page</a></td>
+    </tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="code" ac:schema-version="1" ac:macro-id="30000000-0000-4000-8000-000000000005"><ac:plain-text-body><![CDATA[
+// Code literal should stay code.
+const linkOfLink = '/display/CX/DoNotResolveLinkOfLinkLiteral';
+]]></ac:plain-text-body></ac:structured-macro>

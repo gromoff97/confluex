@@ -1,0 +1,23 @@
+<h1>CX Ambiguous Root</h1>
+<p>This page intentionally keeps an ambiguous title link to exercise duplicate-title behavior: <ac:link><ri:page ri:content-title="Shared Fixture Title"/></ac:link>.</p>
+<p>It also has unrelated content so it behaves like a real page rather than a one-line fixture. Values: ambiguous-000, ambiguous-001, ambiguous-many.</p>
+<table>
+  <tbody>
+    <tr>
+      <th>Candidate</th>
+      <th>Space</th>
+      <th>Result</th>
+    </tr>
+    <tr>
+      <td>Shared Fixture Title</td>
+      <td>CX</td>
+      <td><ac:link><ri:page ri:content-title="Shared Fixture Title"/></ac:link></td>
+    </tr>
+    <tr>
+      <td>Shared Fixture Title</td>
+      <td>AUX</td>
+      <td><a href="/display/AUX/Shared+Fixture+Title">relative duplicate title</a></td>
+    </tr>
+  </tbody>
+</table>
+<p>Invalid ambiguous literal: unresolved://shared-title/no-space-key.</p>

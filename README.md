@@ -318,6 +318,7 @@ confluex uninstall
 - `--max-download-mib N`: stop after `N` MiB downloaded in total.
 - `--sleep-ms N`: pause between processed pages.
 - `--max-find-candidates N`: bound title-resolution fan-out.
+- `--link-depth N`: follow supported internal links up to `N` hops from the root child tree. Default: `1`; `0` disables link-driven scope expansion.
 
 If you provide `--out`, that path must not already exist unless you are intentionally continuing a previous export with `--resume`.
 
@@ -342,14 +343,16 @@ The run scope includes:
 
 - the root page;
 - the full recursive child tree of the root page;
-- linked Confluence pages discovered directly through supported internal reference forms in root-tree pages.
+- linked Confluence pages discovered through supported internal reference forms up to the effective `--link-depth`.
 
 The run does not automatically include:
 
 - descendants of a linked page, unless they are separately discovered;
-- pages reachable only through links inside an already linked page;
+- pages reachable only through links beyond the effective `--link-depth`;
 - external links;
 - arbitrary internal-looking constructs outside the supported profile.
+
+By default, `--link-depth 1` keeps the previous bounded behavior: direct links from root-tree pages are included, but links inside those linked pages are not expanded. Use `--link-depth 2` or higher only when the linked-page graph is intentionally part of the export scope.
 
 Currently supported internal discovery forms include:
 
@@ -541,21 +544,27 @@ If you interrupt a `plan` with `Ctrl+C`:
 
 ## Running The Functional Test Suite
 
-This repository contains a Bats suite in `tests/bats/`.
-
-`bats-core` itself is external. Install it separately and then run:
+The only supported full regression entrypoint is:
 
 ```bash
+confluex selftest --url http://127.0.0.1:8090 --login admin --password admin
+```
+
+It expects an already-running, clean Confluence 7.13.7 stand, applies the
+project-owned fixture dataset, runs the governed live regression entrypoint, and
+writes the self-test report. The stand lifecycle is managed outside Confluex.
+
+For compatibility with older local workflows, this wrapper delegates to the same
+entrypoint and requires the same target as explicit environment input:
+
+```bash
+CONFLUEX_SELFTEST_URL=http://127.0.0.1:8090 \
+CONFLUEX_SELFTEST_LOGIN=admin \
+CONFLUEX_SELFTEST_PASSWORD=admin \
 scripts/test-bats.sh
 ```
 
-Or point the wrapper at a specific binary:
-
-```bash
-BATS_BIN="$HOME/.local/bin/bats" scripts/test-bats.sh
-```
-
-Use this if you want to verify that your local environment and the repository-owned mocks still match the documented CLI contract.
+There is no mock-backed regression suite.
 
 ## Linting
 
@@ -641,7 +650,5 @@ The requirements corpus lives under [`docs/`](docs/). Read
 [`docs/AGENTS.md`](docs/AGENTS.md) first, then the relevant `FR-<AREA>.md`
 files. Product behavior is defined only in `FR-<AREA>.md`.
 
-The main black-box suite lives in:
-
-- `tests/bats/`
-- `scripts/test-bats.sh`
+The live black-box assertions live in `tests/live-bats/`, but they are run
+through `confluex selftest`, not as an independent regression entrypoint.

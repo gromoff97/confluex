@@ -1,0 +1,28 @@
+<h1>AUX Cross Space</h1>
+<p>This page lives in the AUX space and is intentionally reachable from CX pages. It validates cross-space links and attachment copying from non-root spaces.</p>
+<p><ac:image><ri:attachment ri:filename="aux-image.png"/></ac:image></p>
+<table>
+  <tbody>
+    <tr>
+      <th>Space</th>
+      <th>Target</th>
+      <th>Comment</th>
+    </tr>
+    <tr>
+      <td>AUX</td>
+      <td><ac:link><ri:page ri:space-key="CX" ri:content-title="CX Root"/></ac:link></td>
+      <td>cross-space backlink</td>
+    </tr>
+    <tr>
+      <td>AUX</td>
+      <td><ac:link><ri:page ri:content-title="Shared Fixture Title"/></ac:link></td>
+      <td>duplicate title inside AUX context</td>
+    </tr>
+    <tr>
+      <td>AUX</td>
+      <td><ac:link><ri:page ri:content-title="Missing AUX Page"/></ac:link></td>
+      <td>intentionally unresolved AUX title</td>
+    </tr>
+  </tbody>
+</table>
+<p>Literal broken-aux-link and escaped XML &lt;aux attr=&quot;1&quot;&gt; are present for Markdown hygiene review.</p>

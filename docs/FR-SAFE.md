@@ -9,21 +9,24 @@ runs.
 - accepted `export` and `plan` runs
 
 **Rationale**:
-- Operators need an explicit warning when a run may grow without practical
+- Operators need an explicit warning when a run can grow without practical
   bounds.
 
 **Acceptance Criteria**:
-1. If `export` or `plan` is invoked without `--safe`, without a positive
-   `--max-pages`, and without a positive `--max-download-mib`, the product emits
-   an explicit warning that the run is effectively unbounded.
-2. The unbounded-run warning recommends at least one of `--safe`,
-   `--max-pages`, or `--max-download-mib`.
-3. The product does not emit the unbounded-run warning if `--safe` is in effect
-   or either positive limit is in effect.
+1. If `export` or `plan` is invoked without `--safe`, `--critical`, or
+   `--confidential`, without a positive `--max-pages`, and without a positive
+   `--max-download-mib`, the product emits an explicit warning that the run is
+   effectively unbounded.
+2. The unbounded-run warning text is governed by `FR-0009`.
+3. The product does not emit the unbounded-run warning if `--safe`,
+   `--critical`, or `--confidential` is in effect or either positive limit is
+   in effect.
 
 **Dependencies**:
 - `FR-0009`
 - `FR-0022`
+- `FR-0023`
+- `FR-0025`
 - `FR-0034`
 
 **Traceability**:
@@ -43,15 +46,37 @@ best-effort behavior.
 
 **Acceptance Criteria**:
 1. Without `--no-fail-fast`, a page-local failure stops further page processing
-   immediately unless a more specific requirement explicitly classifies that
-   condition as non-fatal.
+   immediately after the operation that records the failure completes.
 2. With `--no-fail-fast`, a page-local failure is recorded and the run continues
    to later pages that have not yet been processed unless another stop condition
    ends the run.
-3. Recorded page-local failures remain visible in the report set in both modes.
+3. If the run retains a report-set container, recorded page-local failures
+   remain visible in that report set in both modes.
+4. For this card, a page-local failure is one page-scoped failure condition
+   that another requirement explicitly requires to be recorded in
+   `failed-pages.tsv`.
+5. The following scope-finding conditions are not page-local failures and do not
+   trigger fail-fast stopping by themselves: `scope-findings.tsv` rows with
+   `finding_area=storage_content` and `finding_type=storage_unavailable` or
+   `storage_uninterpretable`; rows with `finding_area=child_listing` and
+   `finding_type=partial_listing` or `incomplete_tree`; rows with
+   `finding_area=title_resolution` and
+   `finding_type=candidate_visibility_incomplete`; and rows with
+   `finding_area=unsupported_pattern` and
+   `finding_type=unsupported_internal_pattern`.
+6. If one underlying condition records both a scope-finding row and a
+   `failed-pages.tsv` row, the condition is a page-local failure for fail-fast
+   purposes.
 
 **Dependencies**:
-- `FR-0027`
+- `FR-0069`
+- `FR-0066`
+- `FR-0070`
+- `FR-0071`
+- `FR-0072`
+- `FR-0073`
+- `FR-0074`
+- `FR-0075`
 - `FR-0088`
 
 **Traceability**:
@@ -62,24 +87,39 @@ best-effort behavior.
 **Requirement**: `--critical` shall act as a fail-closed policy overlay.
 
 **Applicability**:
-- accepted `export --critical` and `plan --critical` runs
+- accepted `export` and `plan` runs where `--critical` or `--confidential` is
+  in effect under `FR-0023` or `FR-0025`
 
 **Rationale**:
 - Operators need a mode that blocks completion when findings remain.
 
 **Acceptance Criteria**:
-1. If a completed run under `--critical` has unresolved links, scope findings, or
-   failed page-local operations, `summary.txt` reports
-   `final_status=policy_failed`.
-2. If a run under `--critical` would otherwise qualify for a clean success,
-   `summary.txt` reports `final_status=success`.
-3. If a run under `--critical` ends because of interruption, runtime failure, or
-   configured stop, the result uses the underlying non-policy outcome rather than
+1. If a completed pre-encryption run with `--critical` or `--confidential` in
+   effect has one or more blocking reasons under `FR-0116` and encryption does
+   not later fail, the run takes the `policy_failed` final-status outcome under
+   `FR-0113`.
+2. If a run with `--critical` or `--confidential` in effect would otherwise
+   take the clean `success` final-status outcome under `FR-0113` and encryption
+   does not later fail, the run keeps that `success` outcome.
+3. If a run with `--critical` or `--confidential` in effect ends because of
+   interruption, runtime failure, or configured stop, the run keeps the
+   underlying non-policy final-status and interrupt-reason outcomes under
+   `FR-0113` and `FR-0140` rather than taking `policy_failed`.
+4. If encryption fails after a run with `--critical` or `--confidential` in
+   effect reaches the encryption phase, the encryption-failure outcome governed
+   by `FR-0109`, `FR-0110`, and `FR-0113` takes precedence over
    `policy_failed`.
 
 **Dependencies**:
 - `FR-0023`
+- `FR-0025`
+- `FR-0090`
 - `FR-0113`
+- `FR-0116`
+- `FR-0140`
+- `FR-0125`
+- `FR-0109`
+- `FR-0110`
 
 **Traceability**:
 - Area: safety
@@ -97,19 +137,35 @@ outcomes.
   clean success.
 
 **Acceptance Criteria**:
-1. If `--max-pages` stops the run, the run ends in the configured-stop outcome
-   defined by `FR-0113` and `FR-0116`.
-2. If `--max-download-mib` stops the run, the run ends in the configured-stop
-   outcome defined by `FR-0113` and `FR-0116`.
-3. If a configured stop condition occurs in `export`, the plain output root
-   remains on disk as an inspectable partial result.
-4. A configured stop condition causes exit code `3`.
+1. If `--max-pages` stops the run, the run takes the configured-stop incomplete
+   outcome whose interrupt-reason serialization is governed by `FR-0140`.
+2. If `--max-download-mib` stops the run, the run takes the configured-stop
+   incomplete outcome whose interrupt-reason serialization is governed by
+   `FR-0140`.
+3. If both configured limits would stop the run at the same decision point, the
+   configured-stop outcome uses the interrupt-reason precedence rule defined by
+   `FR-0140`.
+4. If a configured stop condition occurs in `export`, the plain output root
+   remains on disk as a retained partial result that satisfies the export layout
+   from `FR-0077`, contains the closed report-file set from `FR-0085`, and
+   contains the `INCOMPLETE` marker from `FR-0076`.
+5. If a configured stop condition occurs in `plan`, the plain output root remains
+   on disk as a retained partial result that satisfies the plan layout from
+   `FR-0078`, contains the closed report-file set from `FR-0085`, and contains
+   the `INCOMPLETE` marker from `FR-0076`.
+6. Configured-stop retained partial results remain interpretable under
+   `FR-0098`.
 
 **Dependencies**:
 - `FR-0034`
+- `FR-0076`
+- `FR-0077`
+- `FR-0078`
+- `FR-0085`
+- `FR-0098`
 - `FR-0113`
-- `FR-0116`
 - `FR-0118`
+- `FR-0140`
 
 **Traceability**:
 - Area: safety
@@ -119,22 +175,32 @@ outcomes.
 **Requirement**: Partial results that remain on disk shall remain interpretable.
 
 **Applicability**:
-- accepted `export` and `plan` runs that leave partial results on disk
+- accepted `export` and `plan` runs that leave configured-stop, interrupted, or
+  runtime-failed partial results on disk
 
 **Rationale**:
 - Operators need retained partial results to remain machine-interpretable.
 
 **Acceptance Criteria**:
-1. If a partial plain output root remains on disk, it still contains the full
-   report set and top-level artifact layout required by the authoritative cards
-   for that command and outcome.
-2. A partial result that remains on disk after signal interruption, runtime
-   failure, or configured stop is distinguishable from clean success without
-   reading internal logs.
-3. A retained partial result's top-level artifacts keep the stable meanings
+1. If a configured-stop, interrupted, or runtime-failed partial plain output
+   root remains on disk, that retained root satisfies exactly one of the
+   authoritative retained-partial-result contracts from `FR-0097`, `FR-0100`,
+   `FR-0101`, or `FR-0102`.
+2. No retained partial plain output root may simultaneously satisfy
+   branch-specific markers or summary-field combinations from more than one of
+   `FR-0097`, `FR-0100`, `FR-0101`, or `FR-0102`.
+3. The top-level artifacts and report set retained in a partial plain output
+   root are sufficient to determine that root's unique branch classification
+   from criterion 1 without reading internal logs.
+4. A retained partial result's top-level artifacts keep the stable meanings
    defined by `FR-0082`.
 
 **Dependencies**:
+- `FR-0090`
+- `FR-0097`
+- `FR-0100`
+- `FR-0101`
+- `FR-0102`
 - `FR-0077`
 - `FR-0078`
 - `FR-0085`
@@ -149,20 +215,25 @@ outcomes.
 misleading abnormal partial results.
 
 **Applicability**:
-- accepted `plan` runs
+- accepted `plan` runs that leave configured-stop, interrupted, or runtime-failed
+  partial results on disk
 
 **Rationale**:
-- Operators need limited plan results to remain inspectable, but interrupted or
-  failed plan roots should not masquerade as complete plans.
+- Operators need limited plan results to remain on disk with their reports,
+  but interrupted or failed plan roots should not masquerade as complete plans.
 
 **Acceptance Criteria**:
-1. If a `plan` run ends because `--max-pages` or `--max-download-mib` was
-   reached, the plain output root remains on disk as an inspectable partial
-   result.
-2. If a `plan` run ends because of signal interruption, plain-output-root
-   retention follows `FR-0101`.
-3. If a `plan` run ends because of a runtime failure after work has started,
-   plain-output-root retention follows `FR-0102`.
+1. For `plan`, a partial plain output root from a configured-stop,
+   signal-interruption, or runtime-failure branch may remain on disk only when
+   the applicable branch card classifies that root as an authoritative retained
+   partial result under `FR-0097`, `FR-0101`, or `FR-0102`.
+2. A configured-stop, signal-interruption, or runtime-failure `plan` branch that
+   does not satisfy the authoritative retained-partial conditions from
+   `FR-0097`, `FR-0101`, or `FR-0102` leaves no authoritative partial plain
+   output root on disk.
+3. Any authoritative retained `plan` partial root on disk remains
+   distinguishable from clean success by the branch-specific markers or summary
+   fields required by its governing card.
 
 **Dependencies**:
 - `FR-0097`

@@ -1,0 +1,30 @@
+<h1>Messy Wide Child A</h1>
+<p>Wide child A focuses on short operational fragments combined with links and a table. It is one of many root siblings.</p>
+<table>
+  <tbody>
+    <tr><th>A</th><th>B</th><th>C</th></tr>
+    <tr><td>0</td><td>one sibling</td><td><ac:link><ri:page ri:content-title="Messy Wide Child B"/></ac:link></td></tr>
+    <tr><td>1</td><td>another sibling</td><td><ac:link><ri:page ri:content-title="Messy Wide Child C"/></ac:link></td></tr>
+    <tr><td>many</td><td>root siblings</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td></tr>
+  </tbody>
+</table>
+<p>Invalid wide A literal broken-wide-a://value and missing title <ac:link><ri:page ri:content-title="Missing Wide A Target"/></ac:link>.</p>
+<ul>
+  <li>Root <ac:link><ri:page ri:content-title="CX Root"/></ac:link></li>
+  <li>Outside <ac:link><ri:page ri:content-title="CX Linked"/></ac:link></li>
+  <li>Cross <a href="/display/AUX/AUX+Cross+Space">AUX</a></li>
+</ul>
+<ac:structured-macro ac:name="info" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000011"><ac:rich-text-body><p>Wide A info macro has mixed text and &lt;escaped&gt; source.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>
+<p>Wide A density tail with repeated sibling notes, root sibling count many, single owner admin, zero local attachment expectation, and broken-wide-a-tail://literal.</p>

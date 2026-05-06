@@ -1,0 +1,32 @@
+{
+  "plan": {
+    "final_status": "success_with_findings",
+    "processed_pages": 20,
+    "root_pages": 1,
+    "tree_pages": 14,
+    "linked_pages": 5,
+    "other_pages": 0,
+    "resolved_links": 118,
+    "unresolved_links": 42,
+    "scope_findings": 0,
+    "manifest_data_rows": 20
+  },
+  "export": {
+    "final_status": "success_with_findings",
+    "processed_pages": 20,
+    "manifest_data_rows": 20,
+    "required_page_payloads": [
+      "root_page",
+      "child_page",
+      "grandchild_page",
+      "linked_page",
+      "cross_space_page"
+    ],
+    "required_attachments": [
+      {
+        "page": "root_page",
+        "filename": "root-note.txt"
+      }
+    ]
+  }
+}

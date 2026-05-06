@@ -17,10 +17,10 @@ EOF
   exit 1
 fi
 
-mapfile -t js_files < <(git -C "$ROOT_DIR" ls-files '*.js')
+mapfile -t js_files < <(git -C "$ROOT_DIR" ls-files '*.js' '*.mjs')
 
 if [[ "${#js_files[@]}" -eq 0 ]]; then
-  printf 'No tracked JavaScript files found.\n'
+  printf 'No tracked JavaScript or MJS files found.\n'
   exit 0
 fi
 

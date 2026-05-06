@@ -11,7 +11,12 @@ if [[ ! -x "$SHELLCHECK_BIN" ]]; then
   exit 1
 fi
 
-mapfile -t shell_files < <(git -C "$ROOT_DIR" ls-files '*.sh' '*.bash')
+mapfile -t shell_files < <(
+  git -C "$ROOT_DIR" ls-files '*.sh' '*.bash' |
+    while IFS= read -r path; do
+      [[ -f "$ROOT_DIR/$path" ]] && printf '%s\n' "$path"
+    done
+)
 shell_files=("$ROOT_DIR/confluex" "${shell_files[@]}")
 
 for i in "${!shell_files[@]}"; do

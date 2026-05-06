@@ -1,0 +1,41 @@
+<h1>Русская страница — черновик</h1>
+<p>Это синтетическая страница с кириллицей, английскими вставками, числами 0, 1 и много, а также ссылками на разные части пространства. Ничего из внешних PDF сюда не копировалось.</p>
+<p>Текст содержит XML-sensitive символы: &lt;раздел&gt;, &quot;кавычки&quot;, апостроф &#39; и амперсанд &amp;. Также есть длинное тире — и обычный дефис - рядом.</p>
+<ac:structured-macro ac:name="status" ac:schema-version="1" ac:macro-id="54000000-0000-4000-8000-000000000001"><ac:parameter ac:name="subtle">true</ac:parameter><ac:parameter ac:name="colour">Blue</ac:parameter><ac:parameter ac:name="title">Черновик</ac:parameter></ac:structured-macro>
+<h2>Сводная таблица</h2>
+<table>
+  <tbody>
+    <tr><th>Показатель</th><th>Значение</th><th>Ссылка</th></tr>
+    <tr><td>Ноль</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Table Page"/></ac:link></td></tr>
+    <tr><td>Один</td><td>1</td><td><ac:link><ri:page ri:content-title="Messy Code And Macro"/></ac:link></td></tr>
+    <tr><td>Много</td><td>много строк, много ссылок, много шума</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td></tr>
+  </tbody>
+</table>
+<h2>Список с мусором</h2>
+<ul>
+  <li>Внутренняя ссылка: <ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link>.</li>
+  <li>Внешняя ссылка: <a href="https://example.invalid/russian/reference">example.invalid</a>.</li>
+  <li>Невалидная ссылка: <ac:link><ri:page ri:content-title="Отсутствующая русская страница"/></ac:link>.</li>
+  <li>Файл с картинкой: <ac:image><ri:attachment ri:filename="overview-chart.png"/></ac:image>.</li>
+</ul>
+<table>
+  <tbody>
+    <tr><th>Дата</th><th>Формат</th><th>Комментарий</th></tr>
+    <tr><td>04.05.2026</td><td>RU</td><td>обычный формат</td></tr>
+    <tr><td>2026-05-04</td><td>ISO</td><td>английская вставка</td></tr>
+    <tr><td>04/05/26</td><td>ambiguous</td><td>специально неоднозначно</td></tr>
+  </tbody>
+</table>
+<ac:structured-macro ac:name="note" ac:schema-version="1" ac:macro-id="40000000-0000-4000-8000-000000000004"><ac:rich-text-body><p>Макрос с русским текстом и ссылкой на <ac:link><ri:page ri:content-title="Messy: punctuation / spaces?"/></ac:link>.</p></ac:rich-text-body></ac:structured-macro>
+<h2>Audit appendix</h2>
+<p>The appendix is synthetic review clutter: owner admin, reviewer nobody, date 2026-05-04, window 00:00-23:59, priority P0/P1/P2, and markers 0, 1, many. It intentionally repeats labels that real teams copy between pages.</p>
+<table>
+  <tbody>
+    <tr><th>Audit field</th><th>Value</th><th>Reference</th><th>Noise</th></tr>
+    <tr><td>primary</td><td>0</td><td><ac:link><ri:page ri:content-title="Messy Links Page"/></ac:link></td><td>appendix-zero</td></tr>
+    <tr><td>secondary</td><td>1</td><td><ac:link><ri:page ri:content-title="CX Linked"/></ac:link></td><td>appendix-one</td></tr>
+    <tr><td>overflow</td><td>many</td><td><ac:link><ri:page ri:space-key="AUX" ri:content-title="AUX Cross Space"/></ac:link></td><td>appendix-many</td></tr>
+    <tr><td>stale</td><td>missing</td><td><ac:link><ri:page ri:content-title="Missing Appendix Target"/></ac:link></td><td>broken-appendix://value</td></tr>
+  </tbody>
+</table>
+<p>Appendix prose includes escaped XML &lt;appendix attr=&quot;value&quot;&gt;, Cyrillic пример, inline <code>appendixCheck()</code>, and code literal <code>/display/CX/Missing Appendix Literal</code>.</p>
