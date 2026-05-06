@@ -33,7 +33,9 @@ You need:
 
 Operational baseline:
 
-- a current Node.js LTS runtime;
+- Node.js 20.11.0 or newer;
+- `uvx` for the external Markdown converter;
+- Docker CLI for local stand/selftest diagnostics;
 - GnuPG 2.x if you want encrypted output.
 
 Install the packaged CLI with npm:

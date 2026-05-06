@@ -14,19 +14,24 @@ dependencies.
 
 **Acceptance Criteria**:
 1. `doctor` checks exactly these environment-readiness dependencies:
-   `docker_cli` for the `docker` executable required to inspect the operator's
-   self-test stand when selftest needs stand reset under `FR-0132`, and `gpg`
-   for the `gpg` executable required for encryption-recipient validation under
-   `FR-0108`.
+   `node_runtime` for the currently running Node.js process, `docker_cli` for
+   the `docker` executable required to inspect the operator's self-test stand
+   when selftest needs stand reset under `FR-0132`, `gpg` for the `gpg`
+   executable required for encryption-recipient validation under `FR-0108`, and
+   `markdown_converter` for the `uvx` executable required to invoke the external
+   Markdown converter.
 2. `doctor` emits exactly one stdout line for each dependency in the format
    `dependency_<label>=<state>`.
 3. Dependency lines appear in this exact order:
+   `dependency_node_runtime=...`,
    `dependency_docker_cli=...`,
-   `dependency_gpg=...`.
+   `dependency_gpg=...`,
+   `dependency_markdown_converter=...`.
 4. `<state>` uses only `absent`, `present:unknown_version`, or
    `present:<version_text>`.
-5. The exact dependency executable names are `docker` for `docker_cli` and
-   `gpg` for `gpg`.
+5. The exact dependency executable names are `docker` for `docker_cli`, `gpg`
+   for `gpg`, and `uvx` for `markdown_converter`; `node_runtime` is read from
+   the current Node.js process version rather than resolved on `PATH`.
 6. A dependency is `absent` when its executable name cannot be resolved to an
    executable on `PATH`.
 7. When a dependency executable is present, the version probe is
@@ -185,20 +190,22 @@ diagnostics.
 2. `<value>` uses either the shared absence token defined by `FR-0125` or a
    comma-delimited list serialized with the shared token-list form defined by
    `FR-0126` and containing one or more unique tokens chosen from
-   `install_docker_cli`, `install_gpg`, `check_page_access`,
-   `set_encryption_key`, and `fix_encryption_key`.
+   `install_docker_cli`, `install_gpg`, `install_markdown_converter`,
+   `check_page_access`, `set_encryption_key`, and `fix_encryption_key`.
 3. `install_docker_cli` appears if and only if
    `dependency_docker_cli=absent`.
 4. `install_gpg` appears if and only if `dependency_gpg=absent`.
-5. `check_page_access` appears if and only if `page_access=failed`.
-6. `set_encryption_key` appears if and only if
+5. `install_markdown_converter` appears if and only if
+   `dependency_markdown_converter=absent`.
+6. `check_page_access` appears if and only if `page_access=failed`.
+7. `set_encryption_key` appears if and only if
    `encryption_recipient=missing`.
-7. `fix_encryption_key` appears if and only if
+8. `fix_encryption_key` appears if and only if
    `encryption_recipient=failed` and `dependency_gpg` is not `absent`.
-8. If none of the conditions in criteria 3 through 7 apply,
+9. If none of the conditions in criteria 3 through 8 apply,
    `next_action=none`.
 10. If `next_action` is not `none`, tokens appear only in this order:
-   `install_docker_cli`, `install_gpg`,
+   `install_docker_cli`, `install_gpg`, `install_markdown_converter`,
    `check_page_access`, `set_encryption_key`, `fix_encryption_key`.
 
 **Dependencies**:

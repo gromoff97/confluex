@@ -127,6 +127,15 @@ function fakeDoctorBin () {
     'exit 2',
     ''
   ].join('\n'))
+  writeExecutable(path.join(bin, 'uvx'), [
+    '#!/bin/sh',
+    'if [ "$1" = "--version" ]; then',
+    '  printf "uvx 0.9.0\\n"',
+    '  exit 0',
+    'fi',
+    'exit 1',
+    ''
+  ].join('\n'))
   return bin
 }
 
@@ -527,8 +536,10 @@ test('public launcher implements doctor scaffold without page access', () => {
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
+    `dependency_node_runtime=present:${process.version}`,
     'dependency_docker_cli=present:Docker version 27.0.0',
     'dependency_gpg=present:gpg 2.4.0',
+    'dependency_markdown_converter=present:uvx 0.9.0',
     'page_access=skipped',
     'encryption_recipient=skipped',
     'support_profile=default',
@@ -552,8 +563,10 @@ test('public launcher implements doctor encryption verification with explicit re
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
+    `dependency_node_runtime=present:${process.version}`,
     'dependency_docker_cli=present:Docker version 27.0.0',
     'dependency_gpg=present:gpg 2.4.0',
+    'dependency_markdown_converter=present:uvx 0.9.0',
     'page_access=skipped',
     'encryption_recipient=ok',
     'support_profile=default',

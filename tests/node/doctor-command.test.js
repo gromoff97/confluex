@@ -9,6 +9,7 @@ const path = require('node:path')
 const { runDoctorCommand } = require('../../lib/confluex-node/commands/doctor')
 
 const supportedLinkForms = 'child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title'
+const nodeRuntimeLine = `dependency_node_runtime=present:${process.version}`
 
 function options ({ verify = false, key, logFile } = {}) {
   return {
@@ -51,8 +52,10 @@ test('doctor without options emits governed no-page stdout contract', async () =
   assert.deepEqual(result, {
     exitCode: 0,
     stdout: [
+      nodeRuntimeLine,
       'dependency_docker_cli=present:docker_cli version',
       'dependency_gpg=present:gpg version',
+      'dependency_markdown_converter=present:markdown_converter version',
       'page_access=skipped',
       'encryption_recipient=skipped',
       'support_profile=default',
@@ -108,7 +111,7 @@ test('absent dependencies produce install next actions in governed order', async
 
   assert.equal(result.exitCode, 0)
   assert.equal(result.stderr, '')
-  assert.equal(result.stdout.split('\n').at(-2), 'next_action=install_docker_cli,install_gpg')
+  assert.equal(result.stdout.split('\n').at(-2), 'next_action=install_docker_cli,install_gpg,install_markdown_converter')
 })
 
 test('verify encryption without effective recipient reports missing and set action', async () => {
