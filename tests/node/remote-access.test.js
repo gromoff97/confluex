@@ -15,11 +15,15 @@ const {
   getAttachmentPreview
 } = require('../../lib/confluex-node/remote/access')
 
+const bearerToken = 'token:value'
+const expectedAuthorization = `Bearer ${bearerToken}`
+
 function envForBaseUrl (baseUrl) {
   return {
     CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
-    CONFLUEX_CONFLUENCE_USERNAME: 'user',
-    CONFLUEX_CONFLUENCE_PASSWORD: 'pass:word'
+    CONFLUEX_CONFLUENCE_TOKEN: bearerToken,
+    CONFLUEX_CONFLUENCE_USERNAME: 'legacy-user',
+    CONFLUEX_CONFLUENCE_PASSWORD: 'legacy-password'
   }
 }
 
@@ -34,23 +38,26 @@ async function withServer (handler, run) {
   }
 }
 
-test('remote access context validates base URL and basic auth', () => {
+test('remote access context validates base URL and Bearer token', () => {
   assert.deepEqual(resolveRemoteAccessContext(envForBaseUrl('http://example.test/confluence')), {
     usable: true,
     baseUrl: 'http://example.test/confluence',
-    authorization: `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`
+    token: bearerToken,
+    authorization: expectedAuthorization
   })
 
   assert.deepEqual(resolveRemoteAccessContext(envForBaseUrl('http://user@example.test')), {
-    usable: false
+    usable: false,
+    reason: 'page_inaccessible'
   })
 
   assert.deepEqual(resolveRemoteAccessContext({
     CONFLUEX_CONFLUENCE_BASE_URL: 'http://example.test',
-    CONFLUEX_CONFLUENCE_USERNAME: 'bad:user',
-    CONFLUEX_CONFLUENCE_PASSWORD: 'pass'
+    CONFLUEX_CONFLUENCE_USERNAME: 'legacy-user',
+    CONFLUEX_CONFLUENCE_PASSWORD: 'legacy-password'
   }), {
-    usable: false
+    usable: false,
+    reason: 'missing_token'
   })
 })
 
@@ -64,7 +71,7 @@ test('root page access composes base path and returns response id identity', asy
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
     assert.equal(request.url, '/confluence/rest/api/content/123')
-    assert.equal(request.headers.authorization, `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`)
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.setHeader('content-type', 'application/json')
     response.end(bodyText)
   }, async baseUrl => {
@@ -83,24 +90,50 @@ test('root page access composes base path and returns response id identity', asy
 
 test('root page access fails for unusable context and invalid responses', async () => {
   assert.deepEqual(await checkRootPageAccess('123', {}), {
-    state: 'failed'
+    state: 'failed',
+    reason: 'missing_token'
   })
 
   await withServer((request, response) => {
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.statusCode = 404
     response.end('missing')
   }, async baseUrl => {
     assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl(baseUrl)), {
-      state: 'failed'
+      state: 'failed',
+      reason: 'page_inaccessible'
     })
   })
 
   await withServer((request, response) => {
+    assert.equal(request.headers.authorization, expectedAuthorization)
+    response.statusCode = 401
+    response.setHeader('X-Seraph-LoginReason', 'AUTHENTICATED_FAILED')
+    response.end('unauthorized')
+  }, async baseUrl => {
+    assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl(baseUrl)), {
+      state: 'failed',
+      reason: 'auth_rejected'
+    })
+  })
+
+  await withServer((request, response) => {
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.end(JSON.stringify({ id: '001' }))
   }, async baseUrl => {
     assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl(baseUrl)), {
-      state: 'failed'
+      state: 'failed',
+      reason: 'page_inaccessible'
     })
+  })
+
+  const dnsFailure = new Error('getaddrinfo ENOTFOUND confluence.test')
+  dnsFailure.code = 'ENOTFOUND'
+  assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl('http://127.0.0.1:9'), {
+    request: async () => { throw dnsFailure }
+  }), {
+    state: 'failed',
+    reason: 'transport_dns'
   })
 })
 
@@ -119,7 +152,7 @@ test('child page listing composes child endpoint and returns metadata with compl
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
     assert.equal(request.url, '/confluence/rest/api/content/123/child/page?limit=200&expand=space')
-    assert.equal(request.headers.authorization, `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`)
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.setHeader('content-type', 'application/json')
     response.end(bodyText)
   }, async baseUrl => {
@@ -151,7 +184,7 @@ test('page storage acquisition composes storage endpoint and returns storage val
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
     assert.equal(request.url, '/confluence/rest/api/content/123?expand=body.storage')
-    assert.equal(request.headers.authorization, `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`)
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.setHeader('content-type', 'application/json')
     response.end(bodyText)
   }, async baseUrl => {
@@ -178,7 +211,7 @@ test('title candidate acquisition composes content search and returns candidates
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
     assert.equal(request.url, '/confluence/rest/api/content?type=page&title=Linked+Page&spaceKey=CX&limit=200&expand=space')
-    assert.equal(request.headers.authorization, `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`)
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.setHeader('content-type', 'application/json')
     response.end(bodyText)
   }, async baseUrl => {
@@ -212,7 +245,7 @@ test('attachment preview acquisition composes attachment endpoint and returns co
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
     assert.equal(request.url, '/confluence/rest/api/content/123/child/attachment?limit=200')
-    assert.equal(request.headers.authorization, `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`)
+    assert.equal(request.headers.authorization, expectedAuthorization)
     response.setHeader('content-type', 'application/json')
     response.end(bodyText)
   }, async baseUrl => {
@@ -241,7 +274,7 @@ test('attachment data and payload acquisition compose attachment and download en
 
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
-    assert.equal(request.headers.authorization, `Basic ${Buffer.from('user:pass:word', 'utf8').toString('base64')}`)
+    assert.equal(request.headers.authorization, expectedAuthorization)
     if (request.url === '/confluence/rest/api/content/123/child/attachment?limit=200') {
       response.setHeader('content-type', 'application/json')
       response.end(bodyText)

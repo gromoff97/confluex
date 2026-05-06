@@ -306,8 +306,7 @@ test('public launcher rejects existing output root after successful page preflig
       HOME: home,
       USERPROFILE: home,
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
-      CONFLUEX_CONFLUENCE_USERNAME: 'user',
-      CONFLUEX_CONFLUENCE_PASSWORD: 'pass'
+      CONFLUEX_CONFLUENCE_TOKEN: 'token'
     })
 
     assert.equal(result.status, 1)
@@ -399,8 +398,7 @@ test('public launcher plans remote child tree when child listing is available', 
       HOME: home,
       USERPROFILE: home,
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
-      CONFLUEX_CONFLUENCE_USERNAME: 'user',
-      CONFLUEX_CONFLUENCE_PASSWORD: 'pass'
+      CONFLUEX_CONFLUENCE_TOKEN: 'token'
     })
 
     assert.equal(result.status, 0)
@@ -500,8 +498,7 @@ test('public launcher resolves remote title links when candidate listing is avai
       HOME: home,
       USERPROFILE: home,
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
-      CONFLUEX_CONFLUENCE_USERNAME: 'user',
-      CONFLUEX_CONFLUENCE_PASSWORD: 'pass'
+      CONFLUEX_CONFLUENCE_TOKEN: 'token'
     })
 
     assert.equal(result.status, 0)
@@ -538,7 +535,6 @@ test('public launcher implements doctor scaffold without page access', () => {
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
     'dependency_docker_cli=present:Docker version 27.0.0',
-    'dependency_bats_cli=present:Bats 1.11.0',
     'dependency_gpg=present:gpg 2.4.0',
     'page_access=skipped',
     'encryption_recipient=skipped',
@@ -564,7 +560,6 @@ test('public launcher implements doctor encryption verification with explicit re
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
     'dependency_docker_cli=present:Docker version 27.0.0',
-    'dependency_bats_cli=present:Bats 1.11.0',
     'dependency_gpg=present:gpg 2.4.0',
     'page_access=skipped',
     'encryption_recipient=ok',
@@ -580,6 +575,7 @@ test('public launcher reports failed doctor page access when remote context is a
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
   assert.match(result.stdout, /^page_access=failed$/m)
+  assert.match(result.stdout, /^page_access_reason=missing_token$/m)
   assert.doesNotMatch(result.stdout, /^page_identity=/m)
   assert.match(result.stdout, /^next_action=.*check_page_access/m)
 })

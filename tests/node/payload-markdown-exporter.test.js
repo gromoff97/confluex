@@ -13,8 +13,15 @@ const {
 function envForConfluence () {
   return {
     CONFLUEX_CONFLUENCE_BASE_URL: 'http://localhost:8090/',
-    CONFLUEX_CONFLUENCE_USERNAME: 'admin',
-    CONFLUEX_CONFLUENCE_PASSWORD: 'admin'
+    CONFLUEX_CONFLUENCE_TOKEN: 'token-secret',
+    CONFLUEX_CONFLUENCE_USERNAME: 'legacy-user',
+    CONFLUEX_CONFLUENCE_PASSWORD: 'legacy-password',
+    HTTP_PROXY: 'http://proxy.invalid',
+    HTTPS_PROXY: 'http://proxy.invalid',
+    ALL_PROXY: 'http://proxy.invalid',
+    http_proxy: 'http://proxy.invalid',
+    https_proxy: 'http://proxy.invalid',
+    all_proxy: 'http://proxy.invalid'
   }
 }
 
@@ -68,6 +75,14 @@ test('acquireMarkdownPagePayload invokes the audited exporter and normalizes its
   ])
   assert.equal(execCall.options.env.CI, 'true')
   assert.equal(execCall.options.env.NO_COLOR, '1')
+  assert.equal(execCall.options.env.HTTP_PROXY, undefined)
+  assert.equal(execCall.options.env.HTTPS_PROXY, undefined)
+  assert.equal(execCall.options.env.ALL_PROXY, undefined)
+  assert.equal(execCall.options.env.http_proxy, undefined)
+  assert.equal(execCall.options.env.https_proxy, undefined)
+  assert.equal(execCall.options.env.all_proxy, undefined)
+  assert.equal(execCall.options.env.CONFLUEX_CONFLUENCE_USERNAME, undefined)
+  assert.equal(execCall.options.env.CONFLUEX_CONFLUENCE_PASSWORD, undefined)
   assert.equal(configAtExec.export.page_path, '{page_id}.md')
   assert.equal(configAtExec.export.attachment_path, 'attachments/{attachment_title}{attachment_extension}')
   assert.equal(configAtExec.export.skip_unchanged, false)
@@ -79,9 +94,9 @@ test('acquireMarkdownPagePayload invokes the audited exporter and normalizes its
   assert.equal(configAtExec.connection_config.verify_ssl, false)
   assert.equal(configAtExec.connection_config.max_workers, 1)
   assert.deepEqual(configAtExec.auth.confluence['http://localhost:8090'], {
-    username: 'admin',
-    api_token: 'admin',
-    pat: '',
+    username: 'token',
+    api_token: 'token-secret',
+    pat: 'token-secret',
     cloud_id: ''
   })
   assert.deepEqual(configAtExec.auth.jira, {})

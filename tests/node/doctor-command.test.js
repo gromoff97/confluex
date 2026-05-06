@@ -52,7 +52,6 @@ test('doctor without options emits governed no-page stdout contract', async () =
     exitCode: 0,
     stdout: [
       'dependency_docker_cli=present:docker_cli version',
-      'dependency_bats_cli=present:bats_cli version',
       'dependency_gpg=present:gpg version',
       'page_access=skipped',
       'encryption_recipient=skipped',
@@ -109,7 +108,7 @@ test('absent dependencies produce install next actions in governed order', async
 
   assert.equal(result.exitCode, 0)
   assert.equal(result.stderr, '')
-  assert.equal(result.stdout.split('\n').at(-2), 'next_action=install_docker_cli,install_bats_cli,install_gpg')
+  assert.equal(result.stdout.split('\n').at(-2), 'next_action=install_docker_cli,install_gpg')
 })
 
 test('verify encryption without effective recipient reports missing and set action', async () => {
@@ -180,7 +179,7 @@ test('doctor page access ok emits page identity after page access line', async (
   })
 
   assert.equal(result.exitCode, 0)
-  assert.match(result.stdout, /^page_access=ok\npage_identity=456$/m)
+  assert.match(result.stdout, /^page_access=ok\npage_access_reason=none\npage_identity=456$/m)
   assert.match(result.stdout, /^next_action=none$/m)
 })
 
@@ -191,13 +190,13 @@ test('doctor page access failure emits check page access next action', async () 
   }, {
     dependencyProbe: presentProbe,
     pageAccessChecker () {
-      return { state: 'failed' }
+      return { state: 'failed', reason: 'auth_rejected' }
     },
     store: storeWithValue(null)
   })
 
   assert.equal(result.exitCode, 0)
-  assert.match(result.stdout, /^page_access=failed$/m)
+  assert.match(result.stdout, /^page_access=failed\npage_access_reason=auth_rejected$/m)
   assert.doesNotMatch(result.stdout, /^page_identity=/m)
   assert.match(result.stdout, /^next_action=check_page_access$/m)
 })
