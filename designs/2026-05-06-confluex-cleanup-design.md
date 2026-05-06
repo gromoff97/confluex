@@ -63,6 +63,11 @@ REST calls send:
 Authorization: Bearer <token>
 ```
 
+If `CONFLUEX_CONFLUENCE_BASE_URL` or `CONFLUEX_CONFLUENCE_TOKEN` is absent
+after config merging, the command fails fast with a validation error before
+network work begins. It must not fall back to Basic auth, saved credentials, or
+interactive prompting.
+
 Remove and do not accept:
 
 ```text
@@ -80,6 +85,35 @@ confluex selftest --url <url> --token <token>
 
 If the stand needs changes to support token-oriented selftest, those changes
 belong to this work.
+
+The selftest token may be a local fixture token or a stand-generated token. It
+must be documented as a test harness credential, but it must still be named and
+passed as a token.
+
+If Confluence Server 7.13.7 cannot support PAT-style Bearer tokens in the
+local stand, implementation must stop and report that blocker instead of
+reintroducing password or Basic-auth fallback.
+
+## Markdown Exporter Token Compatibility
+
+The Markdown payload path currently depends on an external Markdown exporter
+invoked by Confluex. Before implementation relies on that exporter, verify how
+it authenticates against Confluence with a personal access token.
+
+Acceptable outcomes:
+
+- The exporter supports Bearer/PAT directly. Confluex passes the token through
+  its documented configuration.
+- The exporter requires a username-shaped field but treats `api_token` as the
+  credential. Confluex may pass a neutral placeholder only if the resulting
+  request still authenticates with token semantics and the behavior is covered
+  by selftest.
+- The exporter cannot satisfy token-only auth. That is a blocker for using it
+  directly; implementation must choose a different converter or a controlled
+  workaround before claiming Markdown export is complete.
+
+The workaround must not silently reintroduce Basic auth, password-shaped
+configuration, or hidden credential aliases.
 
 ## Proxy Handling
 
@@ -101,6 +135,10 @@ ALL_PROXY
 
 Public package installation and operator-managed npm/uvx tooling may still use
 the user's normal proxy configuration.
+
+If a future operator needs Confluence access through a proxy, that must be an
+explicit opt-in mode with requirements-defined behavior. It must not happen
+accidentally because profile-level proxy variables exist.
 
 ## Env File
 
@@ -184,6 +222,20 @@ Default diagnostics should include:
   and `WWW-Authenticate`;
 - network error class when no HTTP response exists;
 - a concrete next action when known.
+
+`doctor` is the primary page-access diagnostic command. It should distinguish
+at least:
+
+- missing token before network access;
+- invalid or rejected token with HTTP response;
+- page not found or inaccessible with HTTP response;
+- TLS, DNS, timeout, connection reset, and proxy-class transport failures;
+- Markdown exporter auth incompatibility when the REST page check succeeds but
+  payload acquisition cannot authenticate.
+
+`plan` and `export` should record page-local failures with enough context that
+the operator can identify whether the failure was auth, access, network,
+converter, or output related without rerunning with a debug flag.
 
 Default diagnostics must not include:
 
@@ -366,6 +418,14 @@ The existing `confluex install` and `confluex uninstall` commands must either
 be aligned with the npm package story or removed from the public command
 surface. Do not keep two competing installation models unless requirements
 define their relationship.
+
+If an internal `confluex install` command remains, it must be honest:
+
+- installed `confluex --help` is not enough;
+- installed `doctor` dispatch must load;
+- production modules used by Markdown export and link localization must load;
+- missing runtime dependencies must fail with a precise next action;
+- install must not report success when lazy-loaded export paths would fail.
 
 Reference npm documentation used for this packaging direction:
 
