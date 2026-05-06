@@ -24,7 +24,6 @@ setup() {
     "$LIVE_CONFLUEX_REPO_ROOT/confluex" \
     export \
     --page-id "$root_page_id" \
-    --page-format md \
     --out "$export_out"
   [ "$status" -eq 0 ] || live_fail_test "export exited $status: $output $stderr"
   live_assert_equal "WARNING: unbounded_run use --safe or --max-pages or --max-download-mib" "$stderr" "export stderr"

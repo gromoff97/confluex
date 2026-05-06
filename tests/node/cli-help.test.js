@@ -53,7 +53,6 @@ test('export command help has governed sections and notes', () => {
     '  --resume  Reuse a compatible existing export root selected by --out.',
     '  --no-fail-fast  Continue after page-local runtime failures.',
     '  --keep-metadata  Persist page metadata files such as _info.txt and _storage.xml.',
-    '  --page-format <format>  Persist page payload format; formats: md, html; default: md.',
     '  --env-file <file>  Read configuration from this env file.',
     '  --log-file <file>  Write a persistent log artifact.',
     '  --encryption-key <value>  Use this encryption recipient for the current command.',

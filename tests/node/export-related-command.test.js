@@ -279,60 +279,6 @@ test('basic export with root metadata writes failed-payload report set and lifec
   assert.match(summary, /^blocking_reasons=scope_findings,failed_operations$/m)
 })
 
-test('basic html export with complete scope materializes page payload', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-html-export-')), 'out')
-
-  const result = await runExportRelatedCommand('export', options({
-    pageId: '123',
-    out,
-    flags: ['--safe'],
-    values: {
-      '--page-format': 'html'
-    }
-  }), {
-    checkRootPageAccess: async () => ({
-      state: 'ok',
-      identity: '123',
-      metadata: {
-        page_id: '123',
-        page_title: 'Root Page',
-        space_key: 'CX'
-      }
-    }),
-    listChildPages: async () => ({
-      state: 'ok',
-      complete: true,
-      children: []
-    }),
-    getStorageContent: async () => ({
-      state: 'ok',
-      storage: '<p>No links here.</p>'
-    })
-  })
-
-  assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, '')
-  assert.match(result.stdout, /^RUN_COMPLETE final_status=success artifact=/m)
-  assert.equal(fs.readFileSync(path.join(out, 'manifest.tsv'), 'utf8'), [
-    'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count',
-    '123\tCX\tRoot Page\tpages/space__4358/page__123\troot\texport\tnone',
-    ''
-  ].join('\n'))
-  assert.equal(fs.readFileSync(path.join(out, 'failed-pages.tsv'), 'utf8'), [
-    'page_id\tpage_title\toperation\terror_summary',
-    ''
-  ].join('\n'))
-  const pageFolder = path.join(out, 'pages', 'space__4358', 'page__123')
-  assert.deepEqual(fs.readdirSync(pageFolder), ['page.html'])
-  assert.equal(fs.readFileSync(path.join(pageFolder, 'page.html'), 'utf8'), '<p>No links here.</p>')
-  const summary = fs.readFileSync(path.join(out, 'summary.txt'), 'utf8')
-  assert.match(summary, /^page_payload_format=html$/m)
-  assert.match(summary, /^final_status=success$/m)
-  assert.match(summary, /^failed_operations=0$/m)
-  assert.match(summary, /^scope_findings=0$/m)
-  assert.match(summary, /^blocking_reasons=none$/m)
-})
-
 test('basic md export with complete scope materializes page payload', async () => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-md-export-')), 'out')
   const markdown = '# Root Page\n\nNo links here.\n'
@@ -653,10 +599,7 @@ test('basic md export downloads attachment payloads into page folder', async () 
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
-      '--page-format': 'md'
-    }
+    flags: ['--safe']
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -728,10 +671,7 @@ test('basic export records attachment download failure without retaining attachm
 
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
-    out,
-    values: {
-      '--page-format': 'md'
-    }
+    out
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -854,8 +794,7 @@ test('basic encrypted export finalizes report and selects encrypted archive', as
     out,
     flags: ['--encrypt', '--safe'],
     values: {
-      '--encryption-key': 'recipient',
-      '--page-format': 'md'
+      '--encryption-key': 'recipient'
     }
   }), {
     recipientValidator: recipient => {
@@ -1415,16 +1354,13 @@ test('basic resume export refreshes changed prior page payload', async () => {
   assert.match(summary, /^downloaded_mib_content=1\.000$/m)
 })
 
-test('basic html export materializes linked page payloads after scope expansion', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-html-export-linked-')), 'out')
+test('basic md export materializes linked page payloads after scope expansion', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-md-export-linked-')), 'out')
 
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
-      '--page-format': 'html'
-    }
+    flags: ['--safe']
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1445,6 +1381,13 @@ test('basic html export materializes linked page payloads after scope expansion'
       storage: page.page_id === '123'
         ? '<p><ac:link><ri:content-entity ri:content-id="456"/></ac:link></p>'
         : '<p>Linked page payload.</p>'
+    }),
+    getPagePayload: async page => ({
+      state: 'ok',
+      payload: page.page_id === '123'
+        ? '[Linked Page](/pages/viewpage.action?pageId=456)\n'
+        : '# Linked Page\n\nLinked page payload.\n',
+      diagnostics: []
     }),
     lookupPageById: async pageId => {
       assert.equal(pageId, '456')
@@ -1474,12 +1417,12 @@ test('basic html export materializes linked page payloads after scope expansion'
     ''
   ].join('\n'))
   assert.equal(
-    fs.readFileSync(path.join(out, 'pages', 'space__4358', 'page__123', 'page.html'), 'utf8'),
-    '<p><ac:link><ri:content-entity ri:content-id="456"/></ac:link></p>'
+    fs.readFileSync(path.join(out, 'pages', 'space__4358', 'page__123', 'page.md'), 'utf8'),
+    '[Linked Page](../page__456/page.md)\n'
   )
   assert.equal(
-    fs.readFileSync(path.join(out, 'pages', 'space__4358', 'page__456', 'page.html'), 'utf8'),
-    '<p>Linked page payload.</p>'
+    fs.readFileSync(path.join(out, 'pages', 'space__4358', 'page__456', 'page.md'), 'utf8'),
+    '# Linked Page\n\nLinked page payload.\n'
   )
 })
 

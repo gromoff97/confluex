@@ -34,8 +34,8 @@ test('validation diagnostics use governed first-line templates', () => {
 
   assert.equal(formatDiagnostic({
     type: 'invalid-option-value',
-    optionToken: '--page-format'
-  }), 'ERROR: invalid_option_value --page-format')
+    optionToken: '--max-pages'
+  }), 'ERROR: invalid_option_value --max-pages')
 
   assert.equal(formatDiagnostic({
     type: 'invalid-option-combination',

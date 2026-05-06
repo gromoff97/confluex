@@ -17,12 +17,7 @@ const REQUIRED_PAYLOADS = [
   'fixtures/confluence-7137/expected/payloads/md/linked_scope_root.page.md',
   'fixtures/confluence-7137/expected/payloads/md/cross_space_page.page.md',
   'fixtures/confluence-7137/expected/payloads/md/markdown_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/download_limit_root_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/html/root_page.page.html',
-  'fixtures/confluence-7137/expected/payloads/html/child_page.page.html',
-  'fixtures/confluence-7137/expected/payloads/html/grandchild_page.page.html',
-  'fixtures/confluence-7137/expected/payloads/html/linked_page.page.html',
-  'fixtures/confluence-7137/expected/payloads/html/cross_space_page.page.html'
+  'fixtures/confluence-7137/expected/payloads/md/download_limit_root_page.page.md'
 ]
 
 const REQUIRED_STORAGE_FILES = [

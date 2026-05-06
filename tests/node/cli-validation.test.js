@@ -13,8 +13,6 @@ test('valid invocation returns effective flags and last valued option value', ()
     '0',
     '--page-id',
     '123',
-    '--page-format',
-    'html',
     '--link-depth',
     '0',
     '--link-depth',
@@ -25,7 +23,6 @@ test('valid invocation returns effective flags and last valued option value', ()
       flags: ['--safe'],
       values: {
         '--page-id': '123',
-        '--page-format': 'html',
         '--link-depth': '2'
       }
     }
@@ -174,16 +171,28 @@ test('invalid effective option value selects earliest supported option list toke
   })
 })
 
-test('invalid page format is rejected before command work', () => {
+test('removed page format option is rejected before command work', () => {
   assert.deepEqual(validateCommandInvocation('export', [
     '--page-id',
     '123',
     '--page-format',
-    'pdf'
+    'html'
   ]), {
     kind: 'rejected',
     diagnostic: {
-      type: 'invalid-option-value',
+      type: 'unsupported-option',
+      optionToken: '--page-format'
+    }
+  })
+
+  assert.deepEqual(validateCommandInvocation('export', [
+    '--page-id',
+    '123',
+    '--page-format'
+  ]), {
+    kind: 'rejected',
+    diagnostic: {
+      type: 'unsupported-option',
       optionToken: '--page-format'
     }
   })

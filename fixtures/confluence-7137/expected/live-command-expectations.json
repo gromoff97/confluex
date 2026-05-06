@@ -130,42 +130,5 @@
     "attachment_files": {
       "root_page": "root-note.txt"
     }
-  },
-  "export_html": {
-    "summary": {
-      "final_status": "success_with_findings",
-      "scope_trust": "degraded",
-      "page_payload_format": "html",
-      "processed_pages": "20",
-      "root_pages": "1",
-      "tree_pages": "14",
-      "linked_pages": "5",
-      "other_pages": "0",
-      "resolved_links": "118",
-      "unresolved_links": "42",
-      "scope_findings": "0",
-      "failed_operations": "0"
-    },
-    "manifest": {
-      "header": "page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count",
-      "line_count": 21
-    },
-    "payload_files": {
-      "root_page": "page.html",
-      "child_page": "page.html",
-      "grandchild_page": "page.html",
-      "linked_page": "page.html",
-      "cross_space_page": "page.html"
-    },
-    "forbidden_payload_files": {
-      "root_page": "page.md",
-      "child_page": "page.md",
-      "grandchild_page": "page.md",
-      "linked_page": "page.md",
-      "cross_space_page": "page.md"
-    },
-    "attachment_files": {
-      "root_page": "root-note.txt"
-    }
   }
 }

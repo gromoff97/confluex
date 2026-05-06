@@ -102,7 +102,7 @@ const sections = ["Usage", "Purpose", "Required options", "Optional options", "E
 const expected = {
   export: {
     required: ["--page-id"],
-    optional: ["--out", "--safe", "--critical", "--encrypt", "--confidential", "--resume", "--no-fail-fast", "--keep-metadata", "--page-format", "--log-file", "--encryption-key", "--max-pages", "--max-download-mib", "--sleep-ms", "--max-find-candidates"]
+    optional: ["--out", "--safe", "--critical", "--encrypt", "--confidential", "--resume", "--no-fail-fast", "--keep-metadata", "--log-file", "--encryption-key", "--max-pages", "--max-download-mib", "--sleep-ms", "--max-find-candidates"]
   },
   plan: {
     required: ["--page-id"],
@@ -159,12 +159,7 @@ if (command === "selftest") {
     if (!purpose.includes(token)) problems.push(`purpose_token:${token}`);
   }
 }
-if (command === "export") {
-  if (!text.includes("--page-format <format>")) problems.push("page_format_entry");
-  if (!text.includes("formats: md, html; default: md.")) problems.push("page_format_values");
-  if (!text.includes("confluex export --page-id <id>")) problems.push("page_format_default_example");
-  if (!text.includes("confluex export --page-id <id> --page-format html")) problems.push("page_format_html_example");
-}
+if (command === "export" && !text.includes("confluex export --page-id <id>")) problems.push("export_example");
 const required = optionTokens("Required options", "Optional options");
 const optional = optionTokens("Optional options", "Examples");
 if (JSON.stringify(required) !== JSON.stringify(expected[command].required)) problems.push(`required:${required.join(",")}`);
@@ -240,12 +235,12 @@ if (problems.length) {
   [[ "$stderr" == *'ERROR: invalid_option_value --sleep-ms'* ]] ||
     live_fail_test "invalid sleep-ms stderr mismatch"
 
-  run_live_cli export --page-id 12345 --page-format pdf --out "$export_out"
-  [ "$status" -eq 1 ] || live_fail_test "invalid page-format exit code was $status"
-  live_assert_equal "" "$output" "invalid page-format stdout"
+  run_live_cli export --page-id 12345 --page-format html --out "$export_out"
+  [ "$status" -eq 1 ] || live_fail_test "unsupported page-format exit code was $status"
+  live_assert_equal "" "$output" "unsupported page-format stdout"
   assert_stderr_starts_with_error
-  [[ "$stderr" == *'ERROR: invalid_option_value --page-format'* ]] || live_fail_test "invalid page-format stderr mismatch"
-  [[ ! -e "$export_out" ]] || live_fail_test "invalid page-format created output root"
+  [[ "$stderr" == *'ERROR: unsupported_option --page-format'* ]] || live_fail_test "unsupported page-format stderr mismatch"
+  [[ ! -e "$export_out" ]] || live_fail_test "unsupported page-format created output root"
 
   run_live_cli export --page-id 12345 --out ''
   [ "$status" -eq 1 ] || live_fail_test "empty --out exit code was $status"
