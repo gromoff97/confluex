@@ -94,8 +94,8 @@ test('acquireMarkdownPagePayload invokes the audited exporter and normalizes its
   assert.equal(configAtExec.connection_config.verify_ssl, false)
   assert.equal(configAtExec.connection_config.max_workers, 1)
   assert.deepEqual(configAtExec.auth.confluence['http://localhost:8090'], {
-    username: 'token',
-    api_token: 'token-secret',
+    username: '',
+    api_token: '',
     pat: 'token-secret',
     cloud_id: ''
   })
