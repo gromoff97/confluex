@@ -264,7 +264,7 @@ make_signing_only_gpg_fingerprint() {
   local nested_unrelated="$install_dir/lib/extra.txt"
   local scripts_unrelated="$install_dir/scripts/unrelated.sh"
   local fixtures_unrelated="$install_dir/fixtures/unrelated.txt"
-  local fixtures_support_unrelated="$install_dir/fixtures/confluence-7137/unrelated.local"
+  local fixtures_support_unrelated="$install_dir/tests/fixtures/confluence-7137/unrelated.local"
   local tests_support_unrelated="$install_dir/tests/live-bats/unrelated.local"
   local relative_workdir="$LIVE_LOCAL_TMP_ROOT/relative-install-workdir"
   local relative_target="$relative_workdir/bin"
@@ -273,7 +273,7 @@ make_signing_only_gpg_fingerprint() {
   mkdir -p \
     "$install_dir/lib" \
     "$install_dir/scripts" \
-    "$install_dir/fixtures/confluence-7137" \
+    "$install_dir/tests/fixtures/confluence-7137" \
     "$install_dir/tests/live-bats"
   printf 'keep me\n' > "$unrelated"
   printf 'keep script\n' > "$scripts_unrelated"
@@ -303,14 +303,14 @@ if (new Set(lines).size !== lines.length) problems.push("duplicates");
 if (lines.join("\n") !== sorted.join("\n")) problems.push("not_sorted");
 if (!lines.includes(".confluex-install-manifest.txt")) problems.push("missing_manifest_entry");
 if (!lines.includes("confluex")) problems.push("missing_entrypoint");
-for (const required of ["lib/confluex-node", "fixtures/confluence-7137", "tests/live-bats"]) {
+for (const required of ["lib/confluex-node", "tests/fixtures/confluence-7137", "tests/live-bats"]) {
   if (!lines.includes(required)) problems.push(`missing_runtime_support:${required}`);
   if (!fs.existsSync(path.join(target, required))) problems.push(`missing_runtime_support_path:${required}`);
 }
 for (const unrelated of [
   "scripts/unrelated.sh",
   "fixtures/unrelated.txt",
-  "fixtures/confluence-7137/unrelated.local",
+  "tests/fixtures/confluence-7137/unrelated.local",
   "tests/live-bats/unrelated.local",
   "lib",
   "scripts",

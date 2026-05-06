@@ -37,7 +37,7 @@ test('install copies JS runtime footprint and writes valid manifest', async () =
   assert.equal(fs.existsSync(path.join(target, 'lib', 'confluex-node', 'main.js')), true)
   assert.equal(fs.existsSync(path.join(target, 'lib', 'confluex')), false)
   assert.equal(fs.existsSync(path.join(target, 'scripts', 'selftest')), false)
-  assert.equal(fs.existsSync(path.join(target, 'fixtures', 'confluence-7137')), true)
+  assert.equal(fs.existsSync(path.join(target, 'tests', 'fixtures', 'confluence-7137')), true)
   assert.equal(fs.existsSync(path.join(target, 'docker', 'confluence-7137')), false)
   assert.equal(fs.existsSync(path.join(target, 'tests', 'live-bats')), true)
 

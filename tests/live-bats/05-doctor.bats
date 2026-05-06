@@ -2,7 +2,7 @@
 
 source "${BATS_TEST_DIRNAME}/helpers/live_confluex_helper.bash"
 
-EXPECTATIONS_FILE="${CONFLUEX_LIVE_EXPECTATIONS_FILE:-${BATS_TEST_DIRNAME}/../../fixtures/confluence-7137/expected/live-command-expectations.json}"
+EXPECTATIONS_FILE="${CONFLUEX_LIVE_EXPECTATIONS_FILE:-${BATS_TEST_DIRNAME}/../../tests/fixtures/confluence-7137/expected/live-command-expectations.json}"
 
 setup() {
   bats_require_minimum_version 1.5.0

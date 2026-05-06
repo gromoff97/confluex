@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const repoRoot = path.resolve(__dirname, '../..')
-const goldenRoot = path.join(repoRoot, 'fixtures/confluence-7137/expected/golden/export-root-tree-md')
+const goldenRoot = path.join(repoRoot, 'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md')
 
 function readTsv (relativePath) {
   const text = fs.readFileSync(path.join(goldenRoot, relativePath), 'utf8').trimEnd()

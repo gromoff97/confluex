@@ -9,51 +9,51 @@ const path = require('node:path')
 const { validateSelftestSupportPaths } = require('../../lib/confluex-node/selftest/support-preflight')
 
 const REQUIRED_PAYLOADS = [
-  'fixtures/confluence-7137/expected/payloads/md/root_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/child_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/grandchild_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/linked_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/linked_scope_linked_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/linked_scope_root.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/cross_space_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/markdown_page.page.md',
-  'fixtures/confluence-7137/expected/payloads/md/download_limit_root_page.page.md'
+  'tests/fixtures/confluence-7137/expected/payloads/md/root_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/child_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/grandchild_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/linked_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/linked_scope_linked_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/linked_scope_root.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/cross_space_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/markdown_page.page.md',
+  'tests/fixtures/confluence-7137/expected/payloads/md/download_limit_root_page.page.md'
 ]
 
 const REQUIRED_STORAGE_FILES = [
-  'fixtures/confluence-7137/content/pages/root_page.storage.xml',
-  'fixtures/confluence-7137/content/pages/child_page.storage.xml',
-  'fixtures/confluence-7137/content/pages/grandchild_page.storage.xml'
+  'tests/fixtures/confluence-7137/content/pages/root_page.storage.xml',
+  'tests/fixtures/confluence-7137/content/pages/child_page.storage.xml',
+  'tests/fixtures/confluence-7137/content/pages/grandchild_page.storage.xml'
 ]
 
 const REQUIRED_ATTACHMENTS = [
-  'fixtures/confluence-7137/content/attachments/root_page/root-note.txt',
-  'fixtures/confluence-7137/content/attachments/markdown_page/markdown-note.txt',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/notes-with-spaces.txt',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/data.csv',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/table-export-cyrillic.csv',
-  'fixtures/confluence-7137/content/attachments/messy_links_page/link-targets.txt',
-  'fixtures/confluence-7137/content/attachments/linked_page/out-of-tree-reference.txt'
+  'tests/fixtures/confluence-7137/content/attachments/root_page/root-note.txt',
+  'tests/fixtures/confluence-7137/content/attachments/markdown_page/markdown-note.txt',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/notes-with-spaces.txt',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/data.csv',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/table-export-cyrillic.csv',
+  'tests/fixtures/confluence-7137/content/attachments/messy_links_page/link-targets.txt',
+  'tests/fixtures/confluence-7137/content/attachments/linked_page/out-of-tree-reference.txt'
 ]
 
 const REQUIRED_OPAQUE_ATTACHMENTS = [
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/blob.bin',
-  'fixtures/confluence-7137/content/attachments/root_page/overview-chart.png',
-  'fixtures/confluence-7137/content/attachments/root_page/summary-photo.jpg',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/diagram-final.png',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/diagram-final-copy.png',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/report-synthetic.pdf',
-  'fixtures/confluence-7137/content/attachments/messy_attachment_page/empty-note.txt',
-  'fixtures/confluence-7137/content/attachments/cross_space_page/aux-image.png'
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/blob.bin',
+  'tests/fixtures/confluence-7137/content/attachments/root_page/overview-chart.png',
+  'tests/fixtures/confluence-7137/content/attachments/root_page/summary-photo.jpg',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/diagram-final.png',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/diagram-final-copy.png',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/report-synthetic.pdf',
+  'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/empty-note.txt',
+  'tests/fixtures/confluence-7137/content/attachments/cross_space_page/aux-image.png'
 ]
 
 const REQUIRED_GOLDEN_TEMPLATES = [
-  'fixtures/confluence-7137/expected/golden/export-root-tree-md/summary.txt.template',
-  'fixtures/confluence-7137/expected/golden/export-root-tree-md/manifest.tsv.template',
-  'fixtures/confluence-7137/expected/golden/export-root-tree-md/resolved-links.tsv.template',
-  'fixtures/confluence-7137/expected/golden/export-root-tree-md/unresolved-links.tsv.template',
-  'fixtures/confluence-7137/expected/golden/export-root-tree-md/scope-findings.tsv.template',
-  'fixtures/confluence-7137/expected/golden/export-root-tree-md/failed-pages.tsv.template'
+  'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/summary.txt.template',
+  'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/manifest.tsv.template',
+  'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/resolved-links.tsv.template',
+  'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/unresolved-links.tsv.template',
+  'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/scope-findings.tsv.template',
+  'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/failed-pages.tsv.template'
 ]
 
 function tempDir (prefix) {
@@ -71,10 +71,10 @@ function createValidSuiteRoot () {
 
   fs.mkdirSync(path.join(root, 'tests/live-bats'), { recursive: true })
   writeFile(root, 'tests/live-bats/live-regression.bats', '#!/usr/bin/env bats\n')
-  writeFile(root, 'fixtures/confluence-7137/content/manifest.json', '{"spaces":[],"pages":[],"attachments":[]}\n')
-  writeFile(root, 'fixtures/confluence-7137/expected/live-commands.json', '{"commands":[]}\n')
-  writeFile(root, 'fixtures/confluence-7137/expected/live-command-expectations.json', '{"expectations":[]}\n')
-  writeFile(root, 'fixtures/confluence-7137/comparison-rules.json', '{"rules":[]}\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/content/manifest.json', '{"spaces":[],"pages":[],"attachments":[]}\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/expected/live-commands.json', '{"commands":[]}\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/expected/live-command-expectations.json', '{"expectations":[]}\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/comparison-rules.json', '{"rules":[]}\n')
 
   for (const relativePath of REQUIRED_PAYLOADS) {
     writeFile(root, relativePath, `${relativePath}\n`)
@@ -91,7 +91,7 @@ function createValidSuiteRoot () {
   for (const relativePath of REQUIRED_OPAQUE_ATTACHMENTS) {
     writeFile(root, relativePath, Buffer.from([0x00, 0xff, 0x42]), undefined)
   }
-  writeFile(root, 'fixtures/confluence-7137/content/attachments/messy_attachment_page/empty-note.txt', '', undefined)
+  writeFile(root, 'tests/fixtures/confluence-7137/content/attachments/messy_attachment_page/empty-note.txt', '', undefined)
 
   for (const relativePath of REQUIRED_GOLDEN_TEMPLATES) {
     writeFile(root, relativePath, `${relativePath}\n`)
@@ -135,7 +135,7 @@ test('selftest support preflight fails when live regression entrypoint is missin
 
 test('selftest support preflight fails when a JSON support file is not a JSON object', () => {
   const root = createValidSuiteRoot()
-  writeFile(root, 'fixtures/confluence-7137/comparison-rules.json', '[]\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/comparison-rules.json', '[]\n')
 
   const result = validateSelftestSupportPaths(root)
 

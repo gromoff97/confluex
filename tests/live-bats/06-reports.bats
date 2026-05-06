@@ -2,7 +2,7 @@
 
 source "${BATS_TEST_DIRNAME}/helpers/live_confluex_helper.bash"
 
-EXPECTATIONS_FILE="${CONFLUEX_LIVE_EXPECTATIONS_FILE:-${BATS_TEST_DIRNAME}/../../fixtures/confluence-7137/expected/live-command-expectations.json}"
+EXPECTATIONS_FILE="${CONFLUEX_LIVE_EXPECTATIONS_FILE:-${BATS_TEST_DIRNAME}/../../tests/fixtures/confluence-7137/expected/live-command-expectations.json}"
 
 setup() {
   if [[ -z "${CONFLUEX_LIVE_IDENTITY_FILE:-}" || -z "${CONFLUEX_LIVE_CLI_HOME:-}" || -z "${CONFLUEX_LIVE_REPORT_ROOT:-}" ]]; then

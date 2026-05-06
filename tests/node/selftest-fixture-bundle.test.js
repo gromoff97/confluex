@@ -29,7 +29,7 @@ test('loadFixtureBundle loads the checked-in confluence-7137 bundle', () => {
 
 test('loadFixtureBundle rejects missing page files', () => {
   const root = tempDir('confluex-fixture-bundle-missing-page-')
-  writeFile(root, 'fixtures/confluence-7137/content/manifest.json', JSON.stringify({
+  writeFile(root, 'tests/fixtures/confluence-7137/content/manifest.json', JSON.stringify({
     spaces: [{ logical_name: 'fixture_space', key: 'CX', name: 'Confluex Fixture Space' }],
     pages: [{ logical_name: 'missing', space: 'fixture_space', title: 'Missing', body_path: 'pages/missing.storage.xml' }],
     attachments: []
@@ -40,7 +40,7 @@ test('loadFixtureBundle rejects missing page files', () => {
 
 test('loadFixtureBundle rejects dangling structural references', () => {
   const root = tempDir('confluex-fixture-bundle-dangling-')
-  writeFile(root, 'fixtures/confluence-7137/content/manifest.json', JSON.stringify({
+  writeFile(root, 'tests/fixtures/confluence-7137/content/manifest.json', JSON.stringify({
     spaces: [{ logical_name: 'fixture_space', key: 'CX', name: 'Confluex Fixture Space' }],
     pages: [{
       logical_name: 'broken',
@@ -56,8 +56,8 @@ test('loadFixtureBundle rejects dangling structural references', () => {
       media_type: 'text/plain'
     }]
   }))
-  writeFile(root, 'fixtures/confluence-7137/content/pages/broken.storage.xml', '<p>Broken</p>\n')
-  writeFile(root, 'fixtures/confluence-7137/content/attachments/missing_page/broken.txt', 'broken\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/content/pages/broken.storage.xml', '<p>Broken</p>\n')
+  writeFile(root, 'tests/fixtures/confluence-7137/content/attachments/missing_page/broken.txt', 'broken\n')
 
   assert.throws(() => loadFixtureBundle(root), /unknown fixture space|unknown fixture parent|attachment references unknown page/)
 })

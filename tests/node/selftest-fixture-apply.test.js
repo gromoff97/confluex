@@ -131,7 +131,7 @@ test('fixture apply helper creates canonical dataset and returns ordered identit
 test('fixture apply helper fails when a page dependency cannot be resolved', async () => {
   const result = await applyFixtureDataset(repoRoot, {
     bundle: {
-      contentRoot: path.join(repoRoot, 'fixtures/confluence-7137/content'),
+      contentRoot: path.join(repoRoot, 'tests/fixtures/confluence-7137/content'),
       spaces: [{
         logicalName: 'fixture_space',
         spaceKey: 'CX',
@@ -143,7 +143,7 @@ test('fixture apply helper fails when a page dependency cannot be resolved', asy
         title: 'Broken',
         parentLogicalName: null,
         bodyStoragePath: 'pages/broken_page.storage.xml',
-        bodyStorageAbsolutePath: path.join(repoRoot, 'fixtures/confluence-7137/content/pages/broken_page.storage.xml'),
+        bodyStorageAbsolutePath: path.join(repoRoot, 'tests/fixtures/confluence-7137/content/pages/broken_page.storage.xml'),
         bodyStorageTemplate: '<p>{{page_id:missing_page}}</p>',
         attachmentLogicalNames: []
       }],

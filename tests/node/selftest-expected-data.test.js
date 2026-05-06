@@ -31,15 +31,15 @@ test('expected data preparation copies governed control files and payload bytes'
   assert.equal(fs.readFileSync(path.join(reportRoot, 'expected/comparison-rules.json'), 'utf8'), '{}\n')
   assert.equal(
     fs.readFileSync(path.join(reportRoot, 'expected/live-commands.json'), 'utf8'),
-    fs.readFileSync(path.join(repoRoot, 'fixtures/confluence-7137/expected/live-commands.json'), 'utf8')
+    fs.readFileSync(path.join(repoRoot, 'tests/fixtures/confluence-7137/expected/live-commands.json'), 'utf8')
   )
   assert.equal(
     fs.readFileSync(path.join(reportRoot, 'expected/live-command-expectations.json'), 'utf8'),
-    fs.readFileSync(path.join(repoRoot, 'fixtures/confluence-7137/expected/live-command-expectations.json'), 'utf8')
+    fs.readFileSync(path.join(repoRoot, 'tests/fixtures/confluence-7137/expected/live-command-expectations.json'), 'utf8')
   )
 
   for (const sourcePath of REQUIRED_PAYLOAD_SOURCE_PATHS) {
-    const retainedPath = sourcePath.replace('fixtures/confluence-7137/expected/', '')
+    const retainedPath = sourcePath.replace('tests/fixtures/confluence-7137/expected/', '')
     assert.equal(
       fs.readFileSync(path.join(reportRoot, 'expected', retainedPath), 'utf8'),
       fs.readFileSync(path.join(repoRoot, sourcePath), 'utf8')
@@ -48,7 +48,7 @@ test('expected data preparation copies governed control files and payload bytes'
 
   assert.equal(
     fs.readFileSync(path.join(reportRoot, 'expected/golden/export-root-tree-md/summary.txt.template'), 'utf8'),
-    fs.readFileSync(path.join(repoRoot, 'fixtures/confluence-7137/expected/golden/export-root-tree-md/summary.txt.template'), 'utf8')
+    fs.readFileSync(path.join(repoRoot, 'tests/fixtures/confluence-7137/expected/golden/export-root-tree-md/summary.txt.template'), 'utf8')
   )
 })
 

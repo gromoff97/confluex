@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const repoRoot = path.resolve(__dirname, '../..')
-const contentRoot = path.join(repoRoot, 'fixtures/confluence-7137/content')
+const contentRoot = path.join(repoRoot, 'tests/fixtures/confluence-7137/content')
 const richPageLogicalNames = [
   'root_page',
   'child_page',
@@ -70,7 +70,7 @@ test('canonical fixture bundle uses manifest plus storage XML pages and real att
   assert.equal(Array.isArray(inventory.macro_classes), true)
   assert.equal(typeof inventory.page_targets === 'object' && inventory.page_targets !== null, true)
 
-  const readabilityPath = path.join(repoRoot, 'fixtures/confluence-7137/expected/readability-risk.json')
+  const readabilityPath = path.join(repoRoot, 'tests/fixtures/confluence-7137/expected/readability-risk.json')
   assert.equal(fs.existsSync(readabilityPath), true, 'readability risk audit file must exist')
 
   const readability = JSON.parse(fs.readFileSync(readabilityPath, 'utf8'))
