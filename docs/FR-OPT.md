@@ -381,37 +381,30 @@ default encryption recipient.
 - Observable evidence: configuration state after clear
 
 ### FR-0033
-**Requirement**: `--install-dir <dir>` shall select the target installation
-directory.
+**Requirement**: `--install-dir <dir>` shall not be a supported Confluex CLI
+option.
 
 **Applicability**:
-- accepted non-help invocations that include `--install-dir <dir>`
+- non-help invocations that include `--install-dir <dir>`
 
 **Rationale**:
-- Operators need deterministic control over the installation target.
+- Package installation targets are selected by npm, not by a Confluex
+  subcommand.
 
 **Acceptance Criteria**:
-1. `install --install-dir <dir>` uses the path-normalized absolute path produced
-   from the operator-supplied path source under `FR-0158` and normalized under
-   `FR-0159` for `<dir>` as the installation target instead of the default
-   target location.
-2. `uninstall --install-dir <dir>` uses the path-normalized absolute path
-   produced from the operator-supplied path source under `FR-0158` and
-   normalized under `FR-0159` for `<dir>` as the removal target instead of the
-   default target location.
-3. Lifecycle validation for `install` or `uninstall` uses that normalized target
-   path for filesystem checks and target-path comparisons.
-4. Command support and rejection behavior for `--install-dir <dir>` are
-   governed by `FR-0036`.
+1. No command lists `--install-dir <dir>` in its supported option set under
+   `FR-0036`.
+2. Any non-help invocation containing `--install-dir` is rejected as an
+   unsupported option before command work begins.
+3. npm installation, update, and uninstall target selection is outside the
+   Confluex CLI option surface.
 
 **Dependencies**:
 - `FR-0036`
-- `FR-0158`
-- `FR-0159`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: target installation path, lifecycle result lines
+- Observable evidence: unsupported-option rejection
 
 ### FR-0034
 **Requirement**: The run-stop limit options shall bound accepted export or plan
@@ -596,28 +589,25 @@ candidate inspection.
 **Acceptance Criteria**:
 1. `export` supports only `--page-id`, `--out`, `--safe`, `--critical`,
    `--encrypt`, `--confidential`, `--resume`, `--no-fail-fast`,
-   `--keep-metadata`, `--page-format`, `--log-file`, `--encryption-key`, `--max-pages`,
+   `--keep-metadata`, `--zip`, `--env-file`, `--log-file`, `--encryption-key`, `--max-pages`,
    `--max-download-mib`, `--sleep-ms`, `--max-find-candidates`, and
    `--link-depth`.
 2. `plan` supports only `--page-id`, `--out`, `--safe`, `--critical`,
    `--encrypt`, `--confidential`, `--no-fail-fast`, `--keep-metadata`,
-   `--log-file`, `--encryption-key`, `--max-pages`, `--max-download-mib`,
+   `--env-file`, `--log-file`, `--encryption-key`, `--max-pages`, `--max-download-mib`,
    `--sleep-ms`, `--max-find-candidates`, and `--link-depth`.
 3. `doctor` supports only `--page-id`, `--verify-encryption`,
-   `--encryption-key`, and `--log-file`.
+   `--env-file`, `--encryption-key`, and `--log-file`.
 4. `config` supports only `--encryption-key` and `--clear-encryption-key`.
-5. `install` supports only `--install-dir`.
-6. `uninstall` supports only `--install-dir`.
-7. `selftest` supports only `--url`, `--login`, and `--password`.
+5. `selftest` supports only `--url`, `--token`, and `--env-file`.
 8. The supported options that take values use exactly these value placeholders in
    help output: `--page-id` uses `<id>`, `--out` uses `<path>`,
-   `--page-format` uses `<format>`, `--log-file` uses `<file>`,
+   `--env-file` uses `<file>`, `--log-file` uses `<file>`,
    `--encryption-key` uses `<value>`, `--max-pages` uses `<n>`,
    `--max-download-mib` uses `<n>`, `--sleep-ms` uses `<n>`,
    `--max-find-candidates` uses `<n>`, `--link-depth` uses `<n>`,
-   `--install-dir` uses `<dir>`, `--url` uses `<base-url>`, `--login` uses
-   `<username>`, and `--password` uses `<password>`.
-9. Every supported option in criteria 1 through 7 that is not listed in
+   `--url` uses `<base-url>`, and `--token` uses `<token>`.
+9. Every supported option in criteria 1 through 5 that is not listed in
    criterion 8 is a flag option and has no value placeholder in help output.
 10. No command accepts positional operands after the command token other than
    values consumed by the valued options in criterion 8.
@@ -667,37 +657,69 @@ deterministic precedence order.
   rejection or acceptance of encrypted runs
 
 ### FR-0121
-**Requirement**: `--page-format <format>` shall select the materialized page
-payload format for `export`.
+**Requirement**: Markdown shall be the only materialized page payload format
+for `export`.
 
 **Applicability**:
-- `export --page-format <format>`
+- accepted `export` invocations
 
 **Rationale**:
-- Operators need explicit control over the persisted page payload format.
+- Operators need one stable payload contract, and removed HTML export behavior
+  must not survive as an alias or fallback.
 
 **Acceptance Criteria**:
-1. `--page-format <format>` selects the page payload format for materialized
-   page content in `export`.
-2. Without `--page-format`, the effective page payload format is Markdown
-   (`md`).
-3. `--page-format md` selects the Markdown page representation and the
-   `page.md` payload file required by `FR-0074`.
-4. `--page-format html` selects the HTML page representation and the
-   `page.html` payload file required by `FR-0074`.
-5. This card governs only page payload format selection; page payload
-   acquisition, normalization, persistence, and page-local payload failure
-   behavior are governed by `FR-0074`.
-6. Any command other than `export` used with `--page-format` is rejected.
+1. The effective page payload format for every accepted `export` invocation is
+   Markdown (`md`).
+2. The persisted page payload file for successful page materialization is
+   `page.md` as governed by `FR-0074` and `FR-0080`.
+3. No accepted invocation selects HTML as a page payload format.
+4. `--page-format`, `--page-format md`, and `--page-format html` are not
+   supported option forms for any command and are rejected under `FR-0122`.
+5. This card governs only payload-format selection; page payload acquisition,
+   normalization, persistence, and page-local payload failure behavior are
+   governed by `FR-0074`.
 
 **Dependencies**:
 - `FR-0012`
 - `FR-0074`
+- `FR-0080`
+- `FR-0122`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: accepted format selection, default format behavior,
   rejection
+
+### FR-0220
+**Requirement**: `--zip` shall request a retained ZIP archive for `export`.
+
+**Applicability**:
+- accepted `export --zip` invocations
+
+**Rationale**:
+- Operators need a portable retained artifact without losing the plain output
+  root by default.
+
+**Acceptance Criteria**:
+1. If `--zip` is supplied on `export`, the run creates a ZIP archive after the
+   plain output root has reached its final retained content.
+2. If `--zip` is omitted, no ZIP archive is created by this option.
+3. `--zip` is a flag option and consumes no following argv token as a value.
+4. Any command other than `export` used with `--zip` is rejected.
+5. When `--zip` and `--encrypt` are both supplied, encryption finalization under
+   `FR-0107` runs before ZIP packaging; the ZIP archive contains only the
+   retained plain output root if that root remains authoritative after
+   encryption finalization.
+
+**Dependencies**:
+- `FR-0036`
+- `FR-0107`
+- `FR-0221`
+
+**Traceability**:
+- Area: option semantics
+- Observable evidence: ZIP archive presence, unsupported command rejection,
+  final artifact reporting
 
 ### FR-0218
 **Requirement**: `--link-depth <n>` shall select the effective link-depth for

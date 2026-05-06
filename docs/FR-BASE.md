@@ -127,12 +127,7 @@ shared path cards.
 **Applicability**:
 - `--out <path>`
 - `--log-file <file>`
-- `--install-dir <dir>`
 - generated output-root candidate paths selected by owning run-lifecycle cards
-- `$HOME` and `%USERPROFILE%` environment-value sources used by owning
-  lifecycle cards to select default installation and uninstallation targets
-- derived default installation and uninstallation target candidate paths
-  constructed by owning lifecycle cards from those environment-value sources
 - current-working-directory sources used by relative-path normalization and
   generated root selection under this card
 - generated report-root candidate paths selected by owning observability cards,
@@ -238,7 +233,7 @@ shared self-location acquisition rule.
 3. The currently executing Confluex runtime root is the lexical parent
    directory of the absolute runtime-entrypoint path from criterion 2 only when
    that parent directory contains direct descendant paths named
-   `lib/confluex-node`, `fixtures/confluence-7137`, and `tests/live-bats`, and
+   `lib/confluex-node`, `tests/fixtures/confluence-7137`, and `tests/selftest`, and
    each such direct descendant path exists as a directory under non-following
    filesystem metadata.
 4. If criteria 1 through 3 cannot identify one absolute runtime root path for
@@ -267,37 +262,25 @@ shared self-location acquisition rule.
   `FR-0159`
 - generated output-root candidate paths normalized under `FR-0159`
 - generated self-test report-root candidate paths normalized under `FR-0159`
-- runtime-root source strings consumed by installation and self-test cards
+- runtime-root source strings consumed by self-test cards
 
 **Rationale**:
 - Shared lexical path semantics need one authoritative home, but each consuming
   workflow still needs its own authoritative rejection or runtime-failure route.
 
 **Acceptance Criteria**:
-1. For operator-supplied `--out` under `FR-0021`, operator-supplied
-   `--log-file` under `FR-0029`, and operator-supplied `--install-dir` under
-   `FR-0033`, any path-normalization failure under `FR-0159` rejects the
-   invocation under `FR-0019`.
+1. For operator-supplied `--out` under `FR-0021` and operator-supplied
+   `--log-file` under `FR-0029`, any path-normalization failure under
+   `FR-0159` rejects the invocation under `FR-0019`.
 2. Generated output-root selection under `FR-0055` uses the generated
    output-root candidate path and current-working-directory source as
    path-normalization inputs.
 3. Self-test report-root selection under `FR-0173` uses the generated
    self-test report-root candidate path and current-working-directory source as
    path-normalization inputs, with accepted failure routing under `FR-0174`.
-4. Default installation-target resolution under `FR-0166` uses the default
-   installation-target candidate path, any required environment-value source,
-   and the runtime-root source string defined by `FR-0152` as
-   path-normalization inputs; inherited unsupported-platform rejection,
-   runtime-root-source normalization failure, and runtime-root overlap routing
-   remain governed by `FR-0166`.
-5. Self-test suite-root selection under `FR-0138` uses the runtime-root source
+4. Self-test suite-root selection under `FR-0138` uses the runtime-root source
    string defined by `FR-0152` as its path-normalization input, with the
    accepted pre-status runtime-failure branch governed by `FR-0174`.
-6. Default uninstall-target resolution under `FR-0170` uses the default
-   uninstall-target candidate path and the runtime-root source string defined by
-   `FR-0152` as path-normalization inputs; inherited unsupported-platform
-   rejection, runtime-root-source normalization failure, and runtime-root
-   overlap routing remain governed by `FR-0170`.
 
 **Dependencies**:
 - `FR-0019`
@@ -309,8 +292,6 @@ shared self-location acquisition rule.
 - `FR-0152`
 - `FR-0158`
 - `FR-0159`
-- `FR-0166`
-- `FR-0170`
 - `FR-0173`
 - `FR-0174`
 
@@ -318,9 +299,7 @@ shared self-location acquisition rule.
 - Area: shared primitives
 - Observable evidence: `FR-0019` rejected-invocation stderr and side-effect
   behavior for operator-supplied path sources, `FR-0055` generated-output-root
-  rejection, `FR-0174` self-test report-root failure, `FR-0166` install
-  rejection and runtime-failure routing, and `FR-0170` uninstall pre-removal
-  rejection
+  rejection, and `FR-0174` self-test report-root failure
 
 ### FR-0154
 **Requirement**: Filesystem metadata evaluations described as non-following

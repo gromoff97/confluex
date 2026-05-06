@@ -92,7 +92,7 @@
    payload files in the final retained result.
 3. `plan` attachment-preview acquisition and the prohibition on downloaded
    attachment payload files are governed by `FR-0073`.
-4. `plan` page-folder retention and the absence of `page.md`, `page.html`, and
+4. `plan` page-folder retention and the absence of `page.md` and
    downloaded attachment payload files in retained plan page folders are
    governed by `FR-0081`.
 5. `plan` produces the run-level report set.
@@ -398,13 +398,13 @@ fixture and live-regression phases.
   7.13.7 stand selected explicitly by the current invocation.
 
 **Acceptance Criteria**:
-1. The target base URL, username, and password are exactly the effective
-   `--url`, `--login`, and `--password` values accepted under `FR-0131`.
+1. The target base URL and token are exactly the effective `--url` and
+   `--token` values accepted under `FR-0131`.
 2. `selftest` does not read environment variables, saved configuration, Docker
    labels, Docker container names, or hardcoded defaults to derive the target
-   base URL, username, password, or stand identity.
-3. Before fixture preparation begins, `selftest` performs exactly one HTTP Basic
-   authenticated `GET` request to the governed Confluence request target
+   base URL, token, or stand identity.
+3. Before fixture preparation begins, `selftest` performs exactly one Bearer
+   token authenticated `GET` request to the governed Confluence request target
    `/rest/api/space?limit=1` using the target values from criterion 1.
 4. The effective request URL for criterion 3 is formed from the target base URL
    and request target using the base-URL path-prefix rules from `FR-0216`.
@@ -487,19 +487,19 @@ expected-data-preparation phases have each reached `passed`.
 2. Before `bootstrap_status` is determined and before any target access,
    fixture, expected-data, or live regression work begins, `selftest` evaluates with
    non-following filesystem metadata these suite-root-relative support paths:
-   `tests/live-bats`,
-   `tests/live-bats/live-regression.bats`,
-   `fixtures/confluence-7137/content/manifest.json`,
-   `fixtures/confluence-7137/expected/live-commands.json`,
-   `fixtures/confluence-7137/expected/live-command-expectations.json`, and
-   `fixtures/confluence-7137/comparison-rules.json`, together with every
+   `tests/selftest`,
+   `tests/selftest/live-regression.js`,
+   `tests/fixtures/confluence-7137/content/manifest.json`,
+   `tests/fixtures/confluence-7137/expected/live-commands.json`,
+   `tests/fixtures/confluence-7137/expected/live-command-expectations.json`,
+   and `tests/fixtures/confluence-7137/comparison-rules.json`, together with every
    suite-root-relative source payload file required by `FR-0179`.
-   `tests/live-bats` must exist as a directory,
-   `tests/live-bats/live-regression.bats` must exist as a regular file,
-   `fixtures/confluence-7137/content/manifest.json`,
-   `fixtures/confluence-7137/expected/live-commands.json`,
-   `fixtures/confluence-7137/expected/live-command-expectations.json`, and
-   `fixtures/confluence-7137/comparison-rules.json` must each exist as a
+   `tests/selftest` must exist as a directory,
+   `tests/selftest/live-regression.js` must exist as a regular file,
+   `tests/fixtures/confluence-7137/content/manifest.json`,
+   `tests/fixtures/confluence-7137/expected/live-commands.json`,
+   `tests/fixtures/confluence-7137/expected/live-command-expectations.json`,
+   and `tests/fixtures/confluence-7137/comparison-rules.json` must each exist as a
    regular file and decode as a UTF-8 JSON object, and each suite-root-relative
    source payload file required by `FR-0179` must exist as a regular file and
    decode as non-empty UTF-8 text.
@@ -510,62 +510,62 @@ expected-data-preparation phases have each reached `passed`.
 4. If `bootstrap_status=passed`, `fixture_apply_status=passed`, and
    `prepare_expected_data_status=passed`, `selftest` selects exactly
    one suite-root-relative live regression entrypoint file,
-   `tests/live-bats/live-regression.bats`, and executes it exactly once
+   `tests/selftest/live-regression.js`, and executes it exactly once
    against the prepared explicit Confluence target. If
    evaluating that file's metadata fails, if the file is not a regular file,
    or if the suite-root-relative path does not satisfy `FR-0150`, the live
-   regression phase fails before starting Bats.
+   regression phase fails before starting the entrypoint.
 5. If `bootstrap_status`, `fixture_apply_status`, or
    `prepare_expected_data_status` is not `passed`, live regression suite
-   selection and execution are not attempted and `live-bats.tap` exists and is
+   selection and execution are not attempted and `live-regression.tap` exists and is
    empty.
 6. If criterion 4 metadata evaluation, regular-file validation, or `FR-0150`
-   path validation fails before Bats starts, live regression suite selection is
-   attempted but live regression execution is not attempted and `live-bats.tap`
+   path validation fails before the entrypoint starts, live regression suite selection is
+   attempted but live regression execution is not attempted and `live-regression.tap`
    exists and is empty.
-7. When live regression execution is attempted, `live-bats.tap` begins with
+7. When live regression execution is attempted, `live-regression.tap` begins with
    exactly one TAP comment line:
-   `# live-bats-file tests/live-bats/live-regression.bats`.
-8. `tests/live-bats/live-regression.bats` is the selected live regression file
+   `# live-regression-file tests/selftest/live-regression.js`.
+8. `tests/selftest/live-regression.js` is the selected live regression file
    relative to the self-test suite root from criterion 1 and is serialized as a
    governed relative path under `FR-0150`.
-9. `live-bats.tap` is UTF-8 text and, when non-empty, uses LF line endings.
-10. Content after the required file-selection TAP comment prefix is captured Bats
+9. `live-regression.tap` is UTF-8 text and, when non-empty, uses LF line endings.
+10. Content after the required file-selection TAP comment prefix is captured
+   selftest case
    TAP output and is not governed by this requirements corpus except for being
-   retained in `live-bats.tap`.
+   retained in `live-regression.tap`.
 11. The live regression phase succeeds only when the selected file from
-    criterion 4 is attempted exactly once, Bats starts successfully, Bats exits
-    with process status `0`, `live-bats.tap` is retained according to
+    criterion 4 is attempted exactly once, the entrypoint starts successfully,
+    the entrypoint exits with process status `0`, `live-regression.tap` is retained according to
     criteria 7 through 10, and each retained case-specific comparison performed
     by the selected suite is checked only against the case-specific
     expected-data artifacts prepared under `FR-0144` and governed by
     `FR-0178`, `FR-0179`, `FR-0208`, and `FR-0209`. This card governs only that
-    selected case-specific comparison contour together with `live-bats.tap`
+    selected case-specific comparison contour together with `live-regression.tap`
     retention. No other retained artifact or lifecycle stdout or stderr output
     participates in the governed live-regression comparison.
 12. The live regression phase fails if criterion 4 metadata evaluation or path
-    validation fails, if Bats cannot be started, if Bats exits with any non-zero
-    process status, if Bats is terminated by a signal, if the selected file is
+    validation fails, if the entrypoint cannot be started, if it exits with any
+    non-zero process status, if it is terminated by a signal, if the selected file is
     not attempted exactly once, if any retained case-specific comparison
     performed by the selected suite is checked against any artifact other than
     the case-specific expected-data artifacts prepared under `FR-0144` and
     governed by `FR-0178`, `FR-0179`, `FR-0208`, and `FR-0209`, or if
-    `live-bats.tap` cannot be retained according to criteria 7 through 10.
+    `live-regression.tap` cannot be retained according to criteria 7 through 10.
 13. The self-test harness imposes no live-regression timeout separate from the
-    Bats process; live-regression failure or termination is determined only by
-    criteria 11 and 12 and by actual external signal interruption of the Bats
-    process itself.
-14. Live regression execution starts exactly one Bats process with no shell
+    entrypoint process; live-regression failure or termination is determined
+    only by criteria 11 and 12 and by actual external signal interruption of the
+    entrypoint process itself.
+14. Live regression execution starts exactly one Node.js process with no shell
     interpolation, working directory equal to the self-test suite root from
     criterion 1, and argv vector
-    `["bats", "--tap", "tests/live-bats/live-regression.bats"]`.
-15. The Bats child process environment inherits the `selftest` process
-    environment except that these variables are set or replaced for the current
-    self-test invocation before Bats starts:
+    `["node", "tests/selftest/live-regression.js"]`.
+15. The live-regression child process environment inherits the `selftest` process
+   environment except that these variables are set or replaced for the current
+   self-test invocation before the entrypoint starts:
    `CONFLUEX_SELFTEST_SUITE_ROOT`, `CONFLUEX_SELFTEST_REPORT_ROOT`,
    `CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL`,
-   `CONFLUEX_SELFTEST_CONFLUENCE_USERNAME`, and
-   `CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD`.
+   and `CONFLUEX_SELFTEST_CONFLUENCE_TOKEN`.
 16. `CONFLUEX_SELFTEST_SUITE_ROOT` is exactly the absolute self-test suite-root
     path from criterion 1, serialized without surrounding quotes or escaping.
 17. `CONFLUEX_SELFTEST_REPORT_ROOT` is exactly the absolute selected self-test
@@ -573,37 +573,35 @@ expected-data-preparation phases have each reached `passed`.
     serialized without surrounding quotes or escaping.
 18. `CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL` is exactly the target base URL from
     `FR-0132`.
-19. `CONFLUEX_SELFTEST_CONFLUENCE_USERNAME` is exactly the target username from
+19. `CONFLUEX_SELFTEST_CONFLUENCE_TOKEN` is exactly the target token from
     `FR-0132`.
-20. `CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD` is exactly the target password from
-    `FR-0132`.
-21. Each environment value from criteria 16 through 20 is non-empty.
-22. Live regression commands executed by the harness perform only read
+20. Each environment value from criteria 16 through 19 is non-empty.
+21. Live regression commands executed by the harness perform only read
     operations against pages and attachments in the prepared explicit Confluence
     target and must not create, update, move, or delete Confluence
     spaces, pages, links, comments, labels, or attachments.
-23. If any environment value required by criteria 15 through 21 is unavailable
-    before Bats starts, the live regression phase fails before starting Bats.
-24. Each `confluex` `export` or `plan` process launched by the live-regression
-    harness passes the exact environment values from criteria 18 through 20
+22. If any environment value required by criteria 15 through 20 is unavailable
+    before the entrypoint starts, the live regression phase fails before starting
+    the entrypoint.
+23. Each `confluex` `export` or `plan` process launched by the live-regression
+    harness passes the exact environment values from criteria 18 and 19
     unchanged as `CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL`,
-    `CONFLUEX_SELFTEST_CONFLUENCE_USERNAME`, and
-    `CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD` in that child process environment
+    and `CONFLUEX_SELFTEST_CONFLUENCE_TOKEN` in that child process environment
     so that the selftest-harness access branch from `FR-0216` governs those
     invocations.
-25. After the Bats process from criterion 14 exits or fails after criterion 14
+24. After the child process from criterion 14 exits or fails after criterion 14
     starts, `selftest` performs one post-live-regression fixture-invariant
     check sequence using only read operations against the prepared explicit
     Confluence target.
-26. The criterion-25 check sequence attempts the fixture-invariant readback at
+25. The criterion-24 check sequence attempts the fixture-invariant readback at
     most 10 times, stops immediately after the first attempt that returns
     `passed`, and waits exactly 1000 milliseconds between attempts that return
     `failed`.
-27. The criterion-25 check sequence succeeds only when at least one attempted
+26. The criterion-24 check sequence succeeds only when at least one attempted
     readback returns `passed` and the prepared fixture dataset in that explicit
     Confluence target still satisfies the canonical regression-graph obligations
     from `FR-0143`, `FR-0205`, `FR-0206`, and `FR-0207`.
-28. If the criterion-25 check sequence is not attempted, cannot complete, or all
+27. If the criterion-24 check sequence is not attempted, cannot complete, or all
     attempts fail, the live regression phase fails.
 
 **Dependencies**:
@@ -736,7 +734,7 @@ fixture identity file for the canonical regression graph.
    `confluence-7137` fixture dataset in the explicit Confluence target governed
    by `FR-0132` from the preflight-validated
    suite-root-relative fixture bundle rooted at
-   `fixtures/confluence-7137/content/manifest.json` governed by `FR-0138`
+   `tests/fixtures/confluence-7137/content/manifest.json` governed by `FR-0138`
    before executing the governed live regression suite under `FR-0138`. If
    fixture application from that preflight-validated fixture bundle does not
    determine the canonical page identifiers required for every
@@ -771,7 +769,7 @@ regression graph.
 **Rationale**:
 - Live regression tests need one requirements-owned read-only data graph that
   covers tree traversal, link traversal, duplicate titles, cross-space links,
-  unsupported patterns, download limits, Markdown export, HTML export, and
+  unsupported patterns, download limits, Markdown export, ZIP packaging, and
   attachments.
 
 **Acceptance Criteria**:
@@ -1073,9 +1071,9 @@ expected-data preparation.
 **Acceptance Criteria**:
 1. Expected-data preparation uses these preflight-validated source files
    relative to the self-test suite root governed by `FR-0138`:
-   `fixtures/confluence-7137/expected/live-commands.json`,
-   `fixtures/confluence-7137/expected/live-command-expectations.json`, and
-   `fixtures/confluence-7137/comparison-rules.json`.
+   `tests/fixtures/confluence-7137/expected/live-commands.json`,
+   `tests/fixtures/confluence-7137/expected/live-command-expectations.json`,
+   and `tests/fixtures/confluence-7137/comparison-rules.json`.
 2. The retained self-test report root contains byte-for-byte copies of the
    source files from criterion 1 at `expected/live-commands.json`,
    `expected/live-command-expectations.json`, and
@@ -1167,11 +1165,11 @@ classes.
 1. `live-commands.json` contains exactly two top-level keys in this order:
    `suite_entrypoint` and `cases`.
 2. `suite_entrypoint` is exactly the governed relative path
-   `tests/live-bats/live-regression.bats`.
+   `tests/selftest/live-regression.js`.
 3. `cases` is a closed array of exactly these eight selected case objects in
    this exact order:
    `plan-root-page`, `plan-scope-noise-root`, `plan-ambiguous-root`,
-   `export-root-page-md`, `export-root-page-html`,
+   `export-root-page-md`, `export-root-page-zip`,
    `export-markdown-page-md`, `export-linked-scope-root-md`, and
    `export-download-limit-root-md`. Case membership and case order are
    authoritative only in this criterion; `FR-0208` and `FR-0209` define
@@ -1208,25 +1206,25 @@ classes.
    `argv=["plan","--page-id","<page-id:ambiguous_root_page>","--out","<report-root-subdir:plan/plan-ambiguous-root>"]`,
    `artifact_bucket=plan`;
    `export-root-page-md` -> `command=export`,
-   `argv=["export","--page-id","<page-id:root_page>","--page-format","md","--out","<report-root-subdir:export/export-root-page-md>"]`,
+   `argv=["export","--page-id","<page-id:root_page>","--out","<report-root-subdir:export/export-root-page-md>"]`,
    `artifact_bucket=export`;
-   `export-root-page-html` -> `command=export`,
-   `argv=["export","--page-id","<page-id:root_page>","--page-format","html","--out","<report-root-subdir:export/export-root-page-html>"]`,
+   `export-root-page-zip` -> `command=export`,
+   `argv=["export","--page-id","<page-id:root_page>","--zip","--out","<report-root-subdir:export/export-root-page-zip>"]`,
    `artifact_bucket=export`;
    `export-markdown-page-md` -> `command=export`,
-   `argv=["export","--page-id","<page-id:markdown_page>","--page-format","md","--out","<report-root-subdir:export/export-markdown-page-md>"]`,
+   `argv=["export","--page-id","<page-id:markdown_page>","--out","<report-root-subdir:export/export-markdown-page-md>"]`,
    `artifact_bucket=export`;
    `export-linked-scope-root-md` -> `command=export`,
-   `argv=["export","--page-id","<page-id:linked_scope_root>","--page-format","md","--out","<report-root-subdir:export/export-linked-scope-root-md>"]`,
+   `argv=["export","--page-id","<page-id:linked_scope_root>","--out","<report-root-subdir:export/export-linked-scope-root-md>"]`,
    `artifact_bucket=export`; and
    `export-download-limit-root-md` -> `command=export`,
-   `argv=["export","--page-id","<page-id:download_limit_root_page>","--page-format","md","--max-download-mib","1","--out","<report-root-subdir:export/export-download-limit-root-md>"]`,
+   `argv=["export","--page-id","<page-id:download_limit_root_page>","--max-download-mib","1","--out","<report-root-subdir:export/export-download-limit-root-md>"]`,
    `artifact_bucket=export`.
 7. `live-command-expectations.json` contains exactly one top-level key,
    `cases`.
 8. The `cases` object from criterion 7 contains exactly these eight member
    names in this exact order: `plan-root-page`, `plan-scope-noise-root`,
-   `plan-ambiguous-root`, `export-root-page-md`, `export-root-page-html`,
+   `plan-ambiguous-root`, `export-root-page-md`, `export-root-page-zip`,
    `export-markdown-page-md`, `export-linked-scope-root-md`, and
    `export-download-limit-root-md`.
 9. Each case-expectation object in `live-command-expectations.json` contains
@@ -1329,8 +1327,7 @@ classes.
     governed relative path under `FR-0150` to that page's retained payload
     file. For each object,
     `relative_path` equals that case's retained `manifest.tsv` `folder` value
-    for `page` joined with `page.md` or `page.html` according to that case's
-    `expected_page_payload_format`. The array denotes the complete expected set
+    for `page` joined with `page.md`. The array denotes the complete expected set
     of retained payload files whose bytes must match the expected payload
     artifacts governed by `FR-0179` for that case. Across all governed cases in
     this corpus, criterion 6 case argv never includes `--keep-metadata`;
@@ -1540,9 +1537,9 @@ export-case expectation matrix.
 
 **Acceptance Criteria**:
 1. The governed export-case expectation matrix is the UTF-8 JSON object stored
-   at `fixtures/confluence-7137/expected/live-command-expectations.json`. That
+   at `tests/fixtures/confluence-7137/expected/live-command-expectations.json`. That
    object contains exactly the top-level keys `doctor`, `plan`, `export`, and
-   `export_html`, in that order, and no other top-level key.
+   `export_zip`, in that order, and no other top-level key.
 2. The `doctor` object uses exactly the keys `page_access`,
    `encryption_recipient`, `support_profile`, and `supported_link_forms`, with
    exactly these values: `page_access=ok`,
@@ -1572,20 +1569,19 @@ export-case expectation matrix.
    and `line_count=21`. `export.payload_files` is exactly
    `{"root_page":"page.md","child_page":"page.md","grandchild_page":"page.md","linked_page":"page.md","cross_space_page":"page.md"}`.
    `export.attachment_files` is exactly `{"root_page":"root-note.txt"}`.
-5. The `export_html` object uses exactly the keys `summary`, `manifest`,
-   `payload_files`, `forbidden_payload_files`, and `attachment_files`.
-   `export_html.summary` uses exactly
+5. The `export_zip` object uses exactly the keys `summary`, `manifest`,
+   `payload_files`, `zip_archive`, and `attachment_files`.
+   `export_zip.summary` uses exactly
    `final_status=success_with_findings`, `scope_trust=degraded`,
-   `page_payload_format=html`, `processed_pages=20`, `root_pages=1`,
+   `page_payload_format=md`, `processed_pages=20`, `root_pages=1`,
    `tree_pages=14`, `linked_pages=5`, `other_pages=0`, `resolved_links=115`,
    `unresolved_links=39`, `scope_findings=0`, and `failed_operations=0`.
-   `export_html.manifest` uses exactly
+   `export_zip.manifest` uses exactly
    `header=page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count`
-   and `line_count=21`. `export_html.payload_files` is exactly
-   `{"root_page":"page.html","child_page":"page.html","grandchild_page":"page.html","linked_page":"page.html","cross_space_page":"page.html"}`.
-   `export_html.forbidden_payload_files` is exactly
+   and `line_count=21`. `export_zip.payload_files` is exactly
    `{"root_page":"page.md","child_page":"page.md","grandchild_page":"page.md","linked_page":"page.md","cross_space_page":"page.md"}`.
-   `export_html.attachment_files` is exactly
+   `export_zip.zip_archive` is exactly `present`.
+   `export_zip.attachment_files` is exactly
    `{"root_page":"root-note.txt"}`.
 
 **Dependencies**:
@@ -1626,58 +1622,46 @@ the canonical payload bytes for the live-regression oracle pages.
 
 **Rationale**:
 - Live regression assertions need stable payload-byte comparisons for the pages
-  that are actually checked in markdown and HTML modes.
+  that are actually checked in Markdown mode.
 
 **Acceptance Criteria**:
-1. Expected page-payload byte artifacts are prepared only for the logical
-   page-and-format combinations whose suite-root-relative source payload paths
+1. Expected page-payload byte artifacts are prepared only for the logical pages
+   whose suite-root-relative source payload paths
    and retained expected payload paths are enumerated in criterion 2. For each
-   enumerated combination, expected-data preparation copies the corresponding
+   enumerated page, expected-data preparation copies the corresponding
    source payload file byte-for-byte to the retained expected payload path.
    This preparation does not invoke the Confluex CLI and does not read any
    payload artifact previously produced by the product.
 2. Expected page-payload byte artifacts use exactly these source-to-retained
    path mappings:
-   `fixtures/confluence-7137/expected/payloads/md/root_page.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/root_page.page.md` ->
    `expected/payloads/md/root_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/child_page.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/child_page.page.md` ->
    `expected/payloads/md/child_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/grandchild_page.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/grandchild_page.page.md` ->
    `expected/payloads/md/grandchild_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/linked_page.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/linked_page.page.md` ->
    `expected/payloads/md/linked_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/linked_scope_linked_page.page.md`
+   `tests/fixtures/confluence-7137/expected/payloads/md/linked_scope_linked_page.page.md`
    -> `expected/payloads/md/linked_scope_linked_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/linked_scope_root.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/linked_scope_root.page.md` ->
    `expected/payloads/md/linked_scope_root.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/cross_space_page.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/cross_space_page.page.md` ->
    `expected/payloads/md/cross_space_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/markdown_page.page.md` ->
+   `tests/fixtures/confluence-7137/expected/payloads/md/markdown_page.page.md` ->
    `expected/payloads/md/markdown_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/md/download_limit_root_page.page.md`
-   -> `expected/payloads/md/download_limit_root_page.page.md`,
-   `fixtures/confluence-7137/expected/payloads/html/root_page.page.html` ->
-   `expected/payloads/html/root_page.page.html`,
-   `fixtures/confluence-7137/expected/payloads/html/child_page.page.html` ->
-   `expected/payloads/html/child_page.page.html`,
-   `fixtures/confluence-7137/expected/payloads/html/grandchild_page.page.html`
-   -> `expected/payloads/html/grandchild_page.page.html`,
-   `fixtures/confluence-7137/expected/payloads/html/linked_page.page.html` ->
-   `expected/payloads/html/linked_page.page.html`, and
-   `fixtures/confluence-7137/expected/payloads/html/cross_space_page.page.html`
-   -> `expected/payloads/html/cross_space_page.page.html`. No expected payload
-   artifact is retained for any other logical page or payload-format
-   combination from `FR-0176`, because only the combinations listed above are
-   subject to direct payload-byte comparison by the governed live-regression
-   cases.
+   `tests/fixtures/confluence-7137/expected/payloads/md/download_limit_root_page.page.md`
+   -> `expected/payloads/md/download_limit_root_page.page.md`. No expected
+   payload artifact is retained for any other logical page from `FR-0176`,
+   because only the pages listed above are subject to direct payload-byte
+   comparison by the governed live-regression cases.
 3. Each source payload file named in criterion 2 and each retained expected
    page-payload byte artifact from criterion 2 is non-empty UTF-8 text.
 4. When expected-data preparation passes, the `expected/payloads/` directory
-   contains exactly `md/` and `html/`.
+   contains exactly `md/`.
 5. When expected-data preparation passes, `expected/payloads/md/` contains
    exactly the `.page.md` files listed under `expected/payloads/md/` in
-   criterion 2, and `expected/payloads/html/` contains exactly the
-   `.page.html` files listed under `expected/payloads/html/` in criterion 2.
+   criterion 2.
 6. No recursive entry exists under `expected/` other than
    `expected/live-commands.json`,
    `expected/live-command-expectations.json`,

@@ -344,7 +344,8 @@ one bounded observable contract.
 
 ### FR-0119
 **Requirement**: `summary.txt` shall use stable value contracts for command,
-support-profile, payload-format, output-root, page-id, and encryption fields.
+support-profile, payload-format, output-root, ZIP path, page-id, and encryption
+fields.
 
 **Applicability**:
 - report sets whose `summary.txt` schema is governed by `FR-0090`
@@ -356,8 +357,7 @@ support-profile, payload-format, output-root, page-id, and encryption fields.
 **Acceptance Criteria**:
 1. `command` uses only `export` or `plan`.
 2. `support_profile` uses only `default`.
-3. If `command=export`, `page_payload_format` uses only `md` or `html` and
-   reports the effective page payload format for that run.
+3. If `command=export`, `page_payload_format` is exactly `md`.
 4. If `command=plan`, `page_payload_format` uses the shared absence token
    governed by `FR-0125`, serialized here as exactly `none`.
 5. `output_root` reports the absolute logical plain output-root path; its
@@ -365,14 +365,18 @@ support-profile, payload-format, output-root, page-id, and encryption fields.
    this field is one JSON string literal with no surrounding whitespace whose
    decoded value is that exact absolute path, even if encryption later removes
    that directory from disk.
-6. `page_id` reports the canonical resolved root page identifier.
-7. `encryption_enabled=1` if encryption was requested; otherwise `0`.
-8. `encryption_successful=1` if and only if the final encrypted-run branch from
+6. If the run creates a ZIP archive under `FR-0221`, `zip_path` reports that
+   absolute ZIP path using the quoted path string governed by `FR-0124`.
+   Otherwise `zip_path` is the shared absence token governed by `FR-0125`,
+   serialized here as exactly `none`.
+7. `page_id` reports the canonical resolved root page identifier.
+8. `encryption_enabled=1` if encryption was requested; otherwise `0`.
+9. `encryption_successful=1` if and only if the final encrypted-run branch from
    `FR-0149` is the successful-encryption branch whose authoritative final
    artifact is the encrypted archive; otherwise `0`.
-9. Encrypted archives created during a cleanup-failure branch and later
+10. Encrypted archives created during a cleanup-failure branch and later
    classified as non-authoritative debris under `FR-0107` do not satisfy
-   criterion 8.
+   criterion 9.
 
 **Dependencies**:
 - `FR-0021`
@@ -389,6 +393,7 @@ support-profile, payload-format, output-root, page-id, and encryption fields.
 - `FR-0121`
 - `FR-0124`
 - `FR-0125`
+- `FR-0221`
 
 **Traceability**:
 - Area: observability and outcomes
@@ -506,10 +511,10 @@ self-test report-root layout.
    the mandatory top-level entries and directories governed by criteria 2
    through 8.
 2. The mandatory top-level entries are exactly `summary.txt`, `identities.json`,
-   `live-bats.tap`, `plan/`, `export/`, `expected/`, and `diagnostics/`.
+   `live-regression.tap`, `plan/`, `export/`, `expected/`, and `diagnostics/`.
 3. `summary.txt` is governed by `FR-0182`.
 4. `identities.json` is governed by `FR-0183`.
-5. `live-bats.tap` is governed by `FR-0184`.
+5. `live-regression.tap` is governed by `FR-0184`.
 6. `plan/` and `export/` are governed by `FR-0186`.
 7. `expected/` is governed by `FR-0185`.
 8. `diagnostics/` is governed by `FR-0187`.
@@ -665,7 +670,7 @@ current working directory.
     the candidate self-test report root.
 12. The candidate self-test report root becomes the retained self-test report
     root only when its top-level entry set and placement satisfy `FR-0135` and
-    its `summary.txt`, `identities.json`, `live-bats.tap`, `expected/`,
+    its `summary.txt`, `identities.json`, `live-regression.tap`, `expected/`,
     `diagnostics/`, `plan/`, and `export/` contents satisfy `FR-0182`,
     `FR-0183`, `FR-0184`, `FR-0185`, `FR-0187`, and `FR-0186`, with both
     `plan/` and `export/` governed by `FR-0186`.
@@ -858,7 +863,7 @@ fails before retention completes.
 
 ### FR-0184
 **Requirement**: Retained self-test report roots shall use one stable
-`live-bats.tap` retention contract.
+`live-regression.tap` retention contract.
 
 **Applicability**:
 - accepted non-help `confluex selftest` invocations whose retained self-test
@@ -869,16 +874,16 @@ fails before retention completes.
   live regression TAP artifact.
 
 **Acceptance Criteria**:
-1. `live-bats.tap` exists at the top level of the retained self-test report
+1. `live-regression.tap` exists at the top level of the retained self-test report
    root.
-2. `live-bats.tap` is UTF-8 text and, when non-empty, uses LF line endings.
+2. `live-regression.tap` is UTF-8 text and, when non-empty, uses LF line endings.
 3. If the live-regression phase is not attempted under `FR-0136`,
-   `live-bats.tap` exists and is empty.
+   `live-regression.tap` exists and is empty.
 4. If the live-regression phase is attempted under `FR-0136`, the
-   file-selection TAP comment line, captured Bats TAP output, and retained file
+   file-selection TAP comment line, captured selftest TAP output, and retained file
    content contract are governed by `FR-0138`.
 5. No self-test card outside `FR-0138` adds additional governed content to
-   `live-bats.tap`.
+   `live-regression.tap`.
 
 **Dependencies**:
 - `FR-0173`
@@ -888,7 +893,7 @@ fails before retention completes.
 
 **Traceability**:
 - Area: observability and outcomes
-- Observable evidence: retained self-test `live-bats.tap`
+- Observable evidence: retained self-test `live-regression.tap`
 
 ### FR-0185
 **Requirement**: Retained self-test report roots shall use one stable

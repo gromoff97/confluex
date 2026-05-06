@@ -14,21 +14,19 @@ dependencies.
 
 **Acceptance Criteria**:
 1. `doctor` checks exactly these environment-readiness dependencies:
-   `docker_cli` for the `docker` executable required to create and inspect the
-   product-owned self-test Docker environment under `FR-0132`, `bats_cli` for
-   the `bats` executable required to start governed live regression under
-   `FR-0138`, and `gpg` for the `gpg` executable required for
-   encryption-recipient validation under `FR-0108`.
+   `docker_cli` for the `docker` executable required to inspect the operator's
+   self-test stand when selftest needs stand reset under `FR-0132`, and `gpg`
+   for the `gpg` executable required for encryption-recipient validation under
+   `FR-0108`.
 2. `doctor` emits exactly one stdout line for each dependency in the format
    `dependency_<label>=<state>`.
 3. Dependency lines appear in this exact order:
    `dependency_docker_cli=...`,
-   `dependency_bats_cli=...`,
    `dependency_gpg=...`.
 4. `<state>` uses only `absent`, `present:unknown_version`, or
    `present:<version_text>`.
-5. The exact dependency executable names are `docker` for `docker_cli`, `bats`
-   for `bats_cli`, and `gpg` for `gpg`.
+5. The exact dependency executable names are `docker` for `docker_cli` and
+   `gpg` for `gpg`.
 6. A dependency is `absent` when its executable name cannot be resolved to an
    executable on `PATH`.
 7. When a dependency executable is present, the version probe is
@@ -93,6 +91,15 @@ dependencies.
 6. In `page_identity=<page_id>`, `<page_id>` uses the canonical
    page-identifier syntax required by `FR-0014` and reports the resolved page
    identifier rather than merely echoing the raw command-line token.
+7. `doctor --page-id <id>` emits exactly one stdout line
+   `page_access_reason=<reason>` after the `page_access` line. When
+   `page_access=ok`, `<reason>` is `none`. When `page_access=failed`,
+   `<reason>` is exactly one of `missing_token`, `auth_rejected`,
+   `page_inaccessible`, `transport_tls`, `transport_dns`, `transport_timeout`,
+   `transport_connection_reset`, `transport_proxy`, or
+   `converter_auth_incompatible`.
+8. Page-access diagnostics never include token values, Authorization header
+   values, cookies, full response bodies, or full process environments.
 
 **Dependencies**:
 - `FR-0020`
@@ -178,22 +185,20 @@ diagnostics.
 2. `<value>` uses either the shared absence token defined by `FR-0125` or a
    comma-delimited list serialized with the shared token-list form defined by
    `FR-0126` and containing one or more unique tokens chosen from
-   `install_docker_cli`, `install_bats_cli`, `install_gpg`,
-   `check_page_access`, `set_encryption_key`, and `fix_encryption_key`.
+   `install_docker_cli`, `install_gpg`, `check_page_access`,
+   `set_encryption_key`, and `fix_encryption_key`.
 3. `install_docker_cli` appears if and only if
    `dependency_docker_cli=absent`.
-4. `install_bats_cli` appears if and only if
-   `dependency_bats_cli=absent`.
-5. `install_gpg` appears if and only if `dependency_gpg=absent`.
-6. `check_page_access` appears if and only if `page_access=failed`.
-7. `set_encryption_key` appears if and only if
+4. `install_gpg` appears if and only if `dependency_gpg=absent`.
+5. `check_page_access` appears if and only if `page_access=failed`.
+6. `set_encryption_key` appears if and only if
    `encryption_recipient=missing`.
-8. `fix_encryption_key` appears if and only if
+7. `fix_encryption_key` appears if and only if
    `encryption_recipient=failed` and `dependency_gpg` is not `absent`.
-9. If none of the conditions in criteria 3 through 8 apply,
+8. If none of the conditions in criteria 3 through 7 apply,
    `next_action=none`.
 10. If `next_action` is not `none`, tokens appear only in this order:
-   `install_docker_cli`, `install_bats_cli`, `install_gpg`,
+   `install_docker_cli`, `install_gpg`,
    `check_page_access`, `set_encryption_key`, `fix_encryption_key`.
 
 **Dependencies**:

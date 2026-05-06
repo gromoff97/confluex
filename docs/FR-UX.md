@@ -20,8 +20,7 @@
 3. The `Usage` section contains exactly one non-empty line:
    `  confluex <command> [options]`.
 4. Under `Commands`, supported top-level commands appear exactly once each in
-   this exact order: `export`, `plan`, `doctor`, `config`, `install`,
-   `uninstall`, `selftest`.
+   this exact order: `export`, `plan`, `doctor`, `config`, `selftest`.
 5. Under `Commands`, each supported top-level command has exactly one purpose
    statement that fits on one line and identifies that command's canonical
    workflow.
@@ -31,9 +30,7 @@
 7. The exact command purpose statements are: `export` ->
    `materialized export workflow`; `plan` -> `dry-run planning workflow`;
    `doctor` -> `diagnostic workflow`; `config` -> `configuration workflow`;
-   `install` -> `installation workflow`; `uninstall` ->
-   `uninstallation workflow`; and `selftest` ->
-   `live regression self-test workflow`.
+   and `selftest` -> `live regression self-test workflow`.
 8. The `Commands` section contains no non-empty lines other than the command
    entry lines from criteria 4 and 6.
 9. Top-level help contains no non-empty lines outside the `Usage` and `Commands`
@@ -55,8 +52,6 @@
 - `FR-0002`
 - `FR-0003`
 - `FR-0004`
-- `FR-0005`
-- `FR-0006`
 - `FR-0129`
 - `FR-0118`
 
@@ -112,9 +107,8 @@ correctly.
 13. The `Usage` section contains exactly one non-empty line selected by target
    command: `  confluex export --page-id <id> [options]`,
    `  confluex plan --page-id <id> [options]`,
-   `  confluex doctor [options]`, `  confluex config [options]`,
-   `  confluex install [options]`, `  confluex uninstall [options]`, or
-   `  confluex selftest --url <base-url> --login <username> --password <password>`.
+   `  confluex doctor [options]`, `  confluex config [options]`, or
+   `  confluex selftest --url <base-url> --token <token>`.
 14. The `Purpose` section contains exactly one non-empty line. When another
    applicable help requirement for the target command explicitly refines the
    `Purpose` line content, that more specific requirement governs the content of
@@ -130,8 +124,8 @@ correctly.
    Otherwise the section contains exactly one non-empty line selected by target
    command: `  confluex export --page-id <id>`,
    `  confluex plan --page-id <id>`, `  confluex doctor`,
-   `  confluex config`, `  confluex install`, `  confluex uninstall`, or
-   `  confluex selftest --url http://127.0.0.1:8090 --login admin --password admin`.
+   `  confluex config`, or
+   `  confluex selftest --url http://127.0.0.1:8090 --token test-token`.
 17. The `Examples` section contains no other non-empty lines beyond the example
    lines required by criterion 16 and any more specific applicable help
    requirement for the target command.
@@ -259,24 +253,22 @@ warnings and errors.
 - Observable evidence: stdout and stderr stream selection
 
 ### FR-0123
-**Requirement**: `export --help` shall document the supported materialized page
-export formats explicitly.
+**Requirement**: `export --help` shall document Markdown-only materialized page
+export explicitly.
 
 **Applicability**:
 - `confluex export --help`
 
 **Rationale**:
-- Operators need command help that makes Markdown and HTML export support
-  discoverable without consulting other requirement files.
+- Operators need command help that makes Markdown-only export discoverable
+  without suggesting removed HTML compatibility.
 
 **Acceptance Criteria**:
-1. The `--page-format <format>` entry description in `confluex export --help`
-   contains the exact substring `formats: md, html; default: md`.
-2. The substring from criterion 1 reflects the supported materialized page
-   export formats and default format defined by `FR-0121` and `FR-0122`.
-3. The `Examples` section contains exactly two accepted `export` example lines:
-   the first omits `--page-format`, and the second uses
-   `--page-format html`.
+1. `confluex export --help` contains no `--page-format` option entry.
+2. The `Examples` section contains exactly one accepted `export` example line,
+   and that line omits `--page-format`.
+3. The `Optional options` section contains a `--zip` entry whose description
+   names ZIP archive creation without changing the Markdown payload format.
 
 **Dependencies**:
 - `FR-0001`
@@ -284,14 +276,15 @@ export formats explicitly.
 - `FR-0036`
 - `FR-0121`
 - `FR-0122`
+- `FR-0220`
 
 **Traceability**:
 - Area: operator experience
 - Observable evidence: `confluex export --help` option text and examples
 
 ### FR-0130
-**Requirement**: `selftest` help shall describe the explicit-target live
-regression workflow.
+**Requirement**: `selftest` help shall describe the token-based explicit-target
+live regression workflow.
 
 **Applicability**:
 - `confluex selftest --help`
@@ -304,9 +297,9 @@ regression workflow.
 **Acceptance Criteria**:
 1. `confluex selftest --help` contains `Usage`, `Purpose`,
    `Required options`, `Optional options`, and `Examples` sections.
-2. The `Usage` section shows exactly `  confluex selftest --url <base-url> --login <username> --password <password>` as the accepted command shape, using the usage-line serialization defined by `FR-0008`.
-3. The `Required options` section lists exactly `--url <base-url>`,
-   `--login <username>`, and `--password <password>` in that order, using the
+2. The `Usage` section shows exactly `  confluex selftest --url <base-url> --token <token>` as the accepted command shape, using the usage-line serialization defined by `FR-0008`.
+3. The `Required options` section lists exactly `--url <base-url>` and
+   `--token <token>` in that order, using the
    option-line serialization defined by `FR-0008`.
 4. The `Optional options` section uses the no-optional-options serialization
    defined by `FR-0008`.

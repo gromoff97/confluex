@@ -81,7 +81,7 @@ state.
   state
 
 ### FR-0216
-**Requirement**: Supported remote Confluence access shall use one
+**Requirement**: Supported remote Confluence access shall use one token-only
 invocation-local access context.
 
 **Applicability**:
@@ -89,43 +89,34 @@ invocation-local access context.
 - non-help `doctor` invocations with `--page-id <id>`
 
 **Rationale**:
-- Operators and tests need one authoritative source for the base URL and
-  authentication state used by each invocation.
+- Operators and tests need one authoritative source for the base URL and token
+  used by each invocation.
 
 **Acceptance Criteria**:
-1. For this card, the remote-access context is the pair
-   `(base_url, authentication_state)` used to resolve root pages and acquire
-   Confluence page or attachment data for the current invocation.
+1. For this card, the remote-access context is the pair `(base_url, token)` used
+   to resolve root pages and acquire Confluence page or attachment data for the
+   current invocation.
 2. If the current invocation is an `export` or `plan` command launched by the
    live-regression harness under `FR-0138`, the current invocation uses the
    selftest-harness access branch: its remote-access context uses
-   `CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL` as `base_url` and uses the HTTP
-   Basic authentication state formed by
-   `CONFLUEX_SELFTEST_CONFLUENCE_USERNAME` and
-   `CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD`.
+   `CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL` as `base_url` and
+   `CONFLUEX_SELFTEST_CONFLUENCE_TOKEN` as `token`.
 3. Any applicability-case invocation not covered by criterion 2 uses the
    external-confluence access branch.
-4. In the external-confluence access branch, the remote-access context uses
-   `CONFLUEX_CONFLUENCE_BASE_URL` as `base_url` and uses the HTTP Basic
-   authentication state formed by `CONFLUEX_CONFLUENCE_USERNAME` and
-   `CONFLUEX_CONFLUENCE_PASSWORD`.
-5. In either access branch, every branch-specific environment value named by
-   criterion 2 or 4 is obtained from the process environment. On POSIX, the
-   value uses the exact bytes read from that environment variable and must
-   losslessly decode as UTF-8 with no replacement or omission; on Windows, the
-   value uses the Unicode value returned when that environment variable is read.
-   In either case, each required value is non-empty and contains no TAB, LF, or
-   CR, and the username value contains no `:`.
-6. In either access branch, `authentication_state` is the HTTP Basic
-   authentication state derived from the active branch's username and password
-   values from criterion 2 or 4 with no case normalization, percent-decoding,
-   percent-encoding, URL encoding, or splitting on `:`. The password value may
-   contain `:`.
-7. For criterion 6, the exact HTTP Basic credential bytes are the UTF-8 bytes of
-   `<username>`, then one literal ASCII `:`, then `<password>`, in that order.
-   The exact Authorization field value is `Basic <base64>`, where `<base64>` is
-   the Base64 encoding of those credential bytes with no inserted whitespace or
-   line breaks.
+4. In the external-confluence access branch, the remote-access context uses the
+   effective `CONFLUEX_CONFLUENCE_BASE_URL` value as `base_url` and the
+   effective `CONFLUEX_CONFLUENCE_TOKEN` value as `token`. Effective values are
+   selected under `FR-0219`.
+5. In either access branch, every branch-specific value named by criterion 2 or
+   4 is non-empty and contains no TAB, LF, or CR.
+6. In either access branch, the product sends exactly one HTTP Authorization
+   field for authenticated Confluence requests, with the exact field value
+   `Bearer <token>`, where `<token>` is the selected token value from criterion
+   2 or 4 with no case normalization, percent-decoding, percent-encoding, URL
+   encoding, trimming, or splitting.
+7. The product does not read or accept `CONFLUEX_CONFLUENCE_USERNAME`,
+   `CONFLUEX_CONFLUENCE_PASSWORD`, `CONFLUEX_SELFTEST_CONFLUENCE_USERNAME`, or
+   `CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD` to form a remote-access context.
 8. In either access branch, `base_url` is usable only when it is an absolute
    `http://` or `https://` URL containing no userinfo component, query
    component, or fragment component, and whose path component is either empty,
@@ -154,9 +145,9 @@ invocation-local access context.
     does not rewrite `<target_query>`.
 12. Every governed root-page preflight, `doctor --page-id`, page acquisition,
     and attachment acquisition step in either access branch uses the effective
-    request URL from criteria 9 through 11 together with the exact HTTP Basic
-    authentication state from criteria 6 and 7 and no alternative base URL or
-    credentials.
+    request URL from criteria 9 through 11 together with the exact Bearer token
+    Authorization field from criterion 6 and no alternative base URL or
+    credential source.
 13. The product uses one access branch and one remote-access context
     consistently for root-page preflight, `doctor --page-id`, and every later
     page or attachment acquisition step attempted by that same invocation.
@@ -169,11 +160,60 @@ invocation-local access context.
 
 **Dependencies**:
 - `FR-0138`
+- `FR-0219`
 
 **Traceability**:
 - Area: configuration
-- Observable evidence: consistent page-access behavior under one invocation
-  access-context source and environment contract
+- Observable evidence: consistent page-access behavior and Bearer
+  Authorization under one invocation
+
+### FR-0219
+**Requirement**: Confluex shall select one env-file source before reading
+effective Confluence configuration.
+
+**Applicability**:
+- accepted non-help `export`, `plan`, `doctor`, and `selftest` invocations
+  whose closed option set includes `--env-file <file>`
+
+**Rationale**:
+- Operators need reproducible configuration without relying only on shell
+  profile state, and secrets loaded from files must have deterministic
+  precedence.
+
+**Acceptance Criteria**:
+1. If `--env-file <file>` is supplied, the selected env file is exactly
+   `<file>` after path normalization under `FR-0159`; `./.confluex.env` is not
+   read for that invocation.
+2. If `--env-file <file>` is supplied and the selected file cannot be read as a
+   regular UTF-8 text file, the invocation is rejected before command work
+   begins.
+3. If `--env-file <file>` is absent and `./.confluex.env` exists in the current
+   working directory as a regular file, that file is the selected env file.
+4. If `--env-file <file>` is absent and `./.confluex.env` does not exist, no env
+   file is selected.
+5. An env-file line whose first non-space byte is `#`, or whose content is empty
+   after removing trailing LF, is ignored.
+6. A non-ignored env-file line must contain `KEY=value`; the key is trimmed of
+   surrounding ASCII space and TAB, must be non-empty, and must contain no `=`,
+   NUL, LF, or CR. The value is the bytes after the first `=`, except that one
+   surrounding double-quote pair is removed when both the first and final value
+   bytes are `"`.
+7. Effective configuration precedence is exactly command-line option value,
+   then selected env-file value, then process environment value, then no value.
+8. Env-file values never supply hidden fallbacks for unsupported options or
+   removed credential names.
+9. Secret effective values, including `CONFLUEX_CONFLUENCE_TOKEN` and
+   `CONFLUEX_SELFTEST_CONFLUENCE_TOKEN`, are never emitted to stdout, stderr,
+   logs, reports, or diagnostic fields.
+
+**Dependencies**:
+- `FR-0036`
+- `FR-0159`
+
+**Traceability**:
+- Area: configuration
+- Observable evidence: selected env-file reads, effective option selection,
+  rejection timing, absence of secret values in output
 
 ### FR-0047
 **Requirement**: `config` shall clear the saved default encryption-recipient

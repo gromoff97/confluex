@@ -338,8 +338,8 @@ downloading attachment payload files using the remote-access context defined by
   attachment payload files
 
 ### FR-0074
-**Requirement**: `export` shall persist the page representation supplied for a
-processed page as the payload file for the selected page payload format.
+**Requirement**: `export` shall persist the Markdown page representation
+supplied for a processed page as `page.md`.
 
 **Applicability**:
 - accepted `export` runs
@@ -350,43 +350,35 @@ processed page as the payload file for the selected page payload format.
   Confluence rendering semantics.
 
 **Acceptance Criteria**:
-1. For this card, selected page payload format is an input to page payload
-   materialization and is exactly one of `md` or `html`.
-2. For this card, page representation means the complete UTF-8 text payload
-   acquired for the selected page payload format after any Confluex-defined
-   normalization for that selected format and immediately before the product
-   writes `page.md` or `page.html` for that page.
-3. If the selected page payload format is `md` and a page is successfully
-   materialized in `export`, the product acquires that page's Markdown
+1. For this card, page representation means the complete UTF-8 Markdown text
+   payload acquired after any Confluex-defined Markdown normalization and
+   immediately before the product writes `page.md` for that page.
+2. If a page is successfully materialized in `export`, the product acquires
+   that page's Markdown
    representation through the product's Markdown payload converter, applies the
    Markdown localization and Markdown normalization governed by this card, and
    persists the resulting representation as `page.md` in that page's payload
    folder.
-4. If the selected page payload format is `html` and a page is successfully
-   materialized in `export`, the product persists that page's HTML
-   representation as `page.html` in that page's payload folder.
-5. For successful page payload materialization, reading the persisted payload
-   file as UTF-8 yields exactly the page representation from criterion 2. The
-   product does not otherwise define the semantic rendering of Confluence
-   constructs inside `page.md` or `page.html`.
-6. For this card, Markdown localization inspects only Markdown link nodes and
+3. For successful page payload materialization, reading `page.md` as UTF-8
+   yields exactly the page representation from criterion 1. The product does
+   not otherwise define the semantic rendering of Confluence constructs inside
+   `page.md`.
+4. For this card, Markdown localization inspects only Markdown link nodes and
    Markdown image nodes in the converted Markdown representation. Fenced code
    blocks, inline code spans, and plain text that is not part of a Markdown
    link or image node are not rewritten by Markdown localization.
-7. If the selected page payload format is `md` and one Markdown link or image
-   destination denotes a supported internal page target that resolves to one
-   exported processed page under the run's resolved-link result, the persisted
-   `page.md` rewrites that destination to exactly one governed relative path
-   from the source page payload folder to the target page payload file
-   `page.md`. If the source destination contains a `#fragment`, the rewritten
-   destination preserves that exact fragment suffix byte-for-byte after the
-   localized relative path.
-8. If the selected page payload format is `md` and one Markdown link or image
-   destination is already one governed relative path that begins with the exact
-   first path segment `attachments`, the persisted `page.md` preserves that
-   destination unchanged.
-9. If the selected page payload format is `md` and one Markdown link or image
-   destination denotes one supported internal page target for the source page
+5. If one Markdown link or image destination denotes a supported internal page
+   target that resolves to one exported processed page under the run's
+   resolved-link result, the persisted `page.md` rewrites that destination to
+   exactly one governed relative path from the source page payload folder to the
+   target page payload file `page.md`. If the source destination contains a
+   `#fragment`, the rewritten destination preserves that exact fragment suffix
+   byte-for-byte after the localized relative path.
+6. If one Markdown link or image destination is already one governed relative
+   path that begins with the exact first path segment `attachments`, the
+   persisted `page.md` preserves that destination unchanged.
+7. If one Markdown link or image destination denotes one supported internal page
+   target for the source page
    whose unresolved-link result is recorded for that same source page, the
    persisted `page.md` replaces that link or image with one inline unresolved
    marker that uses exactly the text
@@ -397,19 +389,19 @@ processed page as the payload file for the selected page payload format.
    target value selected for that unresolved-link row. For this card, a
    source-page unresolved-link result takes precedence over any otherwise
    available exported-page localization for the same target.
-10. If the selected page payload format is `md` and one Markdown link or image
-    destination does not satisfy criteria 7 through 9, the persisted `page.md`
+8. If one Markdown link or image destination does not satisfy criteria 5
+    through 7, the persisted `page.md`
     preserves that destination unchanged. This includes external URLs,
     unsupported schemes, and supported internal targets that were not
     materialized and do not have a source-page unresolved-link result.
-11. Markdown normalization for `page.md` uses LF line endings, removes leading
+9. Markdown normalization for `page.md` uses LF line endings, removes leading
     blank lines, removes trailing spaces and tabs, removes whitespace-only
     lines, collapses runs of more than two blank lines to two blank lines, and
     ensures exactly one final LF byte.
-12. If the selected page payload format is `md` and normalized Markdown
-    contains a storage-format or HTML remnant marker, the product persists the
-    normalized Markdown payload and records exactly one `scope-findings.tsv`
-    row for each unique remnant diagnostic under `FR-0089`. The row uses
+10. If normalized Markdown contains a storage-format or HTML remnant marker, the
+    product persists the normalized Markdown payload and records exactly one
+    `scope-findings.tsv` row for each unique remnant diagnostic under
+    `FR-0089`. The row uses
     `finding_area=page_payload`, `finding_type=markdown_remnant`, and a
     `detail` field with exactly
     `markdown_remnant_kind=<kind>;token=<token>`. Storage remnant markers are
@@ -420,12 +412,12 @@ processed page as the payload file for the selected page payload format.
     `<div`, `</div>`, `<span`, `</span>`, and `<img`; their `<kind>` value is
     `html_remnant`, and `<token>` is the exact marker string. This condition is
     not a page-local payload failure by itself.
-13. If page payload materialization for a page fails, the run records exactly
+11. If page payload materialization for a page fails, the run records exactly
    one `failed-pages.tsv` row with `operation=page_payload` for that condition;
    that row is a page-local failure under `FR-0088`.
-14. If `--no-fail-fast` is not in effect, a `page_payload` page-local failure
+12. If `--no-fail-fast` is not in effect, a `page_payload` page-local failure
     stops further page processing after the failure is recorded.
-15. If `--no-fail-fast` is in effect, a `page_payload` page-local failure does
+13. If `--no-fail-fast` is in effect, a `page_payload` page-local failure does
     not by itself prevent processing of later pages.
 
 **Dependencies**:
@@ -439,7 +431,7 @@ processed page as the payload file for the selected page payload format.
 
 **Traceability**:
 - Area: data acquisition
-- Observable evidence: `page.md` or `page.html` presence, failed-pages report
+- Observable evidence: `page.md` presence, failed-pages report
 
 ### FR-0075
 **Requirement**: `export` shall acquire and persist attachment payload files

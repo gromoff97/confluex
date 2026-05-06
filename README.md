@@ -1,6 +1,7 @@
 # Confluex
 
-`confluex` is a safer, more interpretable export wrapper over `confluence-cli`.
+`confluex` is a token-authenticated CLI for exporting Confluence pages to
+Markdown.
 
 Use it when you want to export a Confluence page tree without manually chaining `confluence` commands, guessing which linked pages were included, or reverse-engineering whether the result is complete enough to trust.
 
@@ -10,14 +11,15 @@ Use it when you want to export a Confluence page tree without manually chaining 
 
 - export a root page and its full recursive child tree;
 - follow supported internal page references found in page content;
-- materialize page payload as Markdown by default, or as HTML when requested, plus attachments in `export`;
+- materialize page payload as Markdown plus attachments in `export`;
 - build the same scope without materialized page payload or attachment downloads in `plan`;
 - write machine-readable reports about exported pages, unresolved links, failures, and degraded scope;
+- optionally package the final result as ZIP;
 - optionally encrypt the final result for a GPG recipient.
 
 What it does not do:
 
-- it does not install or configure `confluence-cli`;
+- it does not use username/password Basic auth for Confluence access;
 - it does not create or import GPG keys;
 - it does not claim universal support for every possible Confluence storage construct.
 
@@ -25,22 +27,30 @@ What it does not do:
 
 You need:
 
-- `bash`;
 - `node`;
-- `confluence` CLI already installed, authenticated, and working;
+- a Confluence base URL and personal access token;
 - `gpg`, only if you want encrypted output.
 
 Operational baseline:
 
-- `bash` 4+;
 - a current Node.js LTS runtime;
-- a `confluence` CLI build that supports at least `info`, `children`, `edit`, `export`, and `find`, and ideally `--version`;
 - GnuPG 2.x if you want encrypted output.
 
-`bats-core` is only needed if you want to run this repository's functional test suite. It is an external dependency and is not vendored here.
+Install the packaged CLI with npm:
 
-You can use the tool directly from the repository as `./confluex ...`.
-`install` is optional and only needed if you want `confluex` available globally on your shell `PATH`.
+```bash
+npm install -g confluex
+```
+
+Update and uninstall use npm as well:
+
+```bash
+npm install -g confluex@latest
+npm uninstall -g confluex
+```
+
+For local development, use `npm install` in the repository and run the local
+entrypoint or package bin.
 
 ## First-Time Setup
 
@@ -55,6 +65,17 @@ confluex doctor
 ```bash
 confluex doctor --page-id 12345
 ```
+
+Set Confluence access with environment variables or a selected env file:
+
+```bash
+CONFLUEX_CONFLUENCE_BASE_URL=https://confluence.example
+CONFLUEX_CONFLUENCE_TOKEN=your-token
+```
+
+The default env file is `./.confluex.env`; `--env-file FILE` selects only that
+file. CLI options override env-file values, and env-file values override the
+process environment.
 
 3. If you plan to encrypt exports, verify the recipient before the first real run:
 
@@ -133,7 +154,8 @@ confluex doctor --verify-encryption --encryption-key 0123456789ABCDEF0123456789A
 
 ### `plan`
 
-Use `plan` when you want to understand scope without downloading page HTML or attachment payloads.
+Use `plan` when you want to understand scope without materializing page
+Markdown or attachment payloads.
 
 `plan` still:
 
@@ -155,7 +177,7 @@ confluex plan --page-id 12345 --out ./plan --safe
 
 Use `export` when you want the actual payload:
 
-- exported page payload (`page.md` by default, or `page.html` with `--page-format html`);
+- exported page payload (`page.md`);
 - downloaded attachments;
 - report files and `summary.txt`.
 - optional recovery from an earlier partial export through `--resume`.
@@ -290,13 +312,6 @@ confluex config
 confluex config --clear-encryption-key
 ```
 
-Optional self-install:
-
-```bash
-./confluex install
-confluex uninstall
-```
-
 ## Options You Will Actually Care About
 
 - `--page-id ID`: required for `export` and `plan`, optional for page-access checks in `doctor`.
@@ -308,12 +323,12 @@ confluex uninstall
 - `--resume`: only for `export`, continue from an existing explicit output directory and reuse prior page payload when safe.
 - `--no-fail-fast`: continue after page-local failures.
 - `--keep-metadata`: persist `_info.txt`, `_storage.xml`, and in `plan` also `_attachments_preview.txt`.
-- `--page-format FORMAT`: only for `export`, select `md` or `html`. Default: `md`.
+- `--zip`: only for `export`, retain a ZIP archive beside the plain output root.
+- `--env-file FILE`: read configuration from this env file instead of `./.confluex.env`.
 - `--log-file FILE`: write a persistent log file.
 - `--encryption-key KEY`: use this GPG recipient for the current run.
 - `--clear-encryption-key`: only for `config`, remove the saved default encryption key.
 - `--verify-encryption`: only for `doctor`.
-- `--install-dir DIR`: choose a non-default installation target for `install` or `uninstall`.
 - `--max-pages N`: stop after `N` processed pages.
 - `--max-download-mib N`: stop after `N` MiB downloaded in total.
 - `--sleep-ms N`: pause between processed pages.
@@ -386,9 +401,7 @@ dump/
   summary.txt
 ```
 
-If you choose `--page-format html`, the per-page payload file is `page.html` instead of `page.md`.
-
-Typical `plan` result has the same top-level reports, but no `page.md`, no `page.html`, and no downloaded attachments.
+Typical `plan` result has the same top-level reports, but no `page.md` and no downloaded attachments.
 
 By default metadata files are not persisted. With `--keep-metadata`, page folders also include:
 
@@ -547,28 +560,19 @@ If you interrupt a `plan` with `Ctrl+C`:
 The only supported full regression entrypoint is:
 
 ```bash
-confluex selftest --url http://127.0.0.1:8090 --login admin --password admin
+confluex selftest --url http://127.0.0.1:8090 --token test-token
 ```
 
 It expects an already-running, clean Confluence 7.13.7 stand, applies the
-project-owned fixture dataset, runs the governed live regression entrypoint, and
-writes the self-test report. The stand lifecycle is managed outside Confluex.
-
-For compatibility with older local workflows, this wrapper delegates to the same
-entrypoint and requires the same target as explicit environment input:
-
-```bash
-CONFLUEX_SELFTEST_URL=http://127.0.0.1:8090 \
-CONFLUEX_SELFTEST_LOGIN=admin \
-CONFLUEX_SELFTEST_PASSWORD=admin \
-scripts/test-bats.sh
-```
+project-owned fixture dataset, runs the governed live regression entrypoint,
+and writes the self-test report. The stand reset lifecycle is managed through
+the local stand reset API used by selftest.
 
 There is no mock-backed regression suite.
 
 ## Linting
 
-JavaScript linting uses local `standard`, and shell linting uses a repository-local `shellcheck` binary.
+Linting and typechecking run through npm scripts.
 
 Install the JS linter dependencies once:
 
@@ -576,23 +580,11 @@ Install the JS linter dependencies once:
 npm install
 ```
 
-Install the repository-local `shellcheck` binary once:
-
-```bash
-scripts/install-shellcheck.sh
-```
-
-Run the linters:
-
-```bash
-npm run lint:js
-npm run lint:shell
-```
-
-Or run both:
+Run the checks:
 
 ```bash
 npm run lint
+npm run typecheck
 ```
 
 ## Support Boundary
@@ -650,5 +642,5 @@ The requirements corpus lives under [`docs/`](docs/). Read
 [`docs/AGENTS.md`](docs/AGENTS.md) first, then the relevant `FR-<AREA>.md`
 files. Product behavior is defined only in `FR-<AREA>.md`.
 
-The live black-box assertions live in `tests/live-bats/`, but they are run
-through `confluex selftest`, not as an independent regression entrypoint.
+The live black-box assertions live under `tests/selftest/`, and all retained
+test assets live under `tests/`.

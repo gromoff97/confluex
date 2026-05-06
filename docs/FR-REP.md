@@ -429,7 +429,7 @@ support-profile findings.
 **Acceptance Criteria**:
 1. `summary.txt` is UTF-8 text with LF line endings and `key=value` lines.
 2. `summary.txt` contains these keys exactly once each and in this exact order:
-   `command`, `page_id`, `output_root`, `output_path_provenance`,
+   `command`, `page_id`, `output_root`, `zip_path`, `output_path_provenance`,
    `support_profile`, `page_payload_format`, `final_status`, `scope_trust`,
    `processed_pages`, `root_pages`, `tree_pages`, `linked_pages`, `other_pages`,
    `resolved_links`, `unresolved_links`, `scope_findings`,
@@ -454,7 +454,8 @@ support-profile findings.
 8. Decimal MiB keys are exactly `downloaded_mib_total`,
    `downloaded_mib_content`, and `downloaded_mib_metadata`; their counting and
    serialization contract is governed exclusively by `FR-0120`.
-9. `output_root` is a string-valued key whose complete run-specific value
+9. `output_root` and `zip_path` are string-valued keys whose complete
+   run-specific value
    contract is governed exclusively by `FR-0119`.
 10. `page_id` is a string-valued key whose complete run-specific value contract
     is governed exclusively by `FR-0119`.
@@ -463,7 +464,7 @@ support-profile findings.
     `scope_findings`, and `failed_operations` are governed exclusively by
     `FR-0092`.
 12. Value contracts for `command`, `support_profile`, `page_payload_format`,
-    `output_root`, `page_id`, `encryption_enabled`, and
+    `output_root`, `zip_path`, `page_id`, `encryption_enabled`, and
     `encryption_successful` are governed exclusively by `FR-0119`.
 13. Value contracts for `output_path_provenance`, `final_status`,
     `scope_trust`, `blocking_reasons`, `interrupt_reason`, `resume_mode`,

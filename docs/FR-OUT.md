@@ -222,27 +222,23 @@ per-page artifacts are persisted.
 - Operators need predictable placement of materialized content and metadata.
 
 **Acceptance Criteria**:
-1. If the effective page payload format is `md`, a successfully materialized
-   export page payload folder contains `page.md` and does not contain
-   `page.html`.
-2. If the effective page payload format is `html`, a successfully materialized
-   export page payload folder contains `page.html` and does not contain
-   `page.md`.
-3. If the page has persisted attachments, the folder contains `attachments/`.
-4. If `--keep-metadata` is in effect and page-metadata acquisition for that page
+1. A successfully materialized export page payload folder contains `page.md` and
+   does not contain `page.html`.
+2. If the page has persisted attachments, the folder contains `attachments/`.
+3. If `--keep-metadata` is in effect and page-metadata acquisition for that page
    succeeded under `FR-0069`, the folder also contains `_info.txt`.
-5. If `--keep-metadata` is in effect and storage-content acquisition for that
+4. If `--keep-metadata` is in effect and storage-content acquisition for that
    page succeeded under `FR-0070`, the folder also contains `_storage.xml`.
-6. This card governs payload file names, mutual exclusion of supported payload
+5. This card governs payload file names, mutual exclusion of supported payload
    formats, folder placement, and metadata or attachment side files; it does
-   not define Markdown or HTML payload acquisition, Markdown normalization,
+   not define Markdown payload acquisition, Markdown normalization,
    Markdown internal-link localization, inline unresolved-marker rendering, or
-   any other page-content semantics inside `page.md` or `page.html`; those
+   any other page-content semantics inside `page.md`; those
    semantics are governed by `FR-0074`.
-7. Any retained export page payload folder contains no direct entries other than
-   the active payload file from criteria 1 or 2 when payload materialization
-   succeeded, `attachments/` when criterion 3 applies, `_info.txt` when
-   criterion 4 applies, and `_storage.xml` when criterion 5 applies.
+6. Any retained export page payload folder contains no direct entries other than
+   `page.md` when payload materialization succeeded, `attachments/` when
+   criterion 2 applies, `_info.txt` when criterion 3 applies, and
+   `_storage.xml` when criterion 4 applies.
 8. `_info.txt` and `_storage.xml` contents are non-governed metadata snapshots;
    this card governs their presence, names, and placement, not their internal
    serialization.
@@ -273,13 +269,13 @@ when metadata persistence is enabled.
   accidental content export.
 
 **Acceptance Criteria**:
-1. Without `--keep-metadata`, `plan` does not persist `page.md`, `page.html`,
+1. Without `--keep-metadata`, `plan` does not persist `page.md`,
    attachments, `_info.txt`, `_storage.xml`, or `_attachments_preview.txt`.
 2. With `--keep-metadata` and successful page-metadata acquisition under
    `FR-0069`, a persisted plan page folder contains `_info.txt`.
 3. With `--keep-metadata` and successful storage-content acquisition under
    `FR-0070`, a persisted plan page folder contains `_storage.xml`.
-4. A persisted plan page folder does not contain `page.md`, `page.html`, or
+4. A persisted plan page folder does not contain `page.md` or
    downloaded attachment payload files.
 5. With `--keep-metadata` and acquired attachment-preview data, the persisted
    plan page folder also contains `_attachments_preview.txt`.
@@ -472,7 +468,7 @@ ambiguous partial payload artifacts in the final run result.
 
 **Acceptance Criteria**:
 1. If `page_payload` fails for a processed page, the final run result does not
-   retain `page.md` or `page.html` for that page.
+   retain `page.md` for that page.
 2. If `attachment_download` fails for a processed page, the final run result
    does not retain any attachment payload file for that page.
 3. Cleanup required by criteria 1 or 2 does not remove other per-page artifacts
@@ -509,7 +505,7 @@ report synthesis.
   synthesized reports to agree without exposing half-written artifacts.
 
 **Acceptance Criteria**:
-1. Per-page artifacts governed by this card are `page.md`, `page.html`,
+1. Per-page artifacts governed by this card are `page.md`,
    attachment payload files under `attachments/`, `_info.txt`, `_storage.xml`,
    and `_attachments_preview.txt`.
 2. A per-page artifact becomes eligible for any final or partial retained result
@@ -689,3 +685,45 @@ shall carry one stable disqualifying marker.
 - Area: output structure
 - Observable evidence: top-level `NON_AUTHORITATIVE` marker on retained debris
   roots
+
+### FR-0221
+**Requirement**: ZIP export packaging shall retain a deterministic archive
+beside the plain output root.
+
+**Applicability**:
+- accepted `export --zip` invocations
+
+**Rationale**:
+- Operators need a portable archive while retaining the ordinary output root for
+  inspection and recovery.
+
+**Acceptance Criteria**:
+1. After the plain output root reaches its final retained content, the product
+   creates one ZIP archive path whose basename is the plain output root basename
+   plus `.zip` and whose parent directory is the plain output root parent
+   directory, unless that path already exists.
+2. If the criterion-1 ZIP path already exists before ZIP creation begins, the
+   accepted invocation fails under `FR-0142` before modifying that path.
+3. The ZIP archive contains only relative entries for files retained under the
+   plain output root. It contains no absolute path entries, no empty directory
+   entries, and no entries containing `..` as a path segment.
+4. ZIP entries are added in ascending bytewise lexicographic order of their
+   governed relative path under `FR-0150`.
+5. The plain output root remains on disk after successful ZIP creation.
+6. `summary.txt` includes exactly one `zip_path=<quoted_path_string>` line when
+   ZIP creation succeeds; `<quoted_path_string>` is governed by `FR-0124`.
+7. If ZIP creation fails after accepted run execution begins, the run fails
+   under `FR-0142`; any partially written ZIP archive is non-authoritative
+   output debris and is not a report-set container.
+
+**Dependencies**:
+- `FR-0085`
+- `FR-0124`
+- `FR-0142`
+- `FR-0150`
+- `FR-0220`
+
+**Traceability**:
+- Area: output structure
+- Observable evidence: ZIP archive path, archive entry list, summary field,
+  retained plain output root

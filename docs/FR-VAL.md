@@ -84,11 +84,10 @@ option values before command work begins.
 **Acceptance Criteria**:
 1. Omitting `--page-id` from `export` or `plan` causes rejection.
 2. Omitting a required value for an option that takes a value causes rejection.
-3. An empty string supplied to `--out`, `--log-file`, `--install-dir`, or
-   `--encryption-key` causes rejection.
-4. Omitting `--url`, `--login`, or `--password` from `selftest` causes
-   rejection.
-5. An empty string supplied to `selftest` `--url`, `--login`, or `--password`
+3. An empty string supplied to `--out`, `--log-file`, `--env-file`,
+   `--encryption-key`, or `--token` causes rejection.
+4. Omitting `--url` or `--token` from `selftest` causes rejection.
+5. An empty string supplied to selftest `--url` or `--token`
    causes rejection.
 6. For every valued option defined by `FR-0036`, the option consumes the
    immediately following argv token as its value even when that token begins with
@@ -533,20 +532,22 @@ first-line precedence and serialization rule.
 - Observable evidence: first stderr line for rejected invocations
 
 ### FR-0122
-**Requirement**: The product shall reject unsupported page payload format
-values before command work begins.
+**Requirement**: The product shall reject the removed page payload format option
+before command work begins.
 
 **Applicability**:
-- non-help invocations using `--page-format <format>`
+- non-help invocations using `--page-format`
 
 **Rationale**:
-- Operators need deterministic validation of page payload format selection.
+- Operators need removed HTML and format-selection behavior to fail visibly
+  instead of being accepted as deprecated compatibility.
 
 **Acceptance Criteria**:
-1. `--page-format md` is accepted.
-2. `--page-format html` is accepted.
-3. Any other `--page-format` value, including the empty string, is rejected.
-4. If the rejected command is `export`, rejection occurs before traversal, page
+1. Any non-help invocation containing `--page-format` is rejected as an
+   unsupported option.
+2. Rejection applies equally to `--page-format md`, `--page-format html`, any
+   other following token, and `--page-format` with no following token.
+3. If the rejected command is `export`, rejection occurs before traversal, page
    payload materialization, attachment download, report generation, or
    output-root reuse begins.
 
@@ -557,8 +558,7 @@ values before command work begins.
 
 **Traceability**:
 - Area: invocation validation
-- Observable evidence: acceptance or rejection of format values, absence of
-  command work
+- Observable evidence: unsupported-option rejection, absence of command work
 
 ### FR-0131
 **Requirement**: `selftest` shall require explicit target-access options.
@@ -571,17 +571,17 @@ values before command work begins.
   stand without hidden defaults or environment-derived target credentials.
 
 **Acceptance Criteria**:
-1. `selftest` requires exactly the target option tokens `--url`, `--login`, and
-   `--password` defined by `FR-0036`; missing any one of those options rejects
-   the invocation before acceptance under `FR-0212`.
-2. `--url`, `--login`, and `--password` each require one non-empty value.
+1. `selftest` requires exactly the target option tokens `--url` and `--token`
+   defined by `FR-0036`; missing either option rejects the invocation before
+   acceptance under `FR-0212`.
+2. `--url` and `--token` each require one non-empty value.
 3. `--url` rejects values containing TAB, LF, or CR.
-4. `--login` rejects values containing TAB, LF, CR, or `:`.
-5. `--password` rejects values containing TAB, LF, or CR.
-6. Repeated `--url`, `--login`, or `--password` occurrences use the repeated
+4. `--token` rejects values containing TAB, LF, or CR.
+5. Repeated `--url` or `--token` occurrences use the repeated
    valued-option semantics from `FR-0018`.
-7. `selftest` does not read environment variables, saved configuration, or
-   hardcoded defaults to supply missing target option values.
+6. `selftest` does not read saved configuration or hardcoded defaults to supply
+   missing target option values. Env-file and process environment participation
+   is limited to the explicit selection semantics in `FR-0219`.
 
 **Dependencies**:
 - `FR-0012`
@@ -589,6 +589,7 @@ values before command work begins.
 - `FR-0018`
 - `FR-0019`
 - `FR-0036`
+- `FR-0219`
 - `FR-0212`
 
 **Traceability**:
