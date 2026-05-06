@@ -153,17 +153,16 @@ test('node entrypoint renders command help', () => {
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
     'Usage',
-    '  confluex selftest --url <base-url> --login <username> --password <password>',
+    '  confluex selftest --url <base-url> --token <token>',
     'Purpose',
     '  explicit-target live regression self-test workflow for an already running Confluence 7.13.7 stand with fixture preparation, live regression, and self-test report root',
     'Required options',
     '  --url <base-url>  Base URL of the already running Confluence stand.',
-    '  --login <username>  Login used for selftest bootstrap, fixture apply, and live regression.',
-    '  --password <password>  Password used for selftest bootstrap, fixture apply, and live regression.',
+    '  --token <token>  Bearer token used for selftest reset, fixture apply, and live regression.',
     'Optional options',
     '  --env-file <file>  Read configuration from this env file.',
     'Examples',
-    '  confluex selftest --url http://127.0.0.1:8090 --login admin --password admin',
+    '  confluex selftest --url http://127.0.0.1:8090 --token test-token',
     ''
   ].join('\n'))
 })
@@ -187,10 +186,8 @@ test('node entrypoint rejects unsupported known-command options on stderr only',
     'selftest',
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'admin',
-    '--password',
-    'admin',
+    '--token',
+    'test-token',
     '--safe'
   ])
   assert.equal(result.status, 1)
@@ -237,10 +234,8 @@ test('public launcher validates known commands before development checkpoint', (
     'selftest',
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'admin',
-    '--password',
-    'admin',
+    '--token',
+    'test-token',
     '--safe'
   ])
   assert.equal(rejected.status, 1)

@@ -100,6 +100,28 @@ test('buildEffectiveOptions applies CLI env-file process precedence', () => {
   })
 })
 
+test('buildEffectiveOptions ignores env-backed options outside the command surface', () => {
+  const effective = buildEffectiveOptions('export', {
+    flags: [],
+    values: {
+      '--page-id': '123'
+    }
+  }, {
+    CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL: 'http://127.0.0.1:8090',
+    CONFLUEX_SELFTEST_CONFLUENCE_TOKEN: 'test-token',
+    CONFLUEX_CONFLUENCE_BASE_URL: 'http://127.0.0.1:8090',
+    CONFLUEX_CONFLUENCE_TOKEN: 'real-token'
+  }, new Map())
+
+  assert.deepEqual(effective.values, {
+    '--page-id': '123'
+  })
+  assert.deepEqual(effective.config, {
+    confluenceBaseUrl: 'http://127.0.0.1:8090',
+    confluenceToken: 'real-token'
+  })
+})
+
 test('--env-file is accepted for network and selftest commands', () => {
   assert.equal(validateCommandInvocation('export', [
     '--page-id',
@@ -120,10 +142,8 @@ test('--env-file is accepted for network and selftest commands', () => {
   assert.equal(validateCommandInvocation('selftest', [
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'admin',
-    '--password',
-    'admin',
+    '--token',
+    'test-token',
     '--env-file',
     '.confluex.env'
   ]).kind, 'valid')

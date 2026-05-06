@@ -70,8 +70,7 @@ function selftestOptions () {
     flags: [],
     values: {
       '--url': 'http://127.0.0.1:8090',
-      '--login': 'admin',
-      '--password': 'admin'
+      '--token': 'test-token'
     }
   }
 }
@@ -139,8 +138,7 @@ test('selftest runs target bootstrap after support preflight passes', async () =
   assert.equal(result.exitCode, 4)
   assert.deepEqual(targetBootstrapTarget, {
     baseUrl: 'http://127.0.0.1:8090',
-    username: 'admin',
-    password: 'admin'
+    token: 'test-token'
   })
 })
 
@@ -167,8 +165,7 @@ test('selftest records fixture failure after passed target bootstrap', async () 
   })
   assert.deepEqual(fixtureContext.target, {
     baseUrl: 'http://127.0.0.1:8090',
-    username: 'admin',
-    password: 'admin'
+    token: 'test-token'
   })
   assert.equal(fixtureContext.reportRoot, reportRoot)
   assert.equal(fs.readFileSync(path.join(reportRoot, 'summary.txt'), 'utf8'), [
@@ -249,8 +246,7 @@ test('selftest records live regression failure after expected data passes', asyn
     reportRoot,
     target: {
       baseUrl: 'http://127.0.0.1:8090',
-      username: 'admin',
-      password: 'admin'
+      token: 'test-token'
     }
   })
   assert.equal(fs.readFileSync(path.join(reportRoot, 'summary.txt'), 'utf8'), [

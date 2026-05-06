@@ -64,20 +64,17 @@ test('parser returns explicit selftest target options for valid selftest argv', 
     'selftest',
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'admin',
-    '--password',
-    'admin'
+    '--token',
+    'test-token'
   ]), {
     kind: 'command',
     command: 'selftest',
-    argv: ['--url', 'http://127.0.0.1:8090', '--login', 'admin', '--password', 'admin'],
+    argv: ['--url', 'http://127.0.0.1:8090', '--token', 'test-token'],
     options: {
       flags: [],
       values: {
         '--url': 'http://127.0.0.1:8090',
-        '--login': 'admin',
-        '--password': 'admin'
+        '--token': 'test-token'
       }
     }
   })

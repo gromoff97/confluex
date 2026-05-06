@@ -29,8 +29,7 @@ test('live regression runs governed Bats entrypoint and retains prefixed TAP', a
   const result = await runLiveRegression(suiteRoot, reportRoot, {
     target: {
       baseUrl: 'http://127.0.0.1:18090',
-      username: 'admin',
-      password: 'secret'
+      token: 'test-token'
     },
     runCommand: (command, args, options) => {
       calls.push({ command, args, cwd: options.cwd, env: options.env })
@@ -58,11 +57,13 @@ test('live regression runs governed Bats entrypoint and retains prefixed TAP', a
   assert.equal(calls[0].env.CONFLUEX_SELFTEST_SUITE_ROOT, suiteRoot)
   assert.equal(calls[0].env.CONFLUEX_SELFTEST_REPORT_ROOT, reportRoot)
   assert.equal(calls[0].env.CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL, 'http://127.0.0.1:18090')
-  assert.equal(calls[0].env.CONFLUEX_SELFTEST_CONFLUENCE_USERNAME, 'admin')
-  assert.equal(calls[0].env.CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD, 'secret')
+  assert.equal(calls[0].env.CONFLUEX_SELFTEST_CONFLUENCE_TOKEN, 'test-token')
   assert.equal(calls[0].env.CONFLUEX_CONFLUENCE_BASE_URL, 'http://127.0.0.1:18090')
-  assert.equal(calls[0].env.CONFLUEX_CONFLUENCE_USERNAME, 'admin')
-  assert.equal(calls[0].env.CONFLUEX_CONFLUENCE_PASSWORD, 'secret')
+  assert.equal(calls[0].env.CONFLUEX_CONFLUENCE_TOKEN, 'test-token')
+  assert.equal(calls[0].env.CONFLUEX_SELFTEST_CONFLUENCE_USERNAME, undefined)
+  assert.equal(calls[0].env.CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD, undefined)
+  assert.equal(calls[0].env.CONFLUEX_CONFLUENCE_USERNAME, undefined)
+  assert.equal(calls[0].env.CONFLUEX_CONFLUENCE_PASSWORD, undefined)
 })
 
 test('live regression fails before Bats and leaves empty TAP when entrypoint is missing', async () => {
@@ -86,8 +87,7 @@ test('live regression retains TAP and fails when Bats exits non-zero', async () 
   const result = await runLiveRegression(suiteRoot, reportRoot, {
     target: {
       baseUrl: 'http://127.0.0.1:18090',
-      username: 'admin',
-      password: 'secret'
+      token: 'test-token'
     },
     runCommand: () => ({
       status: 1,
@@ -116,8 +116,7 @@ test('live regression retries transient post-live invariant failures', async () 
   const result = await runLiveRegression(suiteRoot, reportRoot, {
     target: {
       baseUrl: 'http://127.0.0.1:18090',
-      username: 'admin',
-      password: 'secret'
+      token: 'test-token'
     },
     runCommand: () => ({
       status: 0,
@@ -144,8 +143,7 @@ test('live regression fails after bounded post-live invariant retries', async ()
   const result = await runLiveRegression(suiteRoot, reportRoot, {
     target: {
       baseUrl: 'http://127.0.0.1:18090',
-      username: 'admin',
-      password: 'secret'
+      token: 'test-token'
     },
     runCommand: () => ({
       status: 0,
@@ -171,8 +169,7 @@ test('live regression default invariant check can pass through invariant client'
   const invariantContexts = []
   const target = {
     baseUrl: 'http://127.0.0.1:18090',
-    username: 'admin',
-    password: 'secret'
+    token: 'test-token'
   }
 
   const result = await runLiveRegression(suiteRoot, reportRoot, {

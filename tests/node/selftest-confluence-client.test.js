@@ -65,8 +65,7 @@ test('selftest Confluence client applies fixture spaces pages and attachments th
   }, async baseUrl => {
     const client = createSelftestConfluenceClient({
       baseUrl: `${baseUrl}/confluence`,
-      username: 'admin',
-      password: 'admin'
+      token: 'test-token'
     })
 
     assert.deepEqual(await client.applySpace({
@@ -97,7 +96,7 @@ test('selftest Confluence client applies fixture spaces pages and attachments th
   assert.equal(requests.length, 3)
   assert.equal(requests[0].method, 'POST')
   assert.equal(requests[0].url, '/confluence/rest/api/space')
-  assert.equal(requests[0].authorization, `Basic ${Buffer.from('admin:admin', 'utf8').toString('base64')}`)
+  assert.equal(requests[0].authorization, 'Bearer test-token')
   assert.deepEqual(JSON.parse(requests[0].body.toString('utf8')), {
     key: 'CX',
     name: 'Confluex Fixture Space'
@@ -175,8 +174,7 @@ test('selftest Confluence client reads spaces pages and attachment payloads thro
   }, async baseUrl => {
     const client = createSelftestConfluenceClient({
       baseUrl: `${baseUrl}/confluence`,
-      username: 'admin',
-      password: 'admin'
+      token: 'test-token'
     })
 
     assert.deepEqual(await client.readSpace({ spaceKey: 'CX' }), {
@@ -231,8 +229,7 @@ test('selftest Confluence client reads space listing through REST', async () => 
   }, async baseUrl => {
     const client = createSelftestConfluenceClient({
       baseUrl: `${baseUrl}/confluence`,
-      username: 'admin',
-      password: 'admin'
+      token: 'test-token'
     })
 
     assert.deepEqual(await client.readSpaces({ limit: 1 }), [{
@@ -244,6 +241,40 @@ test('selftest Confluence client reads space listing through REST', async () => 
   assert.deepEqual(requests, [{
     method: 'GET',
     url: '/confluence/rest/api/space?limit=1',
-    authorization: `Basic ${Buffer.from('admin:admin', 'utf8').toString('base64')}`
+    authorization: 'Bearer test-token'
+  }])
+})
+
+test('selftest Confluence client resets the stand through the local reset API', async () => {
+  const requests = []
+
+  await withServer(async (request, response) => {
+    await readRequestBody(request)
+    requests.push({
+      method: request.method,
+      url: request.url,
+      authorization: request.headers.authorization
+    })
+
+    if (request.url === '/confluence/__confluence-stand/reset') {
+      jsonResponse(response, 200, { status: 'reset', ready: true })
+      return
+    }
+
+    response.statusCode = 404
+    response.end('missing')
+  }, async baseUrl => {
+    const client = createSelftestConfluenceClient({
+      baseUrl: `${baseUrl}/confluence`,
+      token: 'test-token'
+    })
+
+    assert.deepEqual(await client.resetStand(), { state: 'passed' })
+  })
+
+  assert.deepEqual(requests, [{
+    method: 'POST',
+    url: '/confluence/__confluence-stand/reset',
+    authorization: 'Bearer test-token'
   }])
 })

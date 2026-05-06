@@ -6,8 +6,7 @@ setup() {
   bats_require_minimum_version 1.5.0
 
   live_require_env CONFLUEX_LIVE_SELFTEST_URL
-  live_require_env CONFLUEX_LIVE_SELFTEST_LOGIN
-  live_require_env CONFLUEX_LIVE_SELFTEST_PASSWORD
+  live_require_env CONFLUEX_LIVE_SELFTEST_TOKEN
   live_require_env CONFLUEX_LIVE_CLI_HOME
 }
 
@@ -16,8 +15,7 @@ run_selftest() {
     "$LIVE_CONFLUEX_REPO_ROOT/confluex" \
     selftest \
     --url "$CONFLUEX_LIVE_SELFTEST_URL" \
-    --login "$CONFLUEX_LIVE_SELFTEST_LOGIN" \
-    --password "$CONFLUEX_LIVE_SELFTEST_PASSWORD"
+    --token "$CONFLUEX_LIVE_SELFTEST_TOKEN"
 }
 
 report_root_from_stdout() {
@@ -85,31 +83,30 @@ process.stdout.write(summary[key] || "");
   [ "$status" -eq 0 ]
 }
 
-@test "dirty stand selftest fails before fixture apply" {
+@test "dirty stand selftest resets before fixture apply" {
   local report_root=""
 
   run_selftest
   output="${output%$'\n'}"
   stderr="${stderr%$'\n'}"
 
-  [ "$status" -eq 4 ] || live_fail_test "dirty selftest exited $status: $output $stderr"
-  [[ "$output" == selftest_result=failed\ report_root=* ]] ||
-    live_fail_test "dirty selftest stdout mismatch: $output"
+  [ "$status" -eq 0 ] || live_fail_test "reset selftest exited $status: $output $stderr"
+  [[ "$output" == selftest_result=passed\ report_root=* ]] ||
+    live_fail_test "reset selftest stdout mismatch: $output"
   live_assert_equal "" "$stderr" "dirty selftest stderr"
 
-  report_root="$(report_root_from_stdout "$output" failed)" ||
+  report_root="$(report_root_from_stdout "$output" passed)" ||
     live_fail_test "could not parse dirty report root from: $output"
 
-  live_assert_equal "failed" "$(summary_value "$report_root" bootstrap_status)" "bootstrap_status"
-  live_assert_equal "not_run" "$(summary_value "$report_root" fixture_apply_status)" "fixture_apply_status"
-  live_assert_equal "not_run" "$(summary_value "$report_root" prepare_expected_data_status)" "prepare_expected_data_status"
-  live_assert_equal "not_run" "$(summary_value "$report_root" live_regression_status)" "live_regression_status"
-  live_assert_equal "failed" "$(summary_value "$report_root" selftest_status)" "selftest_status"
+  live_assert_equal "passed" "$(summary_value "$report_root" bootstrap_status)" "bootstrap_status"
+  live_assert_equal "passed" "$(summary_value "$report_root" fixture_apply_status)" "fixture_apply_status"
+  live_assert_equal "passed" "$(summary_value "$report_root" prepare_expected_data_status)" "prepare_expected_data_status"
+  live_assert_equal "passed" "$(summary_value "$report_root" live_regression_status)" "live_regression_status"
+  live_assert_equal "passed" "$(summary_value "$report_root" selftest_status)" "selftest_status"
 
-  run test ! -s "$report_root/live-bats.tap"
+  run test -s "$report_root/live-bats.tap"
   [ "$status" -eq 0 ]
 
-  run cat "$report_root/identities.json"
+  run test -s "$report_root/identities.json"
   [ "$status" -eq 0 ]
-  live_assert_equal "{}" "$output" "dirty identities default"
 }

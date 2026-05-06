@@ -2,7 +2,11 @@
 
 LIVE_CONFLUEX_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC2034
-LIVE_CONFLUEX_REPO_ROOT="$(cd "$LIVE_CONFLUEX_HELPER_DIR/../../.." && pwd)"
+if [[ -n "${CONFLUEX_SELFTEST_SUITE_ROOT:-}" ]]; then
+  LIVE_CONFLUEX_REPO_ROOT="$(cd "$CONFLUEX_SELFTEST_SUITE_ROOT" && pwd)"
+else
+  LIVE_CONFLUEX_REPO_ROOT="$(cd "$LIVE_CONFLUEX_HELPER_DIR/../../.." && pwd)"
+fi
 
 live_fail_test() {
   printf 'ASSERT FAILED: %s\n' "$*" >&2

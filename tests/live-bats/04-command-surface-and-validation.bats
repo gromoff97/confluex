@@ -125,7 +125,7 @@ const expected = {
     optional: ["--install-dir"]
   },
   selftest: {
-    required: ["--url", "--login", "--password"],
+    required: ["--url", "--token"],
     optional: []
   }
 };
@@ -436,7 +436,7 @@ if (problems.length) {
 
   run --keep-empty-lines --separate-stderr env CONFLUEX_SELFTEST_REPORT_ROOT="$option_report_root" \
     bash "$LIVE_CONFLUEX_REPO_ROOT/confluex" \
-    selftest --url http://127.0.0.1:8090 --login admin --password admin --safe
+    selftest --url http://127.0.0.1:8090 --token test-token --safe
   output="${output%$'\n'}"
   stderr="${stderr%$'\n'}"
   [ "$status" -eq 1 ] || live_fail_test "selftest extra option exit code was $status"
@@ -447,7 +447,7 @@ if (problems.length) {
 
   run --keep-empty-lines --separate-stderr env CONFLUEX_SELFTEST_REPORT_ROOT="$operand_report_root" \
     bash "$LIVE_CONFLUEX_REPO_ROOT/confluex" \
-    selftest --url http://127.0.0.1:8090 --login admin --password admin extra-operand
+    selftest --url http://127.0.0.1:8090 --token test-token extra-operand
   output="${output%$'\n'}"
   stderr="${stderr%$'\n'}"
   [ "$status" -eq 1 ] || live_fail_test "selftest extra operand exit code was $status"

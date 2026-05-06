@@ -83,10 +83,8 @@ test('unsupported option selects earliest raw option token', () => {
   assert.deepEqual(validateCommandInvocation('selftest', [
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'admin',
-    '--password',
-    'admin',
+    '--token',
+    'test-token',
     '--safe',
     '--critical'
   ]), {
@@ -109,14 +107,12 @@ test('selftest requires explicit target options before command work', () => {
 
   assert.deepEqual(validateCommandInvocation('selftest', [
     '--url',
-    'http://127.0.0.1:8090',
-    '--login',
-    'admin'
+    'http://127.0.0.1:8090'
   ]), {
     kind: 'rejected',
     diagnostic: {
       type: 'missing-required-option',
-      optionToken: '--password'
+      optionToken: '--token'
     }
   })
 })
@@ -125,10 +121,8 @@ test('selftest target options reject empty and control-containing values', () =>
   assert.deepEqual(validateCommandInvocation('selftest', [
     '--url',
     '',
-    '--login',
-    'admin',
-    '--password',
-    'admin'
+    '--token',
+    'test-token'
   ]), {
     kind: 'rejected',
     diagnostic: {
@@ -140,15 +134,13 @@ test('selftest target options reject empty and control-containing values', () =>
   assert.deepEqual(validateCommandInvocation('selftest', [
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'bad:user',
-    '--password',
-    'admin'
+    '--token',
+    'bad\ttoken'
   ]), {
     kind: 'rejected',
     diagnostic: {
       type: 'invalid-option-value',
-      optionToken: '--login'
+      optionToken: '--token'
     }
   })
 })
@@ -157,18 +149,15 @@ test('selftest valid invocation returns explicit target values', () => {
   assert.deepEqual(validateCommandInvocation('selftest', [
     '--url',
     'http://127.0.0.1:8090',
-    '--login',
-    'admin',
-    '--password',
-    'admin'
+    '--token',
+    'test-token'
   ]), {
     kind: 'valid',
     options: {
       flags: [],
       values: {
         '--url': 'http://127.0.0.1:8090',
-        '--login': 'admin',
-        '--password': 'admin'
+        '--token': 'test-token'
       }
     }
   })
