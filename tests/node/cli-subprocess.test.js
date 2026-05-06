@@ -161,7 +161,7 @@ test('node entrypoint renders command help', () => {
     '  --login <username>  Login used for selftest bootstrap, fixture apply, and live regression.',
     '  --password <password>  Password used for selftest bootstrap, fixture apply, and live regression.',
     'Optional options',
-    '  none',
+    '  --env-file <file>  Read configuration from this env file.',
     'Examples',
     '  confluex selftest --url http://127.0.0.1:8090 --login admin --password admin',
     ''
