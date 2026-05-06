@@ -1,20 +1,13 @@
-#!/usr/bin/env bash
-if [[ -z "${BASH_VERSION:-}" ]]; then
-  exec bash "$0" "$@"
-fi
-set -euo pipefail
+#!/usr/bin/env node
+'use strict'
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NODE_MAIN="$SCRIPT_DIR/lib/confluex-node/main.js"
+const { run } = require('./lib/confluex-node/main.js')
 
-if ! command -v node >/dev/null 2>&1; then
-  printf 'ERROR: node_unavailable\n' >&2
-  exit 4
-fi
-
-if [[ ! -f "$NODE_MAIN" ]]; then
-  printf 'ERROR: runtime_entrypoint_missing\n' >&2
-  exit 4
-fi
-
-exec node "$NODE_MAIN" "$@"
+run(process.argv.slice(2), process)
+  .then(exitCode => {
+    process.exitCode = exitCode
+  })
+  .catch(error => {
+    process.stderr.write(`ERROR: internal_error ${error.name}\n`)
+    process.exitCode = 4
+  })
