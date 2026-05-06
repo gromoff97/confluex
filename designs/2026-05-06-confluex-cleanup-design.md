@@ -13,6 +13,56 @@ The target product is a TypeScript-first CLI that exports Confluence pages to
 Markdown, can be installed and updated normally, can be configured through CLI
 options or env files, and is verified through a real Confluence test stand.
 
+## Handoff Snapshot
+
+This section is intentionally self-contained so a fresh thread can continue
+without prior conversation.
+
+Repository:
+
+```text
+this repository root
+```
+
+Related stand project:
+
+```text
+../confluence-stand
+```
+
+Current runtime shape at design time:
+
+- JavaScript CommonJS code under `lib/confluex-node/`.
+- Current public launcher is a root-level `confluex` file.
+- `package.json` is private and currently describes lint helpers rather than a
+  distributable npm CLI.
+- Current lint uses `standard` and shell helper scripts.
+- Current product tests include `tests/node/*` and `tests/live-bats/*`.
+- Current selftest exists but still depends on old login/password-style stand
+  access in requirements and tests.
+- Current Confluence access code still has username/password Basic-auth
+  concepts in `lib/confluex-node/remote/access.js`.
+- Current Markdown payload path invokes an external Markdown exporter from
+  `lib/confluex-node/payload/markdown-exporter.js`.
+- Current requirements still contain HTML page-format and selftest
+  login/password requirements.
+
+Important observed production behavior:
+
+- Real Confluence REST accepted `Authorization: Bearer <token>`.
+- Basic auth with login/password returned `401` with
+  `X-Seraph-LoginReason: AUTHENTICATED_FAILED`.
+- Corporate profile-level proxy variables broke access to the internal
+  Confluence host.
+- Bypassing proxy for the internal Confluence host allowed direct REST access.
+
+Important repository hygiene constraint:
+
+- Do not add internal planning-tool paths or references to tracked files.
+- Do not rewrite history as an incidental implementation step.
+- History cleanup is a separate publication phase and requires explicit
+  approval before it is performed.
+
 ## Goals
 
 - Use token-only Confluence authentication everywhere.
