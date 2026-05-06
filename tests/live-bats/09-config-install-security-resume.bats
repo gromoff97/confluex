@@ -66,6 +66,7 @@ write_resume_candidate() {
 command=export
 page_id=$page_id
 output_root="$out_dir"
+zip_path=none
 output_path_provenance=explicit
 support_profile=default
 page_payload_format=$payload_format
@@ -770,6 +771,7 @@ if (problems.length) {
 command=export
 page_id=$ROOT_PAGE_ID
 output_root="$unsafe_out"
+zip_path=none
 output_path_provenance=explicit
 support_profile=default
 page_payload_format=md

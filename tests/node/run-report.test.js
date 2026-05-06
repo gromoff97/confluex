@@ -43,6 +43,7 @@ test('empty run report texts use governed report filenames headers and summary o
     'command=plan',
     'page_id=123',
     'output_root="/tmp/confluex-plan"',
+    'zip_path=none',
     'output_path_provenance=explicit',
     'support_profile=default',
     'page_payload_format=none',
@@ -70,6 +71,24 @@ test('empty run report texts use governed report filenames headers and summary o
     'encryption_successful=0',
     ''
   ].join('\n'))
+})
+
+test('runReportTexts serializes retained zip path', () => {
+  const report = runReportTexts({
+    command: 'export',
+    pageId: '123',
+    outputRoot: '/tmp/confluex-export',
+    zipPath: '/tmp/confluex-export.zip',
+    outputPathProvenance: 'explicit',
+    pagePayloadFormat: 'md',
+    finalStatus: 'success',
+    scopeTrust: 'trusted',
+    interruptReason: 'none',
+    encryptionEnabled: false,
+    encryptionSuccessful: false
+  })
+
+  assert.match(report['summary.txt'], /^output_root="\/tmp\/confluex-export"\nzip_path="\/tmp\/confluex-export\.zip"\noutput_path_provenance=explicit$/m)
 })
 
 test('writeRunReportSet materializes exactly the closed report-file set', async () => {

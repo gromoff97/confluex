@@ -102,7 +102,7 @@ const sections = ["Usage", "Purpose", "Required options", "Optional options", "E
 const expected = {
   export: {
     required: ["--page-id"],
-    optional: ["--out", "--safe", "--critical", "--encrypt", "--confidential", "--resume", "--no-fail-fast", "--keep-metadata", "--log-file", "--encryption-key", "--max-pages", "--max-download-mib", "--sleep-ms", "--max-find-candidates"]
+    optional: ["--out", "--safe", "--critical", "--encrypt", "--confidential", "--resume", "--no-fail-fast", "--keep-metadata", "--zip", "--log-file", "--encryption-key", "--max-pages", "--max-download-mib", "--sleep-ms", "--max-find-candidates"]
   },
   plan: {
     required: ["--page-id"],

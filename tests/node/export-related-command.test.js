@@ -33,6 +33,39 @@ function successfulPagePayload (payload, diagnostics = []) {
   })
 }
 
+function readStoredZipEntries (zipPath) {
+  const data = fs.readFileSync(zipPath)
+  const endOfCentralDirectoryOffset = data.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))
+  assert.notEqual(endOfCentralDirectoryOffset, -1)
+  const centralDirectoryEntryCount = data.readUInt16LE(endOfCentralDirectoryOffset + 10)
+  let centralDirectoryOffset = data.readUInt32LE(endOfCentralDirectoryOffset + 16)
+  const entries = []
+
+  for (let index = 0; index < centralDirectoryEntryCount; index += 1) {
+    assert.equal(data.readUInt32LE(centralDirectoryOffset), 0x02014b50)
+    const compressionMethod = data.readUInt16LE(centralDirectoryOffset + 10)
+    const compressedSize = data.readUInt32LE(centralDirectoryOffset + 20)
+    const nameLength = data.readUInt16LE(centralDirectoryOffset + 28)
+    const extraLength = data.readUInt16LE(centralDirectoryOffset + 30)
+    const commentLength = data.readUInt16LE(centralDirectoryOffset + 32)
+    const localHeaderOffset = data.readUInt32LE(centralDirectoryOffset + 42)
+    const name = data.subarray(centralDirectoryOffset + 46, centralDirectoryOffset + 46 + nameLength).toString('utf8')
+
+    assert.equal(compressionMethod, 0)
+    assert.equal(data.readUInt32LE(localHeaderOffset), 0x04034b50)
+    const localNameLength = data.readUInt16LE(localHeaderOffset + 26)
+    const localExtraLength = data.readUInt16LE(localHeaderOffset + 28)
+    const contentStart = localHeaderOffset + 30 + localNameLength + localExtraLength
+    entries.push({
+      name,
+      content: data.subarray(contentStart, contentStart + compressedSize)
+    })
+    centralDirectoryOffset += 46 + nameLength + extraLength + commentLength
+  }
+
+  return entries
+}
+
 test('export rejects inaccessible root page before output-root creation', async () => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-export-preflight-')), 'out')
 
@@ -329,6 +362,99 @@ test('basic md export with complete scope materializes page payload', async () =
   assert.match(summary, /^page_payload_format=md$/m)
   assert.match(summary, /^final_status=success$/m)
   assert.match(summary, /^blocking_reasons=none$/m)
+})
+
+test('basic zip export retains plain root and writes deterministic archive', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-zip-export-')), 'out')
+  const zipPath = `${out}.zip`
+  const markdown = '# Root Page\n\nNo links here.\n'
+
+  const result = await runExportRelatedCommand('export', options({
+    pageId: '123',
+    out,
+    flags: ['--safe', '--zip']
+  }), {
+    checkRootPageAccess: async () => ({
+      state: 'ok',
+      identity: '123',
+      metadata: {
+        page_id: '123',
+        page_title: 'Root Page',
+        space_key: 'CX'
+      }
+    }),
+    listChildPages: async () => ({
+      state: 'ok',
+      complete: true,
+      children: []
+    }),
+    getStorageContent: async () => ({
+      state: 'ok',
+      storage: '<p>No links here.</p>'
+    }),
+    getPagePayload: successfulPagePayload(markdown)
+  })
+
+  assert.equal(result.exitCode, 0)
+  assert.equal(result.stderr, '')
+  assert.match(result.stdout, new RegExp(`^RUN_COMPLETE final_status=success artifact=${escapeRegExp(quotePathString(out))}$`, 'm'))
+  assert.equal(fs.existsSync(out), true)
+  assert.equal(fs.existsSync(zipPath), true)
+
+  const summary = fs.readFileSync(path.join(out, 'summary.txt'), 'utf8')
+  assert.match(summary, new RegExp(`^zip_path=${escapeRegExp(quotePathString(zipPath))}$`, 'm'))
+  const entries = readStoredZipEntries(zipPath)
+  assert.deepEqual(entries.map(entry => entry.name), [
+    'failed-pages.tsv',
+    'manifest.tsv',
+    'pages/space__4358/page__123/page.md',
+    'resolved-links.tsv',
+    'scope-findings.tsv',
+    'summary.txt',
+    'unresolved-links.tsv'
+  ])
+  assert.equal(entries.find(entry => entry.name === 'summary.txt').content.toString('utf8'), summary)
+  assert.equal(
+    entries.find(entry => entry.name === 'pages/space__4358/page__123/page.md').content.toString('utf8'),
+    normalizeMarkdownPayload(markdown)
+  )
+})
+
+test('basic zip export fails without overwriting pre-existing zip archive', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-zip-existing-')), 'out')
+  const zipPath = `${out}.zip`
+  fs.writeFileSync(zipPath, 'pre-existing zip')
+
+  const result = await runExportRelatedCommand('export', options({
+    pageId: '123',
+    out,
+    flags: ['--safe', '--zip']
+  }), {
+    checkRootPageAccess: async () => ({
+      state: 'ok',
+      identity: '123',
+      metadata: {
+        page_id: '123',
+        page_title: 'Root Page',
+        space_key: 'CX'
+      }
+    }),
+    listChildPages: async () => ({
+      state: 'ok',
+      complete: true,
+      children: []
+    }),
+    getStorageContent: async () => ({
+      state: 'ok',
+      storage: '<p>No links here.</p>'
+    }),
+    getPagePayload: successfulPagePayload('# Root Page\n')
+  })
+
+  assert.equal(result.exitCode, 4)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, 'ERROR: runtime_failure zip_archive\n')
+  assert.equal(fs.readFileSync(zipPath, 'utf8'), 'pre-existing zip')
 })
 
 test('basic md export records markdown payload diagnostics without dropping payload', async () => {

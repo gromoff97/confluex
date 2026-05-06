@@ -9,6 +9,8 @@ test('valid invocation returns effective flags and last valued option value', ()
   assert.deepEqual(validateCommandInvocation('export', [
     '--safe',
     '--safe',
+    '--zip',
+    '--zip',
     '--page-id',
     '0',
     '--page-id',
@@ -20,11 +22,39 @@ test('valid invocation returns effective flags and last valued option value', ()
   ]), {
     kind: 'valid',
     options: {
-      flags: ['--safe'],
+      flags: ['--safe', '--zip'],
       values: {
         '--page-id': '123',
         '--link-depth': '2'
       }
+    }
+  })
+})
+
+test('zip is supported only as an export flag', () => {
+  assert.deepEqual(validateCommandInvocation('export', [
+    '--page-id',
+    '123',
+    '--zip'
+  ]), {
+    kind: 'valid',
+    options: {
+      flags: ['--zip'],
+      values: {
+        '--page-id': '123'
+      }
+    }
+  })
+
+  assert.deepEqual(validateCommandInvocation('plan', [
+    '--page-id',
+    '123',
+    '--zip'
+  ]), {
+    kind: 'rejected',
+    diagnostic: {
+      type: 'unsupported-option',
+      optionToken: '--zip'
     }
   })
 })

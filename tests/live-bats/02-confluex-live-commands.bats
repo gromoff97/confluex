@@ -373,6 +373,85 @@ if (problems.length) {
   [ "$status" -eq 0 ] || live_fail_test "$output"
 }
 
+@test "export --zip retains plain root and deterministic ZIP archive" {
+  rm -rf "$CONFLUEX_LIVE_REPORT_ROOT/export-zip" "$CONFLUEX_LIVE_REPORT_ROOT/export-zip.zip"
+  run env HOME="$CONFLUEX_LIVE_CLI_HOME" \
+    "$LIVE_CONFLUEX_REPO_ROOT/confluex" \
+    export \
+    --page-id "$ROOT_PAGE_ID" \
+    --zip \
+    --out "$CONFLUEX_LIVE_REPORT_ROOT/export-zip"
+  [ "$status" -eq 0 ]
+
+  run node -e '
+const fs = require("fs");
+const path = require("path");
+const reportRoot = process.argv[1];
+const expected = JSON.parse(fs.readFileSync(process.argv[2], "utf8")).export_zip;
+const zipPath = `${reportRoot}.zip`;
+const problems = [];
+
+function readSummary(summaryPath) {
+  return Object.fromEntries(
+    fs.readFileSync(summaryPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const idx = line.indexOf("=");
+        return [line.slice(0, idx), line.slice(idx + 1)];
+      })
+  );
+}
+
+function zipEntryNames(archivePath) {
+  const data = fs.readFileSync(archivePath);
+  const eocd = data.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (eocd === -1) return null;
+  const count = data.readUInt16LE(eocd + 10);
+  let offset = data.readUInt32LE(eocd + 16);
+  const names = [];
+  for (let index = 0; index < count; index += 1) {
+    if (data.readUInt32LE(offset) !== 0x02014b50) return null;
+    const nameLength = data.readUInt16LE(offset + 28);
+    const extraLength = data.readUInt16LE(offset + 30);
+    const commentLength = data.readUInt16LE(offset + 32);
+    names.push(data.subarray(offset + 46, offset + 46 + nameLength).toString("utf8"));
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return names;
+}
+
+const summary = readSummary(path.join(reportRoot, "summary.txt"));
+for (const [key, value] of Object.entries(expected.summary)) {
+  if (summary[key] !== value) problems.push(`summary:${key}:${summary[key]}!=${value}`);
+}
+if (summary.zip_path !== JSON.stringify(zipPath)) problems.push(`summary:zip_path:${summary.zip_path}`);
+if (!fs.existsSync(reportRoot)) problems.push("plain_root:missing");
+if (!fs.existsSync(zipPath)) problems.push("zip:missing");
+
+const archiveNames = fs.existsSync(zipPath) ? zipEntryNames(zipPath) : null;
+if (archiveNames === null) {
+  problems.push("zip:unreadable");
+} else {
+  const sortedNames = archiveNames.slice().sort((left, right) => Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")));
+  if (archiveNames.join("\n") !== sortedNames.join("\n")) problems.push("zip:order");
+  for (const required of ["summary.txt", "manifest.tsv", "pages"]) {
+    if (!archiveNames.some((name) => name === required || name.startsWith(`${required}/`))) problems.push(`zip:missing:${required}`);
+  }
+  for (const name of archiveNames) {
+    if (path.isAbsolute(name) || name.split("/").includes("..") || name.endsWith("/")) problems.push(`zip:invalid_entry:${name}`);
+  }
+}
+
+if (expected.zip_archive !== "present") problems.push(`zip:expectation:${expected.zip_archive}`);
+if (problems.length) {
+  console.error(problems.join("\\n"));
+  process.exit(1);
+}
+' "$CONFLUEX_LIVE_REPORT_ROOT/export-zip" "$EXPECTATIONS_FILE"
+  [ "$status" -eq 0 ] || live_fail_test "$output"
+}
+
 @test "export keeps one logical output root and the docs-defined top-level artifact layout" {
   rm -rf "$CONFLUEX_LIVE_REPORT_ROOT/export"
   run env HOME="$CONFLUEX_LIVE_CLI_HOME" \

@@ -1,6 +1,7 @@
 command=export
 page_id=<page-id:root_page>
 output_root="<output-root>"
+zip_path=none
 output_path_provenance=explicit
 support_profile=default
 page_payload_format=md

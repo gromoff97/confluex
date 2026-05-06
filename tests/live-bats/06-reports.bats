@@ -46,6 +46,7 @@ const expectedKeys = [
   "command",
   "page_id",
   "output_root",
+  "zip_path",
   "output_path_provenance",
   "support_profile",
   "page_payload_format",
@@ -128,6 +129,7 @@ for (const key of ["downloaded_mib_total", "downloaded_mib_content", "downloaded
 if (values.command !== "plan") problems.push(`summary:command:${values.command}`);
 if (values.page_id !== rootPageId) problems.push(`summary:page_id:${values.page_id}`);
 if (values.output_root !== `"${reportRoot}"`) problems.push(`summary:output_root:${values.output_root}`);
+if (values.zip_path !== "none") problems.push(`summary:zip_path:${values.zip_path}`);
 if (values.output_path_provenance !== "explicit") problems.push(`summary:output_path_provenance:${values.output_path_provenance}`);
 if (values.support_profile !== "default") problems.push(`summary:support_profile:${values.support_profile}`);
 if (values.page_payload_format !== "none") problems.push(`summary:page_payload_format:${values.page_payload_format}`);
@@ -195,6 +197,7 @@ const expectedKeys = [
   "command",
   "page_id",
   "output_root",
+  "zip_path",
   "output_path_provenance",
   "support_profile",
   "page_payload_format",
@@ -277,6 +280,7 @@ for (const key of ["downloaded_mib_total", "downloaded_mib_content", "downloaded
 if (values.command !== "export") problems.push(`summary:command:${values.command}`);
 if (values.page_id !== rootPageId) problems.push(`summary:page_id:${values.page_id}`);
 if (values.output_root !== `"${reportRoot}"`) problems.push(`summary:output_root:${values.output_root}`);
+if (values.zip_path !== "none") problems.push(`summary:zip_path:${values.zip_path}`);
 if (values.output_path_provenance !== "explicit") problems.push(`summary:output_path_provenance:${values.output_path_provenance}`);
 if (values.support_profile !== "default") problems.push(`summary:support_profile:${values.support_profile}`);
 if (values.page_payload_format !== "md") problems.push(`summary:page_payload_format:${values.page_payload_format}`);
