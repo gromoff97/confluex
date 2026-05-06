@@ -52,6 +52,18 @@ npm uninstall -g confluex
 For local development, use `npm install` in the repository and run the local
 entrypoint or package bin.
 
+Package verification uses the same npm shape operators install:
+
+```bash
+npm install
+npm run build
+npm pack --dry-run
+npm pack
+npm install -g ./confluex-*.tgz
+confluex --help
+confluex doctor --help
+```
+
 ## First-Time Setup
 
 1. Verify that the environment is usable:

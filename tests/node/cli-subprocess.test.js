@@ -215,8 +215,6 @@ test('public launcher uses JS top-level help without legacy Bash fallback', () =
     '  plan  dry-run planning workflow',
     '  doctor  diagnostic workflow',
     '  config  configuration workflow',
-    '  install  installation workflow',
-    '  uninstall  uninstallation workflow',
     '  selftest  live regression self-test workflow',
     ''
   ].join('\n'))
@@ -575,39 +573,13 @@ test('public launcher reports failed doctor page access when remote context is a
   assert.match(result.stdout, /^next_action=.*check_page_access/m)
 })
 
-test('public launcher installs runnable JS runtime footprint', () => {
-  const target = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-install-launcher-')), 'bin')
-
-  const result = runLauncher(['install', '--install-dir', target])
-
-  assert.equal(result.status, 0)
-  assert.equal(result.stderr, '')
-  assert.equal(result.stdout, `install_result=installed target="${target}"\n`)
-
-  const installed = spawnSync(path.join(target, 'confluex'), ['--help'], {
-    encoding: 'utf8'
-  })
-  assert.equal(installed.status, 0)
-  assert.equal(installed.stderr, '')
-  assert.equal(installed.stdout.startsWith('Usage\n'), true)
-  assert.equal(fs.existsSync(path.join(target, '.confluex-install-manifest.txt')), true)
-  assert.equal(fs.existsSync(path.join(target, 'lib', 'confluex-node', 'main.js')), true)
-})
-
-test('public launcher uninstalls manifest-governed JS runtime footprint', () => {
-  const target = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-uninstall-launcher-')), 'bin')
-  const installed = runLauncher(['install', '--install-dir', target])
-  assert.equal(installed.status, 0)
-  fs.writeFileSync(path.join(target, 'keep.txt'), 'keep\n', 'utf8')
-
-  const result = runLauncher(['uninstall', '--install-dir', target])
-
-  assert.equal(result.status, 0)
-  assert.equal(result.stderr, '')
-  assert.equal(result.stdout, `uninstall_result=removed target="${target}"\n`)
-  assert.equal(fs.existsSync(path.join(target, 'confluex')), false)
-  assert.equal(fs.existsSync(path.join(target, '.confluex-install-manifest.txt')), false)
-  assert.equal(fs.readFileSync(path.join(target, 'keep.txt'), 'utf8'), 'keep\n')
+test('public launcher rejects removed lifecycle commands', () => {
+  for (const command of ['install', 'uninstall']) {
+    const result = runLauncher([command])
+    assert.equal(result.status, 1, command)
+    assert.equal(result.stdout, '', command)
+    assert.equal(result.stderr, `ERROR: unknown_command ${command}\n`, command)
+  }
 })
 
 test('public launcher implements config read save and clear with home-local state', () => {

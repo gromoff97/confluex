@@ -38,7 +38,7 @@ const lines = text.split("\n");
 const problems = [];
 const usageIdx = lines.indexOf("Usage");
 const commandsIdx = lines.indexOf("Commands");
-const expected = ["export", "plan", "doctor", "config", "install", "uninstall", "selftest"];
+const expected = ["export", "plan", "doctor", "config", "selftest"];
 if (usageIdx === -1) problems.push("missing_usage");
 if (commandsIdx === -1) problems.push("missing_commands");
 if (!(usageIdx !== -1 && commandsIdx !== -1 && usageIdx < commandsIdx)) problems.push("section_order");
@@ -46,7 +46,7 @@ const commandLines = lines.slice(commandsIdx + 1).filter((line) => line.trim());
 const actual = commandLines.map((line) => line.trim().split(/\s+/)[0]);
 if (JSON.stringify(actual) !== JSON.stringify(expected)) problems.push(`commands:${actual.join(",")}`);
 for (const line of commandLines) {
-  const match = line.match(/^  (export|plan|doctor|config|install|uninstall|selftest)\s+(.+)$/);
+  const match = line.match(/^  (export|plan|doctor|config|selftest)\s+(.+)$/);
   if (!match) problems.push(`command_line:${line}`);
   else if (match[2].includes("\n") || match[2].trim() === "") problems.push(`purpose:${match[1]}`);
 }
@@ -66,7 +66,7 @@ const lines = text.split("\n");
 const problems = [];
 const usageIdx = lines.indexOf("Usage");
 const commandsIdx = lines.indexOf("Commands");
-const expected = ["export", "plan", "doctor", "config", "install", "uninstall", "selftest"];
+const expected = ["export", "plan", "doctor", "config", "selftest"];
 if (usageIdx === -1) problems.push("missing_usage");
 if (commandsIdx === -1) problems.push("missing_commands");
 if (!(usageIdx !== -1 && commandsIdx !== -1 && usageIdx < commandsIdx)) problems.push("section_order");
@@ -74,7 +74,7 @@ const commandLines = lines.slice(commandsIdx + 1).filter((line) => line.trim());
 const actual = commandLines.map((line) => line.trim().split(/\s+/)[0]);
 if (JSON.stringify(actual) !== JSON.stringify(expected)) problems.push(`commands:${actual.join(",")}`);
 for (const line of commandLines) {
-  const match = line.match(/^  (export|plan|doctor|config|install|uninstall|selftest)\s+(.+)$/);
+  const match = line.match(/^  (export|plan|doctor|config|selftest)\s+(.+)$/);
   if (!match) problems.push(`command_line:${line}`);
   else if (match[2].includes("\n") || match[2].trim() === "") problems.push(`purpose:${match[1]}`);
 }
@@ -89,7 +89,7 @@ if (problems.length) {
 @test "command help keeps required and optional sections distinct, including selftest explicit target help" {
   local command=""
 
-  for command in export plan doctor config install uninstall selftest; do
+  for command in export plan doctor config selftest; do
     run_live_cli "$command" --help
     [ "$status" -eq 0 ] || live_fail_test "$command --help rejected: $status"
     assert_help_sections_in_order
@@ -115,14 +115,6 @@ const expected = {
   config: {
     required: [],
     optional: ["--encryption-key", "--clear-encryption-key"]
-  },
-  install: {
-    required: [],
-    optional: ["--install-dir"]
-  },
-  uninstall: {
-    required: [],
-    optional: ["--install-dir"]
   },
   selftest: {
     required: ["--url", "--token"],

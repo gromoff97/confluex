@@ -312,16 +312,9 @@ one bounded observable contract.
 9. A `config --encryption-key <value>` or `config --clear-encryption-key` runtime
    failure leaves the saved default encryption recipient state unchanged from its
    pre-invocation state.
-10. For this card, `<target>` is the accepted invocation's resolved installation
-   target.
-11. An `install` runtime failure does not create a new valid
-   `<target>/.confluex-install-manifest.txt` for the failed invocation. If the
-   failure occurs before target mutation begins, any pre-existing valid install
-   manifest remains governed by the pre-invocation installation state.
-12. An `uninstall` runtime failure modifies no target path except paths listed in
-   the valid install manifest that governed that uninstall attempt.
-13. After an `uninstall` runtime failure, any removed target path must have been
-   removable by the manifest-governed uninstall semantics for that attempt.
+10. Removed lifecycle commands `install` and `uninstall` have no runtime-failure
+   filesystem semantics because they are rejected before workflow dispatch under
+   `FR-0012`.
 
 **Dependencies**:
 - `FR-0118`

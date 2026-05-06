@@ -246,14 +246,6 @@ test('invalid link depth is rejected before command work', () => {
 })
 
 test('empty path-like and encryption values are invalid values', () => {
-  assert.deepEqual(validateCommandInvocation('install', ['--install-dir', '']), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-value',
-      optionToken: '--install-dir'
-    }
-  })
-
   assert.deepEqual(validateCommandInvocation('config', ['--encryption-key', 'none']), {
     kind: 'rejected',
     diagnostic: {

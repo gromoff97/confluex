@@ -13,8 +13,6 @@ const expectedTopLevelHelp = [
   '  plan  dry-run planning workflow',
   '  doctor  diagnostic workflow',
   '  config  configuration workflow',
-  '  install  installation workflow',
-  '  uninstall  uninstallation workflow',
   '  selftest  live regression self-test workflow',
   ''
 ].join('\n')
@@ -30,8 +28,6 @@ test('command order is the supported top-level order', () => {
     'plan',
     'doctor',
     'config',
-    'install',
-    'uninstall',
     'selftest'
   ])
 })

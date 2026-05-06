@@ -1,17 +1,34 @@
 {
   "name": "confluex",
   "version": "0.1.0",
-  "private": true,
   "description": "Token-authenticated Confluence export CLI",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/gromoff97/confluex.git"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
   "bin": {
     "confluex": "./bin/confluex.js"
   },
+  "files": [
+    "bin/",
+    "dist/",
+    "lib/confluex-node/",
+    "tests/fixtures/",
+    "tests/live-bats/live-regression.bats",
+    "tests/live-bats/helpers/",
+    "README.md",
+    "package.json"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:node": "node --test",
     "selftest": "node dist/main.js selftest",
-    "lint:js": "standard confluex $(git ls-files '*.js' '*.mjs')",
+    "lint:js": "node scripts/lint-js.js",
     "lint:shell": "node scripts/lint-shell.js",
     "lint": "npm run lint:js && npm run lint:shell"
   },
