@@ -6,6 +6,7 @@ import { parseInvocation } from './cli/parse'
 import { isCommand } from './cli/registry'
 import { loadSelectedEnvFile } from './config/env-file'
 import { buildEffectiveOptions } from './config/effective-options'
+import { runDoctorCommand } from './commands/doctor'
 import { checkNodeVersion, runtimePrerequisiteFailure } from './prereq/checks'
 import type { EffectiveOptions } from './cli/validate'
 
@@ -28,7 +29,6 @@ type CommandOptions = EffectiveOptions & {
 }
 
 type CommandRunners = {
-  runDoctorCommand: (options: CommandOptions) => Promise<CommandResult>
   runExportRelatedCommand: (command: 'export' | 'plan', options: CommandOptions) => Promise<CommandResult>
 }
 
@@ -39,9 +39,7 @@ type EnvContext = {
 }
 
 const exportRuntime = require('../../lib/confluex-node/commands/export-related') as Pick<CommandRunners, 'runExportRelatedCommand'>
-const doctorRuntime = require('../../lib/confluex-node/commands/doctor') as Pick<CommandRunners, 'runDoctorCommand'>
 
-const checkedRunDoctorCommand = doctorRuntime.runDoctorCommand
 const checkedRunExportRelatedCommand = exportRuntime.runExportRelatedCommand
 
 export async function run (argv: string[], streams: Streams = process): Promise<number> {
@@ -84,7 +82,7 @@ export async function run (argv: string[], streams: Streams = process): Promise<
   }
 
   if (parsed.command === 'doctor') {
-    const result = await checkedRunDoctorCommand(options)
+    const result = await runDoctorCommand(options)
     streams.stdout.write(result.stdout)
     streams.stderr.write(result.stderr)
     return result.exitCode
