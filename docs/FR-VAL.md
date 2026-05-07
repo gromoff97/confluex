@@ -264,12 +264,15 @@ output-root reuse begins.
 3. For `export` and `plan`, pre-acceptance work occurs in this order:
    command-surface validation; env-file source selection, env-file path
    validation, env-file parsing, and effective public configuration selection
-   under `FR-0219`; output-root selector normalization and generated-root
-   selection under `FR-0021` and `FR-0055`; explicit-output-root rejection
-   under `FR-0016`, including resume-root compatibility evaluation under
-   `FR-0103` when `export --resume --out <path>` applies; persistent log-path
-   validation under `FR-0134` when a persistent log-artifact path is selected
-   under `FR-0029`; and root-page preflight under `FR-0017`.
+   under `FR-0219`; explicit or configured output-root selector normalization
+   under `FR-0021` when an output-root selector supplies a path;
+   explicit-output-root rejection under `FR-0016`, including resume-root
+   compatibility evaluation under `FR-0103` when
+   `export --resume --out <path>` applies; persistent log-path validation under
+   `FR-0134` when a persistent log-artifact path is selected under `FR-0029`;
+   root-page preflight under `FR-0017`; and automatic generated output-root
+   naming and candidate selection under `FR-0055` when no output-root selector
+   supplies a path.
 4. For `doctor`, pre-acceptance work occurs in this order: command-surface
    validation; env-file source selection, env-file path validation, env-file
    parsing, and effective public configuration selection under `FR-0219`; and

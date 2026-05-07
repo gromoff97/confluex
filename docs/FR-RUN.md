@@ -140,32 +140,36 @@ workflow and root page.
 2. `plan` with no effective output-root selector generates the base directory
    name `confluence_plan_<page_id>_<YYYYMMDDTHHMMSSZ>`.
 3. `<page_id>` is the canonical resolved root page identifier.
-4. The timestamp is the UTC time captured exactly once immediately after
-   root-page preflight succeeds and before the product evaluates the first
-   generated output-root candidate under criteria 6 through 8.
-5. `<YYYYMMDDTHHMMSSZ>` serializes the UTC timestamp as four-digit year,
+4. Automatic generated output-root naming and candidate selection begins only
+   after root-page preflight under `FR-0017` succeeds and establishes the
+   canonical resolved root page identifier serialized as `<page_id>` in
+   criteria 1 and 2.
+5. The timestamp is the UTC time captured exactly once after criterion 4 and
+   before the product evaluates the first generated output-root candidate under
+   criteria 7 through 9.
+6. `<YYYYMMDDTHHMMSSZ>` serializes the UTC timestamp as four-digit year,
    two-digit month, two-digit day, literal `T`, two-digit 24-hour hour,
    two-digit minute, two-digit second, and literal `Z`, with all numeric
    components zero-padded.
-6. For each base or suffixed generated directory name, before invocation
+7. For each base or suffixed generated directory name, before invocation
    acceptance the product obtains the process current working directory under
    `FR-0158`, requires that directory to be absolute and path-normalizable for
    the current platform under `FR-0159`, joins that single directory name to
    that directory, and path-normalizes the joined result under `FR-0159`.
-7. Candidate existence is evaluated using non-following filesystem metadata, and
+8. Candidate existence is evaluated using non-following filesystem metadata, and
    any existing filesystem object at a candidate path counts as an existing
    candidate.
-8. If metadata evaluation under criterion 7 fails for the generated base
+9. If metadata evaluation under criterion 8 fails for the generated base
    candidate path or for any suffixed candidate path checked before selection,
    the invocation is rejected under `FR-0019` before invocation acceptance.
-9. If the generated base directory name already exists under criterion 7, or if
-   any earlier suffixed candidate also exists under criterion 7, the product
+10. If the generated base directory name already exists under criterion 8, or if
+   any earlier suffixed candidate also exists under criterion 8, the product
    appends the smallest suffix `_<n>` whose `n` is a canonical positive integer
    governed by `FR-0014` and whose first retry uses `n=1`, then selects the
-   smallest such candidate path that does not exist under criterion 7.
-10. A generated output root is created as a direct child of the process current
+   smallest such candidate path that does not exist under criterion 8.
+11. A generated output root is created as a direct child of the process current
     working directory.
-11. If criterion 6 cannot obtain or validate the process current working
+12. If criterion 7 cannot obtain or validate the process current working
     directory, or if the joined candidate path cannot be path-normalized under
     `FR-0159`, the invocation is rejected under `FR-0019` before invocation
     acceptance.

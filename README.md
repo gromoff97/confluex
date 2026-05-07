@@ -253,7 +253,6 @@ Start with `summary.txt`. Important fields include:
 - `resolved_links`
 - `unresolved_links`
 - `failed_operations`
-- `incomplete`
 - `interrupt_reason`
 - `zip_path`
 - `support_profile`
@@ -284,8 +283,8 @@ Other report files:
 
 ## Interrupts And Limits
 
-If a run hits `--max-pages` or `--max-download-mib`, `summary.txt` marks the run
-as incomplete and records the stop reason.
+If a run hits `--max-pages` or `--max-download-mib`, `summary.txt` records
+`final_status=incomplete` and an `interrupt_reason` value for the stop.
 
 If an `export` run is interrupted after the output root exists, the retained
 plain output root remains on disk and is marked interrupted. If a `plan` run is
@@ -321,6 +320,6 @@ Check `manifest.tsv`, `unresolved-links.tsv`, `scope-findings.tsv`, and
 
 ## Contract
 
-The requirements corpus lives under [`docs/`](docs/). Read
-[`docs/AGENTS.md`](docs/AGENTS.md) first, then the relevant `FR-<AREA>.md`
-files. Product behavior is defined only in `FR-<AREA>.md`.
+Product behavior is defined by the requirements corpus in the source
+repository. The public npm package documentation surface is this README and the
+package license.
