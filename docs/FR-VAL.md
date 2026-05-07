@@ -282,10 +282,15 @@ output-root reuse begins.
 6. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
 7. For `doctor`, the accepted-work threshold from criterion 1 is the first
-   governed diagnostic step needed for that invocation: dependency probing
-   under `FR-0038`, page-access diagnostics under `FR-0039` when `--page-id`
-   is supplied, support-profile reporting under `FR-0041`, supported-link-form
+   applicable step in this order: persistent log-artifact creation,
+   replacement, or first write under `FR-0134` when a persistent log-artifact
+   path is selected under `FR-0029`; otherwise dependency probing under
+   `FR-0038`, page-access diagnostics under `FR-0039` when `--page-id` is
+   supplied, support-profile reporting under `FR-0041`, supported-link-form
    reporting under `FR-0044`, or next-action computation under `FR-0042`.
+8. A `doctor` failure from persistent log-artifact creation, replacement, or
+   first write in criterion 7 is observed after invocation acceptance and is
+   classified by `FR-0134` and `FR-0142`.
 
 **Dependencies**:
 - `FR-0016`
@@ -299,6 +304,7 @@ output-root reuse begins.
 - `FR-0044`
 - `FR-0055`
 - `FR-0134`
+- `FR-0142`
 - `FR-0103`
 - `FR-0180`
 - `FR-0219`

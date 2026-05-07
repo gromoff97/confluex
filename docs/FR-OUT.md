@@ -622,22 +622,22 @@ shall carry one stable disqualifying marker.
   roots
 
 ### FR-0221
-**Requirement**: ZIP export packaging shall retain a deterministic archive
-beside the plain output root.
+**Requirement**: ZIP export packaging shall use deterministic success and
+failure branches beside the plain output root.
 
 **Applicability**:
-- accepted `export --zip` invocations whose retained-artifact branch creates an
-  authoritative ZIP archive
+- accepted `export --zip` invocations whose ZIP-packaging request from
+  `FR-0220` reaches ZIP packaging after accepted run execution begins
 
 **Rationale**:
 - Operators need a portable archive while retaining the ordinary output root for
-  inspection and recovery.
+  inspection and recovery, and automation needs existing-sibling and creation
+  failures to be classified consistently.
 
 **Acceptance Criteria**:
-1. In a retained-artifact branch governed by this card, after the plain output
-   root reaches its final retained content, the product creates one ZIP archive
-   at the ZIP sibling path governed by `FR-0238`, unless that path already
-   exists.
+1. After the plain output root reaches its final retained content, the ZIP
+   packaging branch governed by this card creates one ZIP archive at the ZIP
+   sibling path governed by `FR-0238`, unless that path already exists.
 2. If the `FR-0238` ZIP sibling path already exists before ZIP creation begins
    after accepted run execution has begun, the accepted invocation fails under
    `FR-0102` before modifying that path.
