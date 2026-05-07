@@ -7,29 +7,12 @@ import { isCommand } from './cli/registry'
 import { loadSelectedEnvFile } from './config/env-file'
 import { buildEffectiveOptions } from './config/effective-options'
 import { runDoctorCommand } from './commands/doctor'
+import { runExportRelatedCommand } from './commands/export-related'
 import { checkNodeVersion, runtimePrerequisiteFailure } from './prereq/checks'
-import type { EffectiveOptions } from './cli/validate'
 
 type Streams = {
   stdout: Pick<NodeJS.WritableStream, 'write'>
   stderr: Pick<NodeJS.WritableStream, 'write'>
-}
-
-type CommandResult = {
-  exitCode: number
-  stdout: string
-  stderr: string
-}
-
-type CommandOptions = EffectiveOptions & {
-  config?: {
-    confluenceBaseUrl?: string
-    confluenceToken?: string
-  }
-}
-
-type CommandRunners = {
-  runExportRelatedCommand: (command: 'export' | 'plan', options: CommandOptions) => Promise<CommandResult>
 }
 
 type EnvContext = {
@@ -37,10 +20,6 @@ type EnvContext = {
   defaultValues: Record<string, string>
   diagnostic: Diagnostic | null
 }
-
-const exportRuntime = require('../../lib/confluex-node/commands/export-related') as Pick<CommandRunners, 'runExportRelatedCommand'>
-
-const checkedRunExportRelatedCommand = exportRuntime.runExportRelatedCommand
 
 export async function run (argv: string[], streams: Streams = process): Promise<number> {
   const nodeVersion = checkNodeVersion()
@@ -75,7 +54,7 @@ export async function run (argv: string[], streams: Streams = process): Promise<
   const options = buildEffectiveOptions(parsed.command, parsed.options, process.env, envContext.values)
 
   if (parsed.command === 'export' || parsed.command === 'plan') {
-    const result = await checkedRunExportRelatedCommand(parsed.command, options)
+    const result = await runExportRelatedCommand(parsed.command, options)
     streams.stdout.write(result.stdout)
     streams.stderr.write(result.stderr)
     return result.exitCode
