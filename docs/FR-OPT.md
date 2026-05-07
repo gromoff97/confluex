@@ -291,9 +291,9 @@ artifacts.
    value under `FR-0219`, that value selects the requested persistent
    log-artifact path.
 3. The effective persistent log-artifact path is the path-normalized absolute
-   path produced from the operator-supplied path source under `FR-0158` and
-   normalized under `FR-0159` before the persistent log-artifact behavior
-   governed by `FR-0134` begins.
+   path produced from the selected path source under `FR-0158` and normalized
+   under `FR-0159` before the persistent log-artifact behavior governed by
+   `FR-0134` begins.
 4. The creation, overwrite, and path-conflict behavior for the selected
    persistent log-artifact path is governed by `FR-0134`.
 5. Command support and rejection behavior for `--log-file <file>` are governed

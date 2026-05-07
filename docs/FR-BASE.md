@@ -335,6 +335,8 @@ input contract.
 - operator-supplied path options
 - public configuration environment-value sources used by owning cards to select
   output-root and log-file paths
+- public env-file value sources selected under `FR-0219` and used by owning
+  cards to select output-root and log-file paths
 - current-working-directory sources used by relative-path normalization and
   generated root selection
 
@@ -349,9 +351,12 @@ input contract.
 2. On POSIX, operator-supplied path options use the exact byte sequence of the
    effective option value selected by the owning requirement from process argv,
    environment-value sources use the exact byte sequence obtained when the
-   product reads the named environment variable, and current-working-directory
-   sources use the exact byte sequence obtained when the product asks for the
-   process current working directory and do not use `$PWD`.
+   product reads the named environment variable, env-file value sources use the
+   exact byte sequence of the parsed value selected under `FR-0219` after
+   ignored-line handling, quote-pair removal, duplicate-key resolution, and
+   key selection, and current-working-directory sources use the exact byte
+   sequence obtained when the product asks for the process current working
+   directory and do not use `$PWD`.
 3. Producing the Unicode string from any POSIX source requires lossless UTF-8
    decoding with no replacement or omission; if the source byte sequence is not
    valid UTF-8 or would require replacement or omission, path-source
@@ -359,8 +364,11 @@ input contract.
 4. On Windows, operator-supplied path options use the Unicode argument value
    received after command-line parsing, environment-value sources use the
    Unicode value obtained when the product reads the named environment
-   variable, and current-working-directory sources use the Unicode path
-   obtained when the product asks for the process current working directory.
+   variable, env-file value sources use the exact Unicode string of the parsed
+   value selected under `FR-0219` after ignored-line handling, quote-pair
+   removal, duplicate-key resolution, and key selection, and current-working-
+   directory sources use the Unicode path obtained when the product asks for the
+   process current working directory.
 5. If any governed Windows path source cannot supply a Unicode string,
    path-source acquisition fails.
 6. The platform is Windows when the running Confluex process is a native
@@ -369,7 +377,7 @@ input contract.
    OpenBSD, NetBSD, or WSL user space, and unsupported otherwise.
 
 **Dependencies**:
-- None
+- `FR-0219`
 
 **Traceability**:
 - Area: shared primitives

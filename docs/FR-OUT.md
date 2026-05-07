@@ -502,7 +502,8 @@ report synthesis.
 replacement behavior.
 
 **Applicability**:
-- non-help invocations using `--log-file <file>`
+- non-help invocations with an effective persistent log-artifact path selected
+  under `FR-0029`
 
 **Rationale**:
 - Operators need the selected persistent log path to be created, replaced, or
@@ -538,12 +539,13 @@ replacement behavior.
    to the logical plain output-root path, is inside that root as a path-segment
    descendant, or is equal to any deterministic sibling reserved path owned by
    the same logical plain output root under `FR-0083`.
-10. For criterion 9, the deterministic sibling reserved paths are formed from
-    the logical plain output-root string before `FR-0159` path normalization:
-    `<out>.zip`. Equality comparison uses the normalized path equality rule from
-    `FR-0160` over the path-normalized absolute paths produced under
-    `FR-0159`; symlinks are not followed; and descendant comparison uses the
-    path-segment descendant relation from `FR-0161`.
+10. For criterion 9, the deterministic sibling reserved path is the ZIP sibling
+    path derived under `FR-0083` from the same logical plain output-root path,
+    whether or not `--zip` is active for the current invocation. Equality
+    comparison uses the normalized path equality rule from `FR-0160` over the
+    path-normalized absolute paths produced under `FR-0159`; symlinks are not
+    followed; and descendant comparison uses the path-segment descendant
+    relation from `FR-0161`.
 11. Current invocation log text is UTF-8 text produced during that invocation,
    contains no NUL byte, and, if it contains line breaks, uses LF for every line
    break and contains no CR byte.
@@ -555,12 +557,12 @@ replacement behavior.
 14. Rejection-capable path validation from criteria 2 through 9 occurs before
     invocation acceptance under `FR-0212`. Persistent log artifact creation,
     replacement, and first write begin only after invocation acceptance. For
-    `export` and `plan`, when `--log-file <file>` is in effect, that log setup
-    may itself be the first accepted-run lifecycle work specific to the
-    invocation under `FR-0180` and may begin before output-root creation or
-    reuse, resume-reuse evaluation, scope-discovery work, page processing, or
-    report generation. For `doctor`, that log setup begins before any governed
-    `doctor` stdout line is emitted.
+    `export` and `plan`, when an effective persistent log-artifact path is
+    selected under `FR-0029`, that log setup may itself be the first
+    accepted-run lifecycle work specific to the invocation under `FR-0180` and
+    may begin before output-root creation or reuse, resume-reuse evaluation,
+    scope-discovery work, page processing, or report generation. For `doctor`,
+    that log setup begins before any governed `doctor` stdout line is emitted.
 15. If creating missing parent directories, opening the log artifact, replacing
    the log artifact, or writing current invocation log text fails after
    criterion 14 begins, the invocation does not continue without the selected
@@ -636,11 +638,10 @@ beside the plain output root.
 
 **Acceptance Criteria**:
 1. After the plain output root reaches its final retained content, the product
-   creates one ZIP archive path whose basename is the plain output root basename
-   plus `.zip` and whose parent directory is the plain output root parent
-   directory, unless that path already exists.
-2. If the criterion-1 ZIP path already exists before ZIP creation begins after
-   accepted run execution has begun, the accepted invocation fails under
+   creates one ZIP archive at the ZIP sibling path governed by `FR-0083`, unless
+   that path already exists.
+2. If the `FR-0083` ZIP sibling path already exists before ZIP creation begins
+   after accepted run execution has begun, the accepted invocation fails under
    `FR-0102` before modifying that path.
 3. The ZIP archive contains only relative entries for files retained under the
    plain output root. It contains no absolute path entries, no empty directory
@@ -649,15 +650,17 @@ beside the plain output root.
    governed relative path under `FR-0150`.
 5. The plain output root remains on disk after successful ZIP creation.
 6. `summary.txt` includes exactly one `zip_path=<quoted_path_string>` line when
-   ZIP creation succeeds; `<quoted_path_string>` is governed by `FR-0124`.
+   ZIP creation succeeds; the serialized ZIP path is governed by `FR-0083` and
+   `FR-0119`.
 7. If ZIP creation fails after accepted run execution begins, the run fails
    under `FR-0102`; any partially written ZIP archive is non-authoritative
    output debris and is not a report-set container.
 
 **Dependencies**:
 - `FR-0085`
+- `FR-0083`
 - `FR-0102`
-- `FR-0124`
+- `FR-0119`
 - `FR-0150`
 - `FR-0220`
 
