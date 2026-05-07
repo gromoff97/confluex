@@ -23,7 +23,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepack": "npm run build",
-    "test:node": "node --test",
+    "test:node": "npm run build && node --test",
     "lint:js": "node scripts/lint-js.js",
     "lint:ts": "eslint \"src/**/*.ts\" eslint.config.mjs --max-warnings 0",
     "lint:shell": "node scripts/lint-shell.js",

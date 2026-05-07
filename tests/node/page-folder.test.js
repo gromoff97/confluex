@@ -3,7 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { pagePayloadFolder } = require('../../lib/confluex-node/output/page-folder')
+const { pagePayloadFolder } = require('../../dist/confluex-node/output/page-folder')
 
 test('pagePayloadFolder serializes space key bytes and page id', () => {
   assert.equal(pagePayloadFolder({ pageId: '123', spaceKey: 'CX' }), 'pages/space__4358/page__123')

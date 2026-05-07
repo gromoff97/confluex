@@ -6,9 +6,9 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { runExportRelatedCommand } = require('../../lib/confluex-node/commands/export-related')
-const { normalizeMarkdownPayload } = require('../../lib/confluex-node/payload/markdown')
-const { quotePathString } = require('../../lib/confluex-node/path/format')
+const { runExportRelatedCommand } = require('../../dist/confluex-node/commands/export-related')
+const { normalizeMarkdownPayload } = require('../../dist/confluex-node/payload/markdown')
+const { quotePathString } = require('../../dist/confluex-node/path/format')
 
 function options ({ pageId = '123', out, flags = [], values = {} } = {}) {
   return {

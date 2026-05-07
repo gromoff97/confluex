@@ -13,7 +13,7 @@ const {
   findTitleCandidates,
   getAttachmentData,
   getAttachmentPreview
-} = require('../../lib/confluex-node/remote/access')
+} = require('../../dist/confluex-node/remote/access')
 
 const bearerToken = 'token:value'
 const expectedAuthorization = `Bearer ${bearerToken}`
@@ -21,9 +21,7 @@ const expectedAuthorization = `Bearer ${bearerToken}`
 function envForBaseUrl (baseUrl) {
   return {
     CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
-    CONFLUEX_CONFLUENCE_TOKEN: bearerToken,
-    CONFLUEX_CONFLUENCE_USERNAME: 'legacy-user',
-    CONFLUEX_CONFLUENCE_PASSWORD: 'legacy-password'
+    CONFLUEX_CONFLUENCE_TOKEN: bearerToken
   }
 }
 
@@ -52,9 +50,7 @@ test('remote access context validates base URL and Bearer token', () => {
   })
 
   assert.deepEqual(resolveRemoteAccessContext({
-    CONFLUEX_CONFLUENCE_BASE_URL: 'http://example.test',
-    CONFLUEX_CONFLUENCE_USERNAME: 'legacy-user',
-    CONFLUEX_CONFLUENCE_PASSWORD: 'legacy-password'
+    CONFLUEX_CONFLUENCE_BASE_URL: 'http://example.test'
   }), {
     usable: false,
     reason: 'missing_token'

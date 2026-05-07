@@ -1,3 +1,0 @@
-Synthetic link target notes.
-Contains invalid-looking URL: http://broken.invalid.local/path
-Contains relative-looking URL: ../spaces/CX/pages/12345

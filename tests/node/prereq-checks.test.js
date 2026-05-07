@@ -7,7 +7,7 @@ const {
   checkNodeVersion,
   nodeRuntimeDependency,
   runtimePrerequisiteFailure
-} = require('../../lib/confluex-node/prereq/checks')
+} = require('../../dist/confluex-node/prereq/checks')
 
 test('node prerequisite accepts only the governed minimum runtime', () => {
   assert.equal(checkNodeVersion('20.11.0').state, 'passed')

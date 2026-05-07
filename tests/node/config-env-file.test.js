@@ -9,13 +9,13 @@ const path = require('node:path')
 const {
   parseEnvFile,
   loadSelectedEnvFile
-} = require('../../lib/confluex-node/config/env-file')
+} = require('../../dist/confluex-node/config/env-file')
 const {
   buildEffectiveOptions
-} = require('../../lib/confluex-node/config/effective-options')
-const { parseInvocation } = require('../../lib/confluex-node/cli/parse')
-const { validateCommandInvocation } = require('../../lib/confluex-node/cli/validate')
-const { run } = require('../../lib/confluex-node/main')
+} = require('../../dist/confluex-node/config/effective-options')
+const { parseInvocation } = require('../../dist/confluex-node/cli/parse')
+const { validateCommandInvocation } = require('../../dist/confluex-node/cli/validate')
+const { run } = require('../../dist/confluex-node/main')
 
 function tempDir () {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-env-file-test-'))
@@ -107,8 +107,6 @@ test('buildEffectiveOptions ignores env-backed options outside the command surfa
       '--page-id': '123'
     }
   }, {
-    CONFLUEX_SELFTEST_CONFLUENCE_BASE_URL: 'http://127.0.0.1:8090',
-    CONFLUEX_SELFTEST_CONFLUENCE_TOKEN: 'test-token',
     CONFLUEX_CONFLUENCE_BASE_URL: 'http://127.0.0.1:8090',
     CONFLUEX_CONFLUENCE_TOKEN: 'real-token'
   }, new Map())

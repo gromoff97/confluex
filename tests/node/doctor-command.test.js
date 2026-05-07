@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { runDoctorCommand } = require('../../lib/confluex-node/commands/doctor')
+const { runDoctorCommand } = require('../../dist/confluex-node/commands/doctor')
 
 const supportedLinkForms = 'child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title'
 const nodeRuntimeLine = `dependency_node_runtime=present:${process.version}`

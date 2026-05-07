@@ -3,7 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { commandNames, topLevelHelp, commandHelp } = require('../../lib/confluex-node/cli/help')
+const { commandNames, topLevelHelp, commandHelp } = require('../../dist/confluex-node/cli/help')
 
 const expectedTopLevelHelp = [
   'Usage',

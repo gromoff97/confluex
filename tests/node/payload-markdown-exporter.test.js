@@ -8,14 +8,12 @@ const path = require('node:path')
 
 const {
   acquireMarkdownPagePayload
-} = require('../../lib/confluex-node/payload/markdown-exporter')
+} = require('../../dist/confluex-node/payload/markdown-exporter')
 
 function envForConfluence () {
   return {
     CONFLUEX_CONFLUENCE_BASE_URL: 'http://localhost:8090/',
     CONFLUEX_CONFLUENCE_TOKEN: 'token-secret',
-    CONFLUEX_CONFLUENCE_USERNAME: 'legacy-user',
-    CONFLUEX_CONFLUENCE_PASSWORD: 'legacy-password',
     HTTP_PROXY: 'http://proxy.invalid',
     HTTPS_PROXY: 'http://proxy.invalid',
     ALL_PROXY: 'http://proxy.invalid',
@@ -81,8 +79,6 @@ test('acquireMarkdownPagePayload invokes the audited exporter and normalizes its
   assert.equal(execCall.options.env.http_proxy, undefined)
   assert.equal(execCall.options.env.https_proxy, undefined)
   assert.equal(execCall.options.env.all_proxy, undefined)
-  assert.equal(execCall.options.env.CONFLUEX_CONFLUENCE_USERNAME, undefined)
-  assert.equal(execCall.options.env.CONFLUEX_CONFLUENCE_PASSWORD, undefined)
   assert.equal(configAtExec.export.page_path, '{page_id}.md')
   assert.equal(configAtExec.export.attachment_path, 'attachments/{attachment_title}{attachment_extension}')
   assert.equal(configAtExec.export.skip_unchanged, false)

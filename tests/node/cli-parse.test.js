@@ -3,7 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { parseInvocation } = require('../../lib/confluex-node/cli/parse')
+const { parseInvocation } = require('../../dist/confluex-node/cli/parse')
 
 test('parser recognizes exact top-level help shapes', () => {
   assert.deepEqual(parseInvocation([]), { kind: 'top-help' })
@@ -36,7 +36,7 @@ test('parser rejects unsupported command before command work', () => {
 })
 
 test('parser rejects commands outside the public inventory before command work', () => {
-  for (const command of ['config', 'selftest', 'install', 'uninstall']) {
+  for (const command of ['config', 'install', 'uninstall']) {
     assert.deepEqual(parseInvocation([command]), {
       kind: 'rejected',
       diagnostic: {

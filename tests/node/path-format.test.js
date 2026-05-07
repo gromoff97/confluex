@@ -3,7 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { quotePathString } = require('../../lib/confluex-node/path/format')
+const { quotePathString } = require('../../dist/confluex-node/path/format')
 
 test('quoted path string uses governed JSON-style escapes', () => {
   assert.equal(quotePathString('/tmp/confluex target'), '"/tmp/confluex target"')

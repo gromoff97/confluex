@@ -9,7 +9,7 @@ const path = require('node:path')
 const { spawn, spawnSync } = require('node:child_process')
 
 const repoRoot = path.resolve(__dirname, '..', '..')
-const nodeMain = path.join(repoRoot, 'lib', 'confluex-node', 'main.js')
+const nodeMain = path.join(repoRoot, 'dist', 'main.js')
 const launcher = path.join(repoRoot, 'confluex')
 
 function runNodeMain (argv) {
@@ -127,16 +127,6 @@ function fakeDoctorBin () {
   return bin
 }
 
-function fakeFailingDockerBin () {
-  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-failing-docker-bin-'))
-  writeExecutable(path.join(bin, 'docker'), [
-    '#!/bin/sh',
-    'exit 1',
-    ''
-  ].join('\n'))
-  return bin
-}
-
 test('node entrypoint renders top-level help for no argv', () => {
   const result = runNodeMain([])
   assert.equal(result.status, 0)
@@ -198,7 +188,7 @@ test('node entrypoint rejects export when root page preflight cannot run', () =>
   assert.equal(result.stderr, 'ERROR: validation_failed FR-0017 --page-id 123\n')
 })
 
-test('public launcher uses JS top-level help without legacy Bash fallback', () => {
+test('public launcher uses JS top-level help without Bash fallback', () => {
   const result = runLauncher(['--help'])
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
@@ -236,19 +226,6 @@ test('public launcher validates known commands before development checkpoint', (
   assert.equal(preflightRejected.status, 1)
   assert.equal(preflightRejected.stdout, '')
   assert.equal(preflightRejected.stderr, 'ERROR: validation_failed FR-0017 --page-id 123\n')
-})
-
-test('public launcher rejects bare selftest before report root creation', () => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-selftest-launcher-'))
-  const bin = fakeFailingDockerBin()
-  const result = runLauncherWithEnv(['selftest'], {
-    PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`
-  }, cwd)
-
-  assert.equal(result.status, 1)
-  assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: unknown_command selftest\n')
-  assert.deepEqual(fs.readdirSync(cwd), [])
 })
 
 test('public launcher rejects unsupported export option before page preflight', () => {
@@ -541,7 +518,7 @@ test('public launcher reports failed doctor page access when remote context is a
 })
 
 test('public launcher rejects commands outside the public inventory', () => {
-  for (const command of ['config', 'selftest', 'install', 'uninstall']) {
+  for (const command of ['config', 'install', 'uninstall']) {
     const result = runLauncher([command])
     assert.equal(result.status, 1, command)
     assert.equal(result.stdout, '', command)

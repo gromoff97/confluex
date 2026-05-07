@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { selectOutputRoot } = require('../../lib/confluex-node/output/root')
+const { selectOutputRoot } = require('../../dist/confluex-node/output/root')
 
 function options ({ out, flags = [] } = {}) {
   return {

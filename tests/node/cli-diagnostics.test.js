@@ -3,7 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { diagnosticToken, formatDiagnostic } = require('../../lib/confluex-node/cli/diagnostics')
+const { diagnosticToken, formatDiagnostic } = require('../../dist/confluex-node/cli/diagnostics')
 
 test('diagnostic token percent-encodes unsafe bytes', () => {
   assert.equal(diagnosticToken('bad command'), 'bad%20command')

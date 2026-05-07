@@ -10,7 +10,7 @@ const {
   emptyRunReportTexts,
   runReportTexts,
   writeRunReportSet
-} = require('../../lib/confluex-node/reports/run-report')
+} = require('../../dist/confluex-node/reports/run-report')
 
 test('empty run report texts use governed report filenames headers and summary order', () => {
   const report = emptyRunReportTexts({

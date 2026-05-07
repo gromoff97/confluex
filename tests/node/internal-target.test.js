@@ -8,7 +8,7 @@ const {
   normalizedTargetKeyFromMarkdownDestination,
   normalizedTargetKeyFromResolvedRow,
   normalizedTargetKeyFromUnresolvedRow
-} = require('../../lib/confluex-node/links/internal-target')
+} = require('../../dist/confluex-node/links/internal-target')
 
 test('normalizedTargetKeyFromMarkdownDestination resolves page-id destinations', () => {
   assert.deepEqual(

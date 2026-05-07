@@ -3,7 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { validateCommandInvocation } = require('../../lib/confluex-node/cli/validate')
+const { validateCommandInvocation } = require('../../dist/confluex-node/cli/validate')
 
 test('valid invocation returns effective flags and last valued option value', () => {
   assert.deepEqual(validateCommandInvocation('export', [

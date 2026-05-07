@@ -160,11 +160,7 @@ const sanitizedChildEnvNames = [
   'HTTP_PROXY',
   'HTTPS_PROXY',
   'all_proxy',
-  'ALL_PROXY',
-  'CONFLUEX_CONFLUENCE_USERNAME',
-  'CONFLUEX_CONFLUENCE_PASSWORD',
-  'CONFLUEX_SELFTEST_CONFLUENCE_USERNAME',
-  'CONFLUEX_SELFTEST_CONFLUENCE_PASSWORD'
+  'ALL_PROXY'
 ] as const
 
 function confluenceChildProcessEnv (

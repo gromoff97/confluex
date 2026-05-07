@@ -9,7 +9,7 @@ const path = require('node:path')
 const {
   preparePersistentLog,
   writePersistentLog
-} = require('../../lib/confluex-node/output/log-file')
+} = require('../../dist/confluex-node/output/log-file')
 
 function options (values = {}) {
   return {

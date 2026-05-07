@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 
 const {
   localizeMarkdownPayload
-} = require('../../lib/confluex-node/payload/markdown-localizer')
+} = require('../../dist/confluex-node/payload/markdown-localizer')
 
 function localizationInput (overrides = {}) {
   return {

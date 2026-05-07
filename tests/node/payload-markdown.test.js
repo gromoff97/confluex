@@ -6,7 +6,7 @@ const assert = require('node:assert/strict')
 const {
   markdownRemnantDiagnostics,
   normalizeMarkdownPayload
-} = require('../../lib/confluex-node/payload/markdown')
+} = require('../../dist/confluex-node/payload/markdown')
 
 test('normalizeMarkdownPayload applies the governed Markdown byte normalization', () => {
   assert.equal(
