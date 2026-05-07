@@ -56,6 +56,11 @@ confluex doctor
 The public npm package contains the executable shim, generated public `dist/`
 runtime, `README.md`, `LICENSE`, and `package.json`.
 
+Automated product regression, package, and live-stand verification lives in the
+external `confluex-test` repository. The public product repository keeps only
+product source, release configuration, requirements, and public-boundary
+verification tooling.
+
 ## Configuration
 
 Confluex uses token-only Confluence access. Set public configuration through the

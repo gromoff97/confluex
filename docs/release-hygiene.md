@@ -7,9 +7,25 @@ Run these checks before pushing or publishing a release candidate.
 ```bash
 npm run lint
 npm run typecheck
+npm run typecheck:tools
 npm run build
-npm run test
+npm run verify:public-cleanup
 npm pack --dry-run --json
+```
+
+Run external product verification from the sibling `confluex-test` repository:
+
+```bash
+npm --prefix ../confluex-test run lint
+npm --prefix ../confluex-test run typecheck
+npm --prefix ../confluex-test run test:unit
+npm --prefix ../confluex-test run test:package -- --package ../confluex
+npm --prefix ../confluex-test run test:live -- --package ../confluex --stand-url http://127.0.0.1:8090
+npm --prefix ../confluex-test run verify:migration-manifest
+npm --prefix ../confluex-test run verify:black-box-boundary
+npm --prefix ../confluex-test run verify:test-coverage
+npm --prefix ../confluex-test run verify:repo-secrets
+npm --prefix ../confluex-test run verify:external-conflicts
 ```
 
 The package dry-run must match the public package inventory from
