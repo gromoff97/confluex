@@ -27,8 +27,8 @@ diagnose.
 - Observable evidence: workflow behavior, page-access diagnostics, rejection
 
 ### FR-0021
-**Requirement**: `--out <path>` shall control the logical plain output root for
-export-related runs.
+**Requirement**: The output-root selector shall control the logical plain
+output root for export-related runs.
 
 **Applicability**:
 - accepted non-help `export` invocations
@@ -38,141 +38,158 @@ export-related runs.
 - Operators need deterministic control of the output-root location.
 
 **Acceptance Criteria**:
-1. `--out <path>` selects the logical plain output root for the run.
-2. The selected logical plain output-root path is the path-normalized absolute
+1. If `--out <path>` is supplied, it selects the logical plain output root for
+   the run.
+2. If `--out <path>` is omitted and `CONFLUEX_OUTPUT_ROOT` has an effective
+   value under `FR-0219`, that value selects the logical plain output root for
+   the run.
+3. The selected logical plain output-root path is the path-normalized absolute
    path produced from the operator-supplied path source under `FR-0158` and
    normalized under `FR-0159` before existence checks, path comparison,
-   artifact naming, summary reporting, or sidecar-path derivation.
-3. If the operator omits `--out`, the product generates the output root
-   automatically.
+   artifact naming, summary reporting, or sibling artifact path derivation.
+4. If neither `--out <path>` nor `CONFLUEX_OUTPUT_ROOT` selects an output root,
+   the product generates the output root automatically.
 
 **Dependencies**:
 - `FR-0158`
 - `FR-0159`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: output-root location, path normalization, summary output
 
 ### FR-0022
-**Requirement**: `--safe` shall request a conservative run profile.
+**Requirement**: `--env-file <file>` shall select the invocation's env-file
+configuration source.
 
 **Applicability**:
-- `export --safe`
-- `plan --safe`
+- `export --env-file <file>`
+- `plan --env-file <file>`
+- `doctor --env-file <file>`
 
 **Rationale**:
-- Operators need a single option that applies conservative defaults for
-  production-style runs.
+- Operators need a deterministic way to load invocation-local configuration from
+  a file without relying only on shell profile state.
 
 **Acceptance Criteria**:
-1. Without explicit overrides, `--safe` applies these defaults:
-   `--max-find-candidates 5`, `--max-pages 200`,
-   `--max-download-mib 256`, and `--sleep-ms 200`.
-2. Explicit operator-supplied values for those options override the safe-profile
-   defaults.
-3. Any command other than `export` or `plan` used with `--safe` is rejected.
+1. `--env-file <file>` selects the env-file source for the current invocation.
+2. Env-file path normalization, readability validation, parsing, and precedence
+   are governed by `FR-0219`.
+3. `--env-file <file>` is supported only by `export`, `plan`, and `doctor`.
+4. Any command other than `export`, `plan`, or `doctor` used with `--env-file`
+   is rejected.
 
 **Dependencies**:
-- None
+- `FR-0036`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: effective limit and throttle behavior
+- Observable evidence: selected env-file reads and unsupported-command rejection
 
 ### FR-0023
-**Requirement**: `--critical` shall request fail-closed policy behavior.
+**Requirement**: `export` and `plan` shall use fail-fast page processing unless
+best-effort page processing is requested.
 
 **Applicability**:
-- `export --critical`
-- `plan --critical`
+- accepted non-help `export` invocations
+- accepted non-help `plan` invocations
 
 **Rationale**:
-- Operators need a mode that treats a completed run with remaining findings as a
-  fail-closed policy outcome.
+- Operators need a deterministic default failure policy and an explicit
+  best-effort override.
 
 **Acceptance Criteria**:
-1. `--critical` applies the semantic effect of `--safe`.
-2. A completed run under `--critical` is evaluated under the fail-closed outcome
-   rule defined by `FR-0096`.
-3. Any command other than `export` or `plan` used with `--critical` is rejected.
+1. If `--no-fail-fast` is omitted, page-scoped failures governed by `FR-0095`
+   use that card's fail-fast branch.
+2. If `--no-fail-fast` is supplied, page-scoped failures governed by `FR-0095`
+   use the best-effort branch requested by `FR-0027`.
+3. This card governs only selection between the default fail-fast branch and the
+   `--no-fail-fast` branch; page-failure recording and final outcome selection
+   remain governed by their authoritative report and outcome cards.
 
 **Dependencies**:
-- `FR-0022`
-- `FR-0096`
+- `FR-0027`
+- `FR-0095`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: final status, exit code, safe-profile defaults
+- Observable evidence: continued processing or stop after page-local failure
 
 ### FR-0024
-**Requirement**: `--encrypt` shall request standard encrypted-run behavior.
+**Requirement**: Public path-valued option inputs shall use one invocation-local
+source model.
 
 **Applicability**:
-- `export --encrypt`
-- `plan --encrypt`
+- `export --out <path>`
+- `plan --out <path>`
+- non-help invocations using `--log-file <file>`
+- env-file and process-environment values selected by `FR-0219`
 
 **Rationale**:
-- Operators need a standard encrypted delivery mode that preserves plaintext on
-  encryption failure.
+- Operators need path inputs to resolve the same way whether supplied on the
+  command line, in an env file, or in the process environment.
 
 **Acceptance Criteria**:
-1. `--encrypt` requests encrypted-run behavior for that run.
-2. If no effective encryption recipient is available, the invocation is rejected
-   by this card before root-page preflight, traversal, output-root reuse, or
-   artifact creation begins.
-3. If an effective encryption recipient is available, recipient preflight
-   validation and rejection for a failed preflight are governed by `FR-0108`;
-   this card does not own the failed-preflight diagnostic.
-4. Any command other than `export` or `plan` used with `--encrypt` is rejected.
+1. The public path-valued selectors are exactly `--out <path>`,
+   `CONFLUEX_OUTPUT_ROOT`, `--log-file <file>`, and `CONFLUEX_LOG_FILE`.
+2. `--out <path>` and `CONFLUEX_OUTPUT_ROOT` select the logical plain
+   output-root path governed by `FR-0021`.
+3. `--log-file <file>` and `CONFLUEX_LOG_FILE` select the persistent
+   log-artifact path governed by `FR-0029`.
+4. Each selected path value is normalized under `FR-0158` and `FR-0159` before
+   the path is used for artifact naming, existence checks, or path comparison.
 
 **Dependencies**:
-- `FR-0037`
-- `FR-0108`
+- `FR-0021`
+- `FR-0029`
+- `FR-0158`
+- `FR-0159`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: encryption preflight, encrypted artifacts, rejection
+- Observable evidence: effective output-root and log-file paths
 
 ### FR-0025
-**Requirement**: `--confidential` shall request encrypted fail-closed behavior
-with plaintext cleanup on encryption failure.
+**Requirement**: Public numeric run-control inputs shall use one
+invocation-local source model.
 
 **Applicability**:
-- `export --confidential`
-- `plan --confidential`
+- `export` and `plan` numeric run-control options
+- env-file and process-environment values selected by `FR-0219`
 
 **Rationale**:
-- Operators need a confidentiality-first mode for security-sensitive exports.
+- Operators need run-control values to have the same validation and precedence
+  across command-line, env-file, and process-environment sources.
 
 **Acceptance Criteria**:
-1. `--confidential` applies the semantic effect of both `--encrypt` and
-   `--critical`.
-2. Under `--confidential`, the effective encryption recipient must match the
-   full 40-hex GPG fingerprint syntax from criterion 3; otherwise the invocation
-   is rejected.
-3. A full 40-hex GPG fingerprint is exactly 40 ASCII characters matching the
-   regular expression `^[0-9A-Fa-f]{40}$`. Hexadecimal letter case is ignored
-   for this syntax check, and a matching fingerprint is normalized to uppercase
-   before any later comparison or diagnostic serialization in this corpus.
-4. If encryption fails after any plaintext run artifact has been written, the
-   run applies the confidentiality-preserving failure behavior defined by
-   `FR-0110`.
-5. `--encrypt --confidential` has the same accepted semantics as
-   `--confidential` alone.
-6. Any command other than `export` or `plan` used with `--confidential` is
-   rejected.
+1. The public numeric run-control selectors are exactly `--max-pages <n>`,
+   `CONFLUEX_MAX_PAGES`, `--max-download-mib <n>`,
+   `CONFLUEX_MAX_DOWNLOAD_MIB`, `--sleep-ms <n>`, `CONFLUEX_SLEEP_MS`,
+   `--max-find-candidates <n>`, `CONFLUEX_MAX_FIND_CANDIDATES`,
+   `--link-depth <n>`, and `CONFLUEX_LINK_DEPTH`.
+2. Effective values selected from the command line, env file, or process
+   environment are validated with the numeric syntax governed by `FR-0014`.
+3. The selected `max-pages` and `max-download-mib` values are consumed by
+   `FR-0034`.
+4. The selected `sleep-ms` value is consumed by `FR-0035`.
+5. The selected `max-find-candidates` value is consumed by `FR-0157`.
+6. The selected `link-depth` value is consumed by `FR-0218`.
 
 **Dependencies**:
-- `FR-0024`
-- `FR-0023`
-- `FR-0110`
-- `FR-0111`
-- `FR-0037`
+- `FR-0014`
+- `FR-0034`
+- `FR-0035`
+- `FR-0157`
+- `FR-0218`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: rejection rules, final artifact set, warning behavior
+- Observable evidence: effective run limits, pacing, candidate bounds, and link
+  depth
 
 ### FR-0026
 **Requirement**: `--resume` shall request recovery from a prior export output
@@ -258,23 +275,28 @@ artifacts.
 - Observable evidence: presence or absence of metadata artifacts
 
 ### FR-0029
-**Requirement**: `--log-file <file>` shall request a persistent log artifact.
+**Requirement**: The log-file selector shall request a persistent log artifact.
 
 **Applicability**:
 - accepted non-help invocations that include `--log-file <file>`
+- accepted non-help invocations with effective `CONFLUEX_LOG_FILE`
 
 **Rationale**:
 - Operators need a persistent log separate from run reports.
 
 **Acceptance Criteria**:
-1. `--log-file <file>` selects the requested persistent log-artifact path.
-2. The effective persistent log-artifact path is the path-normalized absolute
+1. If `--log-file <file>` is supplied, it selects the requested persistent
+   log-artifact path.
+2. If `--log-file <file>` is omitted and `CONFLUEX_LOG_FILE` has an effective
+   value under `FR-0219`, that value selects the requested persistent
+   log-artifact path.
+3. The effective persistent log-artifact path is the path-normalized absolute
    path produced from the operator-supplied path source under `FR-0158` and
    normalized under `FR-0159` before the persistent log-artifact behavior
    governed by `FR-0134` begins.
-3. The creation, overwrite, and path-conflict behavior for the selected
+4. The creation, overwrite, and path-conflict behavior for the selected
    persistent log-artifact path is governed by `FR-0134`.
-4. Command support and rejection behavior for `--log-file <file>` are governed
+5. Command support and rejection behavior for `--log-file <file>` are governed
    by `FR-0036`.
 
 **Dependencies**:
@@ -284,127 +306,136 @@ artifacts.
 - `FR-0134`
 - `FR-0158`
 - `FR-0159`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: persistent log-file creation, overwrite, or rejection
 
 ### FR-0030
-**Requirement**: `--encryption-key <value>` shall provide a command-specific
-encryption-recipient identity.
+**Requirement**: Configured public option values shall use the same value
+validation as command-line option values.
 
 **Applicability**:
-- `export --encryption-key <value>`
-- `plan --encryption-key <value>`
-- `doctor --verify-encryption --encryption-key <value>`
-- `config --encryption-key <value>`
+- effective values selected from env files under `FR-0219`
+- effective values selected from the process environment under `FR-0219`
 
 **Rationale**:
-- Operators need an explicit encryption-recipient override and configuration
-  input.
+- Operators need env-file and process-environment inputs to fail the same way
+  as equivalent command-line inputs.
 
 **Acceptance Criteria**:
-1. In `export` and `plan`, `--encryption-key <value>` is the effective recipient
-   for the current run and overrides any saved default.
-2. In `doctor --verify-encryption`, `--encryption-key <value>` is the effective
-   recipient to verify.
-3. In `config`, `--encryption-key <value>` supplies the recipient value whose
-   saved-state mutation and readback contract are governed by `FR-0046`.
-4. The value is rejected if it is empty, is not valid UTF-8 text, or contains
-   TAB, LF, or CR.
-5. The exact value `none` is rejected because `none` is the reserved absence
-   token defined by `FR-0125`.
-6. In `doctor`, the accepted-usage prerequisite for `--encryption-key <value>`
-   is governed by `FR-0031`.
+1. A configured value selected for `CONFLUEX_OUTPUT_ROOT` is validated as the
+   path value consumed by `FR-0021`.
+2. A configured value selected for `CONFLUEX_LOG_FILE` is validated as the path
+   value consumed by `FR-0029`.
+3. Configured values selected for `CONFLUEX_MAX_PAGES`,
+   `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
+   `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` are validated by
+   the corresponding numeric syntax rules in `FR-0014`.
+4. A configured value selected for `CONFLUEX_CONFLUENCE_BASE_URL` or
+   `CONFLUEX_CONFLUENCE_TOKEN` is validated by the remote-access context rules
+   in `FR-0216`.
+5. If a configured value fails the validation required by criteria 1 through 4,
+   the invocation is rejected before command work begins.
 
 **Dependencies**:
-- `FR-0046`
-- `FR-0031`
-- `FR-0125`
+- `FR-0014`
+- `FR-0021`
+- `FR-0029`
+- `FR-0216`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: effective-recipient selection, configuration state,
-  rejection behavior
+- Observable evidence: invalid configured value rejection
 
 ### FR-0031
-**Requirement**: `--verify-encryption` shall request recipient verification in
-`doctor`.
+**Requirement**: `doctor` public options shall select diagnostic checks and
+diagnostic artifacts only.
 
 **Applicability**:
-- `doctor --verify-encryption`
+- accepted non-help `doctor` invocations
 
 **Rationale**:
-- Operators need an explicit way to verify that the effective recipient is usable
-  before running encrypted exports.
+- Operators need diagnostics to report readiness without starting export or
+  planning work.
 
 **Acceptance Criteria**:
-1. `doctor --verify-encryption` requests the encryption-recipient diagnostics
-   defined by `FR-0040` using recipient selection from `FR-0037`.
-2. If no explicit `--encryption-key` and no saved default recipient exist, the
-   diagnostic outcome and observable output remain governed exclusively by
-   `FR-0040`.
-3. Any command other than `doctor` used with `--verify-encryption` is rejected.
-4. In `doctor`, `--encryption-key <value>` is accepted only when
-   `--verify-encryption` is also present.
+1. `--page-id <id>` requests the page-access diagnostic governed by `FR-0039`.
+2. `--env-file <file>` selects configuration for the current diagnostic
+   invocation under `FR-0219`.
+3. `--log-file <file>` selects a persistent diagnostic log artifact governed by
+   `FR-0134`.
+4. A `doctor` invocation does not select an output root, run-stop limit,
+   inter-page delay, candidate limit, link depth, resume mode, metadata
+   retention mode, or ZIP archive mode.
 
 **Dependencies**:
-- `FR-0040`
-- `FR-0030`
-- `FR-0037`
+- `FR-0020`
+- `FR-0022`
+- `FR-0029`
+- `FR-0039`
+- `FR-0134`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: `doctor` encryption-recipient diagnostics
+- Observable evidence: diagnostic stdout and persistent log behavior
 
 ### FR-0032
-**Requirement**: `--clear-encryption-key` shall request deletion of the saved
-default encryption recipient.
+**Requirement**: Public flag options shall consume no following argv token as a
+value.
 
 **Applicability**:
-- `config --clear-encryption-key`
+- non-help invocations using public flag options
 
 **Rationale**:
-- Operators need an explicit way to remove the saved default recipient.
+- Operators need flag parsing to be deterministic when a flag is followed by
+  another option token or positional-looking token.
 
 **Acceptance Criteria**:
-1. `config --clear-encryption-key` requests the saved default-recipient removal
-   whose state mutation and readback contract are governed by `FR-0047`.
-2. Any command other than `config` used with `--clear-encryption-key` is
-   rejected.
-
-**Dependencies**:
-- `FR-0047`
-
-**Traceability**:
-- Area: option semantics
-- Observable evidence: configuration state after clear
-
-### FR-0033
-**Requirement**: `--install-dir <dir>` shall not be a supported Confluex CLI
-option.
-
-**Applicability**:
-- non-help invocations that include `--install-dir <dir>`
-
-**Rationale**:
-- Package installation targets are selected by npm, not by a Confluex
-  subcommand.
-
-**Acceptance Criteria**:
-1. No command lists `--install-dir <dir>` in its supported option set under
-   `FR-0036`.
-2. Any non-help invocation containing `--install-dir` is rejected as an
-   unsupported option before command work begins.
-3. npm installation, update, and uninstall target selection is outside the
-   Confluex CLI option surface.
+1. Public flag options are exactly `--resume`, `--no-fail-fast`,
+   `--keep-metadata`, and `--zip`.
+2. A public flag option consumes only its own argv token.
+3. The argv token immediately following a public flag option remains available
+   for normal option parsing, valued-option value consumption, or positional
+   operand rejection under `FR-0036`.
 
 **Dependencies**:
 - `FR-0036`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: unsupported-option rejection
+- Observable evidence: argv parsing for public flag options
+
+### FR-0033
+**Requirement**: Public valued options shall consume exactly one following argv
+token as their value.
+
+**Applicability**:
+- non-help invocations using public valued options
+
+**Rationale**:
+- Operators need valued-option parsing to be independent of whether the value
+  begins with `-` or `--`.
+
+**Acceptance Criteria**:
+1. Public valued options are exactly `--page-id`, `--out`, `--env-file`,
+   `--log-file`, `--max-pages`, `--max-download-mib`, `--sleep-ms`,
+   `--max-find-candidates`, and `--link-depth`.
+2. Each public valued option consumes exactly the immediately following argv
+   token as its value.
+3. If no argv token follows a public valued option, the invocation is rejected
+   for a missing option value under `FR-0013`.
+
+**Dependencies**:
+- `FR-0013`
+- `FR-0036`
+
+**Traceability**:
+- Area: option semantics
+- Observable evidence: argv parsing and missing-value rejection
 
 ### FR-0034
 **Requirement**: The run-stop limit options shall bound accepted export or plan
@@ -413,24 +444,28 @@ runs.
 **Applicability**:
 - `export --max-pages <n>`
 - `plan --max-pages <n>`
+- `export` and `plan` with effective `CONFLUEX_MAX_PAGES`
 - `export --max-download-mib <n>`
 - `plan --max-download-mib <n>`
+- `export` and `plan` with effective `CONFLUEX_MAX_DOWNLOAD_MIB`
 
 **Rationale**:
 - Operators need explicit controls that can stop a run before it grows beyond the
   intended size.
 
 **Acceptance Criteria**:
-1. `--max-pages <n>` stops further page processing when `n` processed pages have
-   been reached.
+1. If `--max-pages <n>` or effective `CONFLUEX_MAX_PAGES` selects a max-pages
+   value, that value stops further page processing when `n` processed pages
+   have been reached.
 2. When the nth page reaches processed-page status under `FR-0127`, the product
    completes the remaining required processing for that nth page before applying
    the `--max-pages` stop; no later queued page begins processing.
-3. `--max-download-mib <n>` stops further byte-contributing page-processing or
-   attachment activity once the current run's accumulated downloaded volume
-   reaches or exceeds `n * 1,048,576` bytes, where the counted volume is
-   exactly the sum of the content-byte and metadata-byte counters defined by
-   `FR-0120`.
+3. If `--max-download-mib <n>` or effective `CONFLUEX_MAX_DOWNLOAD_MIB` selects
+   a max-download-mib value, that value stops further byte-contributing
+   page-processing or attachment activity once the current run's accumulated
+   downloaded volume reaches or exceeds `n * 1,048,576` bytes, where the
+   counted volume is exactly the sum of the content-byte and metadata-byte
+   counters defined by `FR-0120`.
 4. The download-limit threshold is evaluated after each completed
    byte-contributing operation that adds bytes to either counter from
    `FR-0120`.
@@ -475,10 +510,12 @@ runs.
    byte-contributing operation that would add bytes to either counter begins.
 10. If both configured stop limits would stop the run at the same decision point,
    interrupt-reason precedence is governed by `FR-0140`.
-11. If either configured stop limit stops the run, configured-stop status,
+11. If neither max-pages nor max-download-mib has an effective value, neither
+    configured stop limit is active for that run.
+12. If either configured stop limit stops the run, configured-stop status,
    retention, interrupt-reason serialization, and exit code are governed by
    `FR-0097`, `FR-0140`, and `FR-0118`.
-12. Any command other than `export` or `plan` used with either option is
+13. Any command other than `export` or `plan` used with either option is
    rejected.
 
 **Dependencies**:
@@ -497,6 +534,7 @@ runs.
 - `FR-0097`
 - `FR-0140`
 - `FR-0118`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
@@ -508,6 +546,7 @@ runs.
 **Applicability**:
 - `export --sleep-ms <n>`
 - `plan --sleep-ms <n>`
+- `export` and `plan` with effective `CONFLUEX_SLEEP_MS`
 
 **Rationale**:
 - Operators need explicit control over request pacing.
@@ -515,10 +554,10 @@ runs.
 **Acceptance Criteria**:
 1. If `--sleep-ms <n>` is supplied, the effective per-page delay is `n`
    milliseconds.
-2. If `--sleep-ms <n>` is not supplied and `--safe` is in effect, the effective
-   per-page delay is the safe-profile delay defined by `FR-0022`.
-3. If neither `--sleep-ms` nor `--safe` supplies a sleep value, the effective
-   per-page delay is `0` milliseconds.
+2. If `--sleep-ms <n>` is omitted and `CONFLUEX_SLEEP_MS` has an effective value
+   under `FR-0219`, the effective per-page delay is that value in milliseconds.
+3. If neither `--sleep-ms <n>` nor `CONFLUEX_SLEEP_MS` supplies a sleep value,
+   the effective per-page delay is `0` milliseconds.
 4. The effective per-page delay is applied after a page reaches processed-page
    status under `FR-0127` and before the next queued page begins processing
    under `FR-0141`.
@@ -534,9 +573,9 @@ runs.
    rejected.
 
 **Dependencies**:
-- `FR-0022`
 - `FR-0127`
 - `FR-0141`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
@@ -549,6 +588,7 @@ candidate inspection.
 **Applicability**:
 - `export --max-find-candidates <n>`
 - `plan --max-find-candidates <n>`
+- `export` and `plan` with effective `CONFLUEX_MAX_FIND_CANDIDATES`
 
 **Rationale**:
 - Operators need explicit control over conservative title-resolution breadth.
@@ -556,11 +596,12 @@ candidate inspection.
 **Acceptance Criteria**:
 1. If `--max-find-candidates <n>` is supplied, the effective candidate limit for
    one title-resolution attempt is `n`.
-2. If `--max-find-candidates <n>` is not supplied and `--safe` is in effect,
-   the effective candidate limit is the safe-profile candidate limit defined by
-   `FR-0022`.
-3. If neither `--max-find-candidates` nor `--safe` supplies a candidate limit,
-   title-resolution candidate inspection is unlimited.
+2. If `--max-find-candidates <n>` is omitted and
+   `CONFLUEX_MAX_FIND_CANDIDATES` has an effective value under `FR-0219`, the
+   effective candidate limit for one title-resolution attempt is that value.
+3. If neither `--max-find-candidates <n>` nor
+   `CONFLUEX_MAX_FIND_CANDIDATES` supplies a candidate limit, title-resolution
+   candidate inspection is unlimited.
 4. When an effective candidate limit applies, the product inspects at most that
    many title candidates for any single title-resolution attempt.
 5. If the effective candidate limit prevents unique resolution, the link remains
@@ -569,7 +610,7 @@ candidate inspection.
    `--max-find-candidates` is rejected.
 
 **Dependencies**:
-- `FR-0022`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
@@ -587,74 +628,67 @@ candidate inspection.
   than inferred indirectly.
 
 **Acceptance Criteria**:
-1. `export` supports only `--page-id`, `--out`, `--safe`, `--critical`,
-   `--encrypt`, `--confidential`, `--resume`, `--no-fail-fast`,
-   `--keep-metadata`, `--zip`, `--env-file`, `--log-file`, `--encryption-key`, `--max-pages`,
+1. `export` supports only `--page-id`, `--out`, `--resume`,
+   `--no-fail-fast`, `--keep-metadata`, `--zip`, `--env-file`, `--log-file`,
+   `--max-pages`, `--max-download-mib`, `--sleep-ms`,
+   `--max-find-candidates`, and `--link-depth`.
+2. `plan` supports only `--page-id`, `--out`, `--no-fail-fast`,
+   `--keep-metadata`, `--env-file`, `--log-file`, `--max-pages`,
    `--max-download-mib`, `--sleep-ms`, `--max-find-candidates`, and
    `--link-depth`.
-2. `plan` supports only `--page-id`, `--out`, `--safe`, `--critical`,
-   `--encrypt`, `--confidential`, `--no-fail-fast`, `--keep-metadata`,
-   `--env-file`, `--log-file`, `--encryption-key`, `--max-pages`, `--max-download-mib`,
-   `--sleep-ms`, `--max-find-candidates`, and `--link-depth`.
-3. `doctor` supports only `--page-id`, `--verify-encryption`,
-   `--env-file`, `--encryption-key`, and `--log-file`.
-4. `config` supports only `--encryption-key` and `--clear-encryption-key`.
-5. `selftest` supports only `--url`, `--token`, and `--env-file`.
-8. The supported options that take values use exactly these value placeholders in
+3. `doctor` supports only `--page-id`, `--env-file`, and `--log-file`.
+4. The supported options that take values use exactly these value placeholders in
    help output: `--page-id` uses `<id>`, `--out` uses `<path>`,
    `--env-file` uses `<file>`, `--log-file` uses `<file>`,
-   `--encryption-key` uses `<value>`, `--max-pages` uses `<n>`,
-   `--max-download-mib` uses `<n>`, `--sleep-ms` uses `<n>`,
-   `--max-find-candidates` uses `<n>`, `--link-depth` uses `<n>`,
-   `--url` uses `<base-url>`, and `--token` uses `<token>`.
-9. Every supported option in criteria 1 through 5 that is not listed in
-   criterion 8 is a flag option and has no value placeholder in help output.
-10. No command accepts positional operands after the command token other than
-   values consumed by the valued options in criterion 8.
-11. Any non-option token that is not consumed as the value for one valued option
+   `--max-pages` uses `<n>`, `--max-download-mib` uses `<n>`,
+   `--sleep-ms` uses `<n>`, `--max-find-candidates` uses `<n>`, and
+   `--link-depth` uses `<n>`.
+5. Every supported option in criteria 1 through 3 that is not listed in
+   criterion 4 is a flag option and has no value placeholder in help output.
+6. No command accepts positional operands after the command token other than
+   values consumed by the valued options in criterion 4.
+7. Any non-option token that is not consumed as the value for one valued option
    is rejected under `FR-0019`.
 
 **Dependencies**:
 - `FR-0019`
-- `FR-0129`
+- `FR-0004`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: command-specific option acceptance and rejection behavior
 
 ### FR-0037
-**Requirement**: Effective encryption-recipient selection shall use one
-deterministic precedence order.
+**Requirement**: Effective public option values shall be selected from
+invocation-local inputs only.
 
 **Applicability**:
-- `export` with `--encrypt` or `--confidential`
-- `plan` with `--encrypt` or `--confidential`
-- `doctor --verify-encryption`
+- accepted non-help `export` invocations
+- accepted non-help `plan` invocations
+- accepted non-help `doctor` invocations
 
 **Rationale**:
-- Operators need encryption validation and diagnostics to interpret recipient
-  selection the same way in every workflow.
+- Operators need one reproducible precedence model that does not depend on
+  machine-local saved state from earlier invocations.
 
 **Acceptance Criteria**:
-1. If `--encryption-key <value>` is supplied on the current command and accepted,
-   that value is the effective encryption recipient for that command.
-2. Otherwise, if the shared saved default encryption recipient state defined by
-   `FR-0045` contains a saved default encryption recipient, that saved default
-   is the effective encryption recipient for that command.
-3. Otherwise, no effective encryption recipient exists for that command.
-4. `config` is not itself a consumer of an effective encryption recipient; it
-   only reads, writes, or clears the saved default recipient state.
+1. The only public input sources for effective option values are the current
+   argv vector, the selected env file governed by `FR-0219`, and the current
+   process environment.
+2. Command-line option values take precedence over configured values according
+   to `FR-0219`.
+3. Env-file values take precedence over process-environment values according to
+   `FR-0219`.
+4. Effective option selection for one invocation does not persist values for a
+   later invocation.
 
 **Dependencies**:
-- `FR-0030`
-- `FR-0045`
-- `FR-0046`
-- `FR-0047`
+- `FR-0036`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: recipient selection in `doctor`, encryption preflight,
-  rejection or acceptance of encrypted runs
+- Observable evidence: effective option values across repeated invocations
 
 ### FR-0121
 **Requirement**: Markdown shall be the only materialized page payload format
@@ -664,31 +698,28 @@ for `export`.
 - accepted `export` invocations
 
 **Rationale**:
-- Operators need one stable payload contract, and removed HTML export behavior
-  must not survive as an alias or fallback.
+- Operators need one stable page payload contract for exported content.
 
 **Acceptance Criteria**:
 1. The effective page payload format for every accepted `export` invocation is
    Markdown (`md`).
 2. The persisted page payload file for successful page materialization is
    `page.md` as governed by `FR-0074` and `FR-0080`.
-3. No accepted invocation selects HTML as a page payload format.
-4. `--page-format`, `--page-format md`, and `--page-format html` are not
-   supported option forms for any command and are rejected under `FR-0122`.
-5. This card governs only payload-format selection; page payload acquisition,
+3. Confluence storage content acquired under `FR-0070` is converter input, not a
+   public export payload format.
+4. This card governs only payload-format selection; page payload acquisition,
    normalization, persistence, and page-local payload failure behavior are
    governed by `FR-0074`.
 
 **Dependencies**:
-- `FR-0012`
+- `FR-0070`
 - `FR-0074`
 - `FR-0080`
-- `FR-0122`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: accepted format selection, default format behavior,
-  rejection
+  retained page payload filenames
 
 ### FR-0220
 **Requirement**: `--zip` shall request a retained ZIP archive for `export`.
@@ -706,14 +737,11 @@ for `export`.
 2. If `--zip` is omitted, no ZIP archive is created by this option.
 3. `--zip` is a flag option and consumes no following argv token as a value.
 4. Any command other than `export` used with `--zip` is rejected.
-5. When `--zip` and `--encrypt` are both supplied, encryption finalization under
-   `FR-0107` runs before ZIP packaging; the ZIP archive contains only the
-   retained plain output root if that root remains authoritative after
-   encryption finalization.
+5. ZIP packaging contains only the retained plain output root governed by
+   `FR-0221`.
 
 **Dependencies**:
 - `FR-0036`
-- `FR-0107`
 - `FR-0221`
 
 **Traceability**:
@@ -728,6 +756,7 @@ link-driven scope expansion.
 **Applicability**:
 - `export --link-depth <n>`
 - `plan --link-depth <n>`
+- `export` and `plan` with effective `CONFLUEX_LINK_DEPTH`
 
 **Rationale**:
 - Operators need explicit control over how many supported internal-link hops can
@@ -738,11 +767,13 @@ link-driven scope expansion.
    supported internal-link hops away from the root page child tree for one run.
 2. If `--link-depth <n>` is supplied on `export` or `plan`, the effective
    link-depth for that run is `n`.
-3. If `--link-depth` is omitted from `export` or `plan`, the effective
-   link-depth is `1`.
-4. Any command other than `export` or `plan` used with `--link-depth` is
+3. If `--link-depth <n>` is omitted and `CONFLUEX_LINK_DEPTH` has an effective
+   value under `FR-0219`, the effective link-depth is that value.
+4. If neither `--link-depth <n>` nor `CONFLUEX_LINK_DEPTH` supplies a
+   link-depth value, the effective link-depth is `1`.
+5. Any command other than `export` or `plan` used with `--link-depth` is
    rejected.
-5. The option selects only the effective link-depth value; root child traversal
+6. The selector chooses only the effective link-depth value; root child traversal
    is governed by `FR-0060`, link-driven scope expansion is governed by
    `FR-0061` and `FR-0062`, and deterministic queue ordering is governed by
    `FR-0141`.
@@ -754,6 +785,7 @@ link-driven scope expansion.
 - `FR-0061`
 - `FR-0062`
 - `FR-0141`
+- `FR-0219`
 
 **Traceability**:
 - Area: option semantics

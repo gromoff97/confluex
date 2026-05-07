@@ -48,11 +48,10 @@ CLI package.
 3. A fresh install is valid only when `confluex --help` and
    `confluex doctor --help` both run from the installed package without loading
    missing runtime modules.
-4. Fresh install validation does not use the removed `confluex install`
-   command.
+4. Fresh install validation uses the installed `confluex` command exposed by
+   the npm `bin` mapping governed by `FR-0215`.
 
 **Dependencies**:
-- `FR-0005`
 - `FR-0215`
 
 **Traceability**:
@@ -72,7 +71,7 @@ CLI package.
 **Acceptance Criteria**:
 1. The documented update command is `npm install -g <package-name>@latest`.
 2. Update validation uses the same installed-command smoke checks as `FR-0048`.
-3. Update documentation does not describe `confluex install` as an update path.
+3. Update documentation identifies npm as the update mechanism.
 
 **Dependencies**:
 - `FR-0048`
@@ -96,11 +95,9 @@ CLI package.
 1. The documented uninstall command is `npm uninstall -g <package-name>`.
 2. Uninstall validation confirms the npm global package is removed or no longer
    resolves to the removed package.
-3. Uninstall documentation does not describe `confluex uninstall` as a removal
-   path.
+3. Uninstall documentation identifies npm as the removal mechanism.
 
 **Dependencies**:
-- `FR-0006`
 - `FR-0048`
 
 **Traceability**:
@@ -147,7 +144,8 @@ publication.
 - package-content review
 
 **Rationale**:
-- Publishing must not include secrets, irrelevant bulk, or omit runtime files.
+- Package publication needs reviewable contents that include runtime files and
+  exclude secrets or irrelevant bulk.
 
 **Acceptance Criteria**:
 1. Release verification runs `npm pack --dry-run` or an equivalent package
@@ -208,13 +206,14 @@ and prerequisites.
    command validation.
 2. Installation docs identify npm as the package manager for install, update,
    and uninstall.
-3. Installation docs do not instruct operators to use removed `install` or
-   `uninstall` CLI commands.
+3. Installation docs identify the public CLI commands from `FR-0004` as the
+   installed command surface operators can validate after package setup.
 
 **Dependencies**:
 - `FR-0048`
 - `FR-0049`
 - `FR-0050`
+- `FR-0004`
 - `FR-0219`
 
 **Traceability**:
@@ -263,45 +262,48 @@ mechanisms.
 1. Local development install documentation uses `npm install` for dependencies.
 2. Local package install testing uses either `npm install -g <package-path>` or
    a tarball created by `npm pack`.
-3. Local development documentation does not rely on a removed Confluex
-   self-install command.
+3. Local package smoke testing uses the installed `confluex` command exposed by
+   the npm `bin` mapping governed by `FR-0215`.
 
 **Dependencies**:
 - `FR-0048`
 - `FR-0166`
+- `FR-0215`
 
 **Traceability**:
 - Area: installation lifecycle
 - Observable evidence: local install docs and smoke commands
 
 ### FR-0171
-**Requirement**: Removed internal lifecycle commands shall remain absent from
-the command surface.
+**Requirement**: Package lifecycle documentation shall use npm commands for
+package install, update, and removal workflows.
 
 **Applicability**:
-- command registry
-- command help
-- invocation validation
+- operator lifecycle documentation
+- package smoke documentation
 
 **Rationale**:
-- Keeping hidden lifecycle aliases would create two competing installation
-  models.
+- Operators need package lifecycle instructions to match the package manager
+  that owns installation state.
 
 **Acceptance Criteria**:
-1. `install` and `uninstall` are absent from top-level command help.
-2. `confluex install`, `confluex install --help`, `confluex uninstall`, and
-   `confluex uninstall --help` are rejected as unsupported commands.
-3. No supported option set contains `--install-dir`.
+1. Fresh package installation documentation uses the npm command governed by
+   `FR-0048`.
+2. Package update documentation uses the npm command governed by `FR-0049`.
+3. Package removal documentation uses the npm command governed by `FR-0050`.
+4. Package smoke documentation validates the public command inventory governed
+   by `FR-0004` through the installed npm `bin` mapping governed by `FR-0215`.
 
 **Dependencies**:
-- `FR-0005`
-- `FR-0006`
-- `FR-0033`
-- `FR-0036`
+- `FR-0004`
+- `FR-0048`
+- `FR-0049`
+- `FR-0050`
+- `FR-0215`
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: command help and rejection output
+- Observable evidence: lifecycle docs and installed-command smoke output
 
 ### FR-0172
 **Requirement**: Lifecycle failures shall produce actionable package-manager

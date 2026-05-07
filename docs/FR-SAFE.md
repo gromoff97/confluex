@@ -2,8 +2,7 @@
 
 
 ### FR-0094
-**Requirement**: The product shall warn about effectively unbounded non-safe
-runs.
+**Requirement**: The product shall warn about effectively unbounded runs.
 
 **Applicability**:
 - accepted `export` and `plan` runs
@@ -13,19 +12,15 @@ runs.
   bounds.
 
 **Acceptance Criteria**:
-1. If `export` or `plan` is invoked without `--safe`, `--critical`, or
-   `--confidential`, without a positive `--max-pages`, and without a positive
-   `--max-download-mib`, the product emits an explicit warning that the run is
-   effectively unbounded.
+1. If `export` or `plan` is invoked without an effective positive max-pages
+   value and without an effective positive max-download-mib value, the product
+   emits an explicit warning that the run is effectively unbounded.
 2. The unbounded-run warning text is governed by `FR-0009`.
-3. The product does not emit the unbounded-run warning if `--safe`,
-   `--critical`, or `--confidential` is in effect or either positive limit is
-   in effect.
+3. The product does not emit the unbounded-run warning if either effective
+   positive limit is in effect.
 
 **Dependencies**:
 - `FR-0009`
-- `FR-0022`
-- `FR-0023`
 - `FR-0025`
 - `FR-0034`
 
@@ -84,42 +79,30 @@ best-effort behavior.
 - Observable evidence: continued processing behavior and failed-pages reporting
 
 ### FR-0096
-**Requirement**: `--critical` shall act as a fail-closed policy overlay.
+**Requirement**: Policy-failed final status shall remain reserved for explicit
+future policy overlays.
 
 **Applicability**:
-- accepted `export` and `plan` runs where `--critical` or `--confidential` is
-  in effect under `FR-0023` or `FR-0025`
+- report sets whose `summary.txt` schema is governed by `FR-0090`
 
 **Rationale**:
-- Operators need a mode that blocks completion when findings remain.
+- Operators and tests need `policy_failed` to keep one stable meaning even when
+  no current public option selects a policy overlay.
 
 **Acceptance Criteria**:
-1. If a completed pre-encryption run with `--critical` or `--confidential` in
-   effect has one or more blocking reasons under `FR-0116` and encryption does
-   not later fail, the run takes the `policy_failed` final-status outcome under
-   `FR-0113`.
-2. If a run with `--critical` or `--confidential` in effect would otherwise
-   take the clean `success` final-status outcome under `FR-0113` and encryption
-   does not later fail, the run keeps that `success` outcome.
-3. If a run with `--critical` or `--confidential` in effect ends because of
-   interruption, runtime failure, or configured stop, the run keeps the
-   underlying non-policy final-status and interrupt-reason outcomes under
-   `FR-0113` and `FR-0140` rather than taking `policy_failed`.
-4. If encryption fails after a run with `--critical` or `--confidential` in
-   effect reaches the encryption phase, the encryption-failure outcome governed
-   by `FR-0109`, `FR-0110`, and `FR-0113` takes precedence over
-   `policy_failed`.
+1. No current public command-line option selects `policy_failed`.
+2. `policy_failed` may be selected only by a requirement that explicitly
+   defines a policy overlay and depends on this card.
+3. If no applicable policy-overlay requirement selects `policy_failed`, completed
+   runs use `success` or `success_with_findings` under `FR-0113`.
+4. Interrupted, runtime-failed, or configured-stop runs use the non-policy
+   final-status and interrupt-reason outcomes under `FR-0113` and `FR-0140`.
 
 **Dependencies**:
-- `FR-0023`
-- `FR-0025`
 - `FR-0090`
 - `FR-0113`
 - `FR-0116`
 - `FR-0140`
-- `FR-0125`
-- `FR-0109`
-- `FR-0110`
 
 **Traceability**:
 - Area: safety

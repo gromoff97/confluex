@@ -14,9 +14,9 @@
 **Acceptance Criteria**:
 1. If the invocation is not one of the exact help shapes governed by `FR-0007`
    or `FR-0008` and the first argv token after the program path is not a
-   supported command, the invocation is rejected under the rejected-invocation
-   stream, side-effect, and exit-code contracts governed by `FR-0019` and
-   `FR-0118`.
+   public command token governed by `FR-0004`, the invocation is rejected under
+   the rejected-invocation stream, side-effect, and exit-code contracts governed
+   by `FR-0019` and `FR-0118`.
 2. The first stderr line uses the exact unknown-command diagnostic template
    governed by `FR-0146`.
 3. Because criterion 1 takes the `FR-0019` rejected-invocation branch, no
@@ -25,6 +25,7 @@
 **Dependencies**:
 - `FR-0007`
 - `FR-0008`
+- `FR-0004`
 - `FR-0019`
 - `FR-0118`
 - `FR-0146`
@@ -48,21 +49,15 @@ combinations before command work begins.
 1. Supplying an option to a command that does not support that option causes
    rejection.
 2. If the rejected command is `export` or `plan`, rejection occurs before
-   traversal, payload export, attachment download, report generation, or output
-   root reuse begins.
-3. If the rejected command is `doctor`, `config`, `install`, or `uninstall`,
-   rejection occurs before command-specific state changes begin.
-4. If the rejected command is `selftest`, rejection occurs before self-test
-   report-root creation, target access, fixture preparation, expected-data
-   preparation, or live regression execution begins.
+   traversal, payload export, attachment download, report generation, output
+   root reuse, or ZIP packaging begins.
+3. If the rejected command is `doctor`, rejection occurs before dependency
+   probing, page-access diagnostics, support-profile reporting,
+   supported-link-form reporting, next-action computation, or persistent log
+   creation begins.
 
 **Dependencies**:
-- `FR-0001`
-- `FR-0002`
-- `FR-0003`
 - `FR-0004`
-- `FR-0005`
-- `FR-0006`
 - `FR-0008`
 - `FR-0036`
 
@@ -84,28 +79,19 @@ option values before command work begins.
 **Acceptance Criteria**:
 1. Omitting `--page-id` from `export` or `plan` causes rejection.
 2. Omitting a required value for an option that takes a value causes rejection.
-3. An empty string supplied to `--out`, `--log-file`, `--env-file`,
-   `--encryption-key`, or `--token` causes rejection.
-4. Omitting `--url` or `--token` from `selftest` causes rejection.
-5. An empty string supplied to selftest `--url` or `--token`
-   causes rejection.
-6. For every valued option defined by `FR-0036`, the option consumes the
+3. An empty string supplied to `--out`, `--log-file`, or `--env-file` causes
+   rejection.
+4. For every valued option defined by `FR-0036`, the option consumes the
    immediately following argv token as its value even when that token begins with
    `-` or `--`.
-7. If no argv token follows a valued option, the invocation is rejected for a
+5. If no argv token follows a valued option, the invocation is rejected for a
    missing required value before value-specific validation.
 
 **Dependencies**:
 - `FR-0020`
 - `FR-0021`
-- `FR-0030`
-- `FR-0034`
-- `FR-0035`
-- `FR-0157`
 - `FR-0033`
 - `FR-0036`
-- `FR-0121`
-- `FR-0131`
 
 **Traceability**:
 - Area: invocation validation
@@ -147,26 +133,31 @@ decimal syntax.
 - Observable evidence: rejection output for malformed numeric values
 
 ### FR-0015
-**Requirement**: The product shall reject ambiguous or prohibited option
-combinations.
+**Requirement**: The product shall reject public option combinations that fail
+an option-specific prerequisite.
 
 **Applicability**:
-- non-help invocations using mutually exclusive or prohibited combinations
+- non-help invocations using public options with command-specific prerequisites
 
 **Rationale**:
-- Operators need explicit rejection when option intent is contradictory.
+- Operators need prerequisite failures to be rejected before the invocation
+  reaches command work.
 
 **Acceptance Criteria**:
-1. Any `config` invocation that includes both `--clear-encryption-key` and
-   `--encryption-key <value>` is rejected regardless of token order.
-2. `export` or `plan` with both `--critical` and `--no-fail-fast` is rejected.
-3. `export` or `plan` with both `--confidential` and `--no-fail-fast` is
-   rejected.
+1. `export --resume` requires an explicit `--out <path>` value and is rejected
+   when `--out <path>` is omitted, as governed by `FR-0026`.
+2. `--resume` on any command other than `export` is rejected as an unsupported
+   command-option combination under `FR-0012`.
+3. `--zip` on any command other than `export` is rejected as an unsupported
+   command-option combination under `FR-0012`.
+4. This card governs only command-surface prerequisite rejection; resume-root
+   compatibility after the prerequisite is satisfied remains governed by
+   `FR-0103`.
 
 **Dependencies**:
-- `FR-0023`
-- `FR-0025`
-- `FR-0027`
+- `FR-0012`
+- `FR-0026`
+- `FR-0103`
 
 **Traceability**:
 - Area: invocation validation
@@ -271,71 +262,33 @@ output-root reuse begins.
    pre-acceptance and is not an accepted-command or accepted-run runtime
    failure.
 3. For `export` and `plan`, pre-acceptance work occurs in this order:
-   command-surface validation; encryption-recipient validation under `FR-0108`
-   when encryption is requested; root-page preflight under `FR-0017`;
+   command-surface validation; root-page preflight under `FR-0017`;
    explicit-output-root rejection under `FR-0016`, including resume-root
    compatibility evaluation under `FR-0103` when `export --resume --out <path>`
    applies; and generated output-root candidate selection under `FR-0055` when
-   `--out` is omitted.
-4. Creating or reusing an output root, creating a self-test report root,
-   mutating installation or configuration state, or performing Docker,
-   traversal, report-generation, encryption, or live-regression work occurs
-   only after criterion 1.
+   no output-root selector supplies a path.
+4. Creating or reusing an output root, creating or replacing a persistent log
+   artifact, traversing Confluence data, generating reports, materializing page
+   payloads, downloading attachments, or creating a ZIP archive occurs only
+   after criterion 1.
 5. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
-6. For `selftest`, the accepted-work threshold from criterion 1 is the first
-   self-test report-root candidate evaluation or creation step governed by
-   `FR-0173`.
-7. For `doctor`, the accepted-work threshold from criterion 1 is the first
+6. For `doctor`, the accepted-work threshold from criterion 1 is the first
    governed diagnostic step needed for that invocation: dependency probing
    under `FR-0038`, page-access diagnostics under `FR-0039` when `--page-id`
-   is supplied, encryption-recipient diagnostics under `FR-0040` when
-   `--verify-encryption` is supplied, support-profile reporting under
-   `FR-0041`, supported-link-form reporting under `FR-0044`, or next-action
-   computation under `FR-0042`.
-8. For `confluex config` with neither `--encryption-key` nor
-   `--clear-encryption-key`, the accepted-work threshold from criterion 1 is
-   the first operation whose purpose is to observe the shared default
-   encryption-recipient state that `FR-0045` must report.
-9. For `confluex config --encryption-key <value>` and
-   `confluex config --clear-encryption-key`, the accepted-work threshold from
-   criterion 1 is the first operation whose purpose is to mutate the shared
-   default encryption-recipient state governed by `FR-0045`.
-10. For `install`, the accepted-work threshold from criterion 1 is the earliest
-    post-rejection installation-lifecycle step governed by `FR-0166` through
-    `FR-0169`, including support-root or support-descendant evaluation under
-    `FR-0167`, install-footprint enumeration or install-manifest path
-    serialization under `FR-0168`, target-directory creation under `FR-0166`,
-    recursive removal under `FR-0167`, rollback under `FR-0169`, or any later
-    filesystem write, replacement, or manifest write required by `FR-0167` or
-    `FR-0168`.
-11. For `uninstall`, the accepted-work threshold from criterion 1 is the
-    earliest post-rejection uninstall-lifecycle step governed by `FR-0170` or
-    `FR-0171`, including accepted idempotent completion after the absent-target
-    or absent-manifest branches from `FR-0170` are selected, manifest-listed
-    path evaluation under `FR-0171`, or any filesystem removal under
-    `FR-0171`.
+   is supplied, support-profile reporting under `FR-0041`, supported-link-form
+   reporting under `FR-0044`, or next-action computation under `FR-0042`.
 
 **Dependencies**:
 - `FR-0016`
 - `FR-0017`
 - `FR-0038`
 - `FR-0039`
-- `FR-0040`
 - `FR-0041`
 - `FR-0042`
 - `FR-0044`
-- `FR-0045`
 - `FR-0055`
 - `FR-0103`
-- `FR-0108`
-- `FR-0166`
-- `FR-0167`
-- `FR-0168`
-- `FR-0169`
-- `FR-0170`
-- `FR-0171`
-- `FR-0173`
 - `FR-0180`
 
 **Traceability**:
@@ -394,20 +347,15 @@ output-root reuse begins.
    create or reuse an output root.
 9. If the operator supplied `--log-file` on a rejected invocation, the CLI does
    not create, append, or overwrite that persistent log artifact.
-10. If the rejected invocation targets `config`, the CLI does not create, modify,
-   or remove Confluex configuration state.
-11. If the rejected invocation targets `install` or `uninstall`, the CLI does not
-    create, modify, or remove any installation target path or install manifest.
-12. If the rejected invocation targets `selftest`, the CLI does not create a
-    self-test report root, access a Confluence target, mutate Confluence data, or
-    create, start, stop, inspect, list, or remove any Docker container, network,
-    or volume.
-13. If the rejected invocation targets `doctor`, the CLI does not create, modify,
-    or remove any product-owned persistent file, directory, Docker resource, or
-    configuration state.
+10. If the rejected invocation targets `doctor`, the CLI does not probe local
+    dependencies, perform page-access diagnostics, emit diagnostic stdout, or
+    create, append, or overwrite a persistent log artifact.
+11. If the rejected invocation targets an unsupported command token, the CLI
+    does not dispatch to any public workflow governed by `FR-0129`.
 
 **Dependencies**:
 - `FR-0009`
+- `FR-0129`
 - `FR-0212`
 
 **Traceability**:
@@ -532,66 +480,66 @@ first-line precedence and serialization rule.
 - Observable evidence: first stderr line for rejected invocations
 
 ### FR-0122
-**Requirement**: The product shall reject the removed page payload format option
-before command work begins.
+**Requirement**: Unsupported public-command options shall be rejected by the
+closed option set before command work begins.
 
 **Applicability**:
-- non-help invocations using `--page-format`
+- non-help invocations using an option token outside the command's closed
+  option set
 
 **Rationale**:
-- Operators need removed HTML and format-selection behavior to fail visibly
-  instead of being accepted as deprecated compatibility.
+- Operators need unknown options to fail visibly under the same closed inventory
+  used by help and parsing.
 
 **Acceptance Criteria**:
-1. Any non-help invocation containing `--page-format` is rejected as an
+1. For a public command token governed by `FR-0004`, any option token not
+   present in that command's closed option set from `FR-0036` is rejected as an
    unsupported option.
-2. Rejection applies equally to `--page-format md`, `--page-format html`, any
-   other following token, and `--page-format` with no following token.
-3. If the rejected command is `export`, rejection occurs before traversal, page
-   payload materialization, attachment download, report generation, or
-   output-root reuse begins.
+2. Unsupported-option rejection occurs before invocation acceptance under
+   `FR-0212`.
+3. Unsupported-option diagnostics are selected and serialized under `FR-0146`.
+4. This card does not introduce command-specific historical option aliases or
+   compatibility fallbacks.
 
 **Dependencies**:
+- `FR-0004`
 - `FR-0012`
-- `FR-0013`
-- `FR-0121`
-
-**Traceability**:
-- Area: invocation validation
-- Observable evidence: unsupported-option rejection, absence of command work
-
-### FR-0131
-**Requirement**: `selftest` shall require explicit target-access options.
-
-**Applicability**:
-- non-help `confluex selftest` invocations
-
-**Rationale**:
-- The live-regression contour must be reproducible against the operator-selected
-  stand without hidden defaults or environment-derived target credentials.
-
-**Acceptance Criteria**:
-1. `selftest` requires exactly the target option tokens `--url` and `--token`
-   defined by `FR-0036`; missing either option rejects the invocation before
-   acceptance under `FR-0212`.
-2. `--url` and `--token` each require one non-empty value.
-3. `--url` rejects values containing TAB, LF, or CR.
-4. `--token` rejects values containing TAB, LF, or CR.
-5. Repeated `--url` or `--token` occurrences use the repeated
-   valued-option semantics from `FR-0018`.
-6. `selftest` does not read saved configuration or hardcoded defaults to supply
-   missing target option values. Env-file and process environment participation
-   is limited to the explicit selection semantics in `FR-0219`.
-
-**Dependencies**:
-- `FR-0012`
-- `FR-0015`
-- `FR-0018`
-- `FR-0019`
 - `FR-0036`
-- `FR-0219`
+- `FR-0146`
 - `FR-0212`
 
 **Traceability**:
 - Area: invocation validation
-- Observable evidence: stderr, exit code, absence of self-test report root
+- Observable evidence: unsupported-option rejection before command work
+
+### FR-0131
+**Requirement**: Remote-access diagnostics and run preflight shall require a
+usable token-only Confluence access context.
+
+**Applicability**:
+- non-help `export` invocations
+- non-help `plan` invocations
+- non-help `doctor --page-id <id>` invocations
+
+**Rationale**:
+- Operators need access failures caused by missing or invalid public
+  configuration inputs to occur before traversal or page diagnostics proceed.
+
+**Acceptance Criteria**:
+1. `export` and `plan` require a usable remote-access context under `FR-0216`
+   before root-page preflight can succeed.
+2. `doctor --page-id <id>` requires a usable remote-access context under
+   `FR-0216` before page-access diagnostics can report `page_access=ok`.
+3. Missing, empty, or invalid `CONFLUEX_CONFLUENCE_BASE_URL` or
+   `CONFLUEX_CONFLUENCE_TOKEN` values are classified through the governing
+   root-page preflight or page-access diagnostic branch rather than by a
+   command-line target option.
+
+**Dependencies**:
+- `FR-0017`
+- `FR-0039`
+- `FR-0216`
+
+**Traceability**:
+- Area: invocation validation
+- Observable evidence: root-page preflight and doctor page-access diagnostics

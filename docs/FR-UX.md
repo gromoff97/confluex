@@ -20,7 +20,7 @@
 3. The `Usage` section contains exactly one non-empty line:
    `  confluex <command> [options]`.
 4. Under `Commands`, supported top-level commands appear exactly once each in
-   this exact order: `export`, `plan`, `doctor`, `config`, `selftest`.
+   the public command order governed by `FR-0004`: `export`, `plan`, `doctor`.
 5. Under `Commands`, each supported top-level command has exactly one purpose
    statement that fits on one line and identifies that command's canonical
    workflow.
@@ -28,9 +28,8 @@
    the command token from criterion 4, then exactly two ASCII spaces, then the
    exact purpose statement from criterion 7.
 7. The exact command purpose statements are: `export` ->
-   `materialized export workflow`; `plan` -> `dry-run planning workflow`;
-   `doctor` -> `diagnostic workflow`; `config` -> `configuration workflow`;
-   and `selftest` -> `live regression self-test workflow`.
+   `materialized Markdown export workflow`; `plan` ->
+   `dry-run planning workflow`; and `doctor` -> `diagnostic workflow`.
 8. The `Commands` section contains no non-empty lines other than the command
    entry lines from criteria 4 and 6.
 9. Top-level help contains no non-empty lines outside the `Usage` and `Commands`
@@ -106,9 +105,8 @@ correctly.
    spaces and then one non-empty single-line description.
 13. The `Usage` section contains exactly one non-empty line selected by target
    command: `  confluex export --page-id <id> [options]`,
-   `  confluex plan --page-id <id> [options]`,
-   `  confluex doctor [options]`, `  confluex config [options]`, or
-   `  confluex selftest --url <base-url> --token <token>`.
+   `  confluex plan --page-id <id> [options]`, or
+   `  confluex doctor [options]`.
 14. The `Purpose` section contains exactly one non-empty line. When another
    applicable help requirement for the target command explicitly refines the
    `Purpose` line content, that more specific requirement governs the content of
@@ -123,9 +121,7 @@ correctly.
    `Examples` section, that more specific requirement governs its content.
    Otherwise the section contains exactly one non-empty line selected by target
    command: `  confluex export --page-id <id>`,
-   `  confluex plan --page-id <id>`, `  confluex doctor`,
-   `  confluex config`, or
-   `  confluex selftest --url http://127.0.0.1:8090 --token test-token`.
+   `  confluex plan --page-id <id>`, or `  confluex doctor`.
 17. The `Examples` section contains no other non-empty lines beyond the example
    lines required by criterion 16 and any more specific applicable help
    requirement for the target command.
@@ -202,29 +198,18 @@ condition that requires correction.
    selection and serialization rules defined by `FR-0146`.
 2. If the unbounded-run warning is emitted, it is written to `stderr` and its
    required warning line is exactly
-   `WARNING: unbounded_run use --safe or --max-pages or --max-download-mib`;
+   `WARNING: unbounded_run use --max-pages or --max-download-mib`;
    the condition that emits that warning is governed by `FR-0094`.
 3. The unbounded-run warning contains no required stderr lines other than the
    line from criterion 2; additional stderr lines, if any, are non-governed
    diagnostic text and are emitted only after all required warning lines
    applicable to the invocation.
-4. If the confidential-mode log warning is emitted, it is written to `stderr`,
-   and its required warning line is exactly
-   `WARNING: confidential_log_file_outside_plaintext_cleanup`; the condition
-   that emits that warning is governed by `FR-0111`.
-5. The confidential-mode log warning contains no required stderr lines other than
-   the line from criterion 4; additional stderr lines, if any, are non-governed
-   diagnostic text and are emitted only after all required warning lines
-   applicable to the invocation.
-6. If criteria 2 and 4 both apply to one accepted invocation, the required
-   warning line from criterion 2 precedes the required warning line from
-   criterion 4 on `stderr`; if exactly one warning applies, its required warning
-   line is the first required warning line for that invocation.
+4. Additional stderr lines, if any, are non-governed diagnostic text and are
+   emitted only after the required warning line from criterion 2.
 
 **Dependencies**:
 - `FR-0146`
 - `FR-0094`
-- `FR-0111`
 
 **Traceability**:
 - Area: operator experience
@@ -264,9 +249,8 @@ export explicitly.
   without suggesting removed HTML compatibility.
 
 **Acceptance Criteria**:
-1. `confluex export --help` contains no `--page-format` option entry.
-2. The `Examples` section contains exactly one accepted `export` example line,
-   and that line omits `--page-format`.
+1. The `Purpose` section identifies `export` as a Markdown export workflow.
+2. The `Examples` section contains exactly one accepted `export` example line.
 3. The `Optional options` section contains a `--zip` entry whose description
    names ZIP archive creation without changing the Markdown payload format.
 
@@ -275,7 +259,6 @@ export explicitly.
 - `FR-0008`
 - `FR-0036`
 - `FR-0121`
-- `FR-0122`
 - `FR-0220`
 
 **Traceability**:
@@ -283,36 +266,34 @@ export explicitly.
 - Observable evidence: `confluex export --help` option text and examples
 
 ### FR-0130
-**Requirement**: `selftest` help shall describe the token-based explicit-target
-live regression workflow.
+**Requirement**: `doctor --help` shall document token-only env/env-file
+diagnostics.
 
 **Applicability**:
-- `confluex selftest --help`
+- `confluex doctor --help`
 
 **Rationale**:
-- Operators need to understand that `selftest` requires an already-running
-  Confluence target and uses only command-line target options, without implicit
-  defaults or environment fallback.
+- Operators need diagnostic help that points them to the public configuration
+  inputs used by `doctor`.
 
 **Acceptance Criteria**:
-1. `confluex selftest --help` contains `Usage`, `Purpose`,
-   `Required options`, `Optional options`, and `Examples` sections.
-2. The `Usage` section shows exactly `  confluex selftest --url <base-url> --token <token>` as the accepted command shape, using the usage-line serialization defined by `FR-0008`.
-3. The `Required options` section lists exactly `--url <base-url>` and
-   `--token <token>` in that order, using the
-   option-line serialization defined by `FR-0008`.
-4. The `Optional options` section uses the no-optional-options serialization
-   defined by `FR-0008`.
-5. The `Purpose` section contains exactly one non-empty line that identifies
-   `selftest` as the explicit-target live regression self-test workflow and
-   contains each of these exact substrings at least once: `Confluence 7.13.7`,
-   `fixture preparation`, `live regression`, `self-test report root`, and
-   `already running`.
+1. The `Usage` section shows exactly `  confluex doctor [options]` as the
+   accepted command shape, using the usage-line serialization defined by
+   `FR-0008`.
+2. The `Optional options` section lists exactly `--page-id <id>`,
+   `--env-file <file>`, and `--log-file <file>` in the relative order governed
+   by `FR-0036`.
+3. The `Purpose` section identifies `doctor` as a diagnostic workflow for local
+   prerequisites, token-only Confluence configuration, optional page access,
+   and supported link forms.
+4. The `Examples` section contains exactly one accepted `doctor` example line.
 
 **Dependencies**:
 - `FR-0008`
-- `FR-0129`
+- `FR-0036`
+- `FR-0043`
+- `FR-0219`
 
 **Traceability**:
 - Area: operator experience
-- Observable evidence: `confluex selftest --help` output
+- Observable evidence: `confluex doctor --help` output

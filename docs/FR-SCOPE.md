@@ -356,7 +356,8 @@ outcomes over guessed outcomes.
 - Observable evidence: resolved-links and unresolved-links reports
 
 ### FR-0065
-**Requirement**: False-positive link-like content shall not expand run scope.
+**Requirement**: Run-scope expansion shall use only supported internal link
+discovery forms.
 
 **Applicability**:
 - accepted `export` and `plan` runs
@@ -462,8 +463,8 @@ recorded as scope findings.
 - Observable evidence: scope-findings report
 
 ### FR-0067
-**Requirement**: Duplicate discovery paths and cycles shall not cause duplicate
-page processing or unbounded traversal.
+**Requirement**: Duplicate discovery paths and cycles shall resolve to stable
+single-page processing.
 
 **Applicability**:
 - accepted `export` and `plan` runs

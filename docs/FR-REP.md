@@ -2,32 +2,26 @@
 
 
 ### FR-0085
-**Requirement**: Authoritative retained plain output roots and authoritative
-retained encrypted archives shall preserve one closed report-file set.
+**Requirement**: Authoritative retained plain output roots shall preserve one
+closed report-file set.
 
 **Applicability**:
 - authoritative plain output roots that remain on disk
-- authoritative encrypted archives retained as run artifacts
 
 **Rationale**:
 - Operators need one standard report set to interpret any retained result.
 
 **Acceptance Criteria**:
 1. In this corpus, a report-set container is only an authoritative retained
-   plain output root that remains on disk or an authoritative retained
-   encrypted archive selected as a retained run artifact.
+   plain output root that remains on disk.
 2. The closed report-file set is exactly `manifest.tsv`, `resolved-links.tsv`,
    `unresolved-links.tsv`, `failed-pages.tsv`, `scope-findings.tsv`, and
    `summary.txt`.
 3. When a report-set container is retained, its report-file members are exactly
    the closed report-file set from criterion 2.
-4. When final-artifact selection under `FR-0058` retains an encrypted archive
-   as the authoritative run artifact, extracting that archive yields one
-   extracted top-level directory, and the report-file members inside that
-   directory are exactly the closed report-file set from criterion 2.
-5. No retained report-set container contains only a proper subset of the closed
+4. No retained report-set container contains only a proper subset of the closed
    report-file set from criterion 2.
-6. In exact report-header literals in this file, `<TAB>` denotes one literal
+5. In exact report-header literals in this file, `<TAB>` denotes one literal
    horizontal tab byte `0x09` between adjacent field names.
 
 **Dependencies**:
@@ -61,8 +55,7 @@ classification vocabulary.
    `none` sorted before any relative path value, then by ascending bytewise
    lexicographic order of the complete serialized `page_id` field value.
 5. `folder` is the canonical relative payload-folder path defined by `FR-0079`
-   when per-page artifacts for that page are retained in the final run result,
-   whether in a plain output root or inside a retained encrypted archive;
+   when per-page artifacts for that page are retained in the final run result;
    otherwise `folder` uses the shared absence token governed by `FR-0125`,
    serialized here as the exact bare field value `none`.
 6. `run_mode` uses only `export` or `plan`.
@@ -436,8 +429,8 @@ support-profile findings.
    `failed_operations`, `downloaded_mib_total`,
    `downloaded_mib_content`, `downloaded_mib_metadata`,
    `blocking_reasons`, `interrupt_reason`, `resume_mode`,
-   `resume_schema_version`, `reused_pages`, `fresh_pages`,
-   `encryption_enabled`, and `encryption_successful`, and no additional keys.
+   `resume_schema_version`, `reused_pages`, and `fresh_pages`, and no
+   additional keys.
 3. `summary.txt` contains exactly one physical `key=value` line for each key in
    criterion 2, in criterion 2 order.
 4. Each physical line ends with LF, and `summary.txt` contains no empty lines,
@@ -449,8 +442,7 @@ support-profile findings.
    `linked_pages`, `other_pages`, `resolved_links`, `unresolved_links`,
    `scope_findings`, `failed_operations`, `reused_pages`, and `fresh_pages`;
    these keys use canonical non-negative integers governed by `FR-0014`.
-7. Boolean-like keys are exactly `resume_mode`, `encryption_enabled`, and
-   `encryption_successful`; these keys use `0` or `1`.
+7. Boolean-like keys are exactly `resume_mode`; this key uses `0` or `1`.
 8. Decimal MiB keys are exactly `downloaded_mib_total`,
    `downloaded_mib_content`, and `downloaded_mib_metadata`; their counting and
    serialization contract is governed exclusively by `FR-0120`.
@@ -464,8 +456,8 @@ support-profile findings.
     `scope_findings`, and `failed_operations` are governed exclusively by
     `FR-0092`.
 12. Value contracts for `command`, `support_profile`, `page_payload_format`,
-    `output_root`, `zip_path`, `page_id`, `encryption_enabled`, and
-    `encryption_successful` are governed exclusively by `FR-0119`.
+    `output_root`, `zip_path`, and `page_id` are governed exclusively by
+    `FR-0119`.
 13. Value contracts for `output_path_provenance`, `final_status`,
     `scope_trust`, `blocking_reasons`, `interrupt_reason`, `resume_mode`,
     `resume_schema_version`, `reused_pages`, and `fresh_pages` are governed
@@ -474,8 +466,6 @@ support-profile findings.
 14. This card governs only `summary.txt` key presence, key order, physical line
     structure, and key-type partition; the value contracts delegated in
     criteria 8 through 13 are not redefined here.
-15. This card does not govern the self-test `summary.txt` schema, which is
-    defined separately by `FR-0182`.
 
 **Dependencies**:
 - `FR-0085`
@@ -488,7 +478,6 @@ support-profile findings.
 - `FR-0120`
 - `FR-0092`
 - `FR-0014`
-- `FR-0182`
 - `FR-0140`
 
 **Traceability**:

@@ -10,28 +10,23 @@ dependencies.
 
 **Rationale**:
 - Operators need a deterministic readiness report for the local executables that
-  gate self-test bootstrap, live regression, and encryption work.
+  gate public CLI execution and Markdown conversion.
 
 **Acceptance Criteria**:
 1. `doctor` checks exactly these environment-readiness dependencies:
-   `node_runtime` for the currently running Node.js process, `docker_cli` for
-   the `docker` executable required to inspect the operator's self-test stand
-   when selftest needs stand reset under `FR-0132`, `gpg` for the `gpg`
-   executable required for encryption-recipient validation under `FR-0108`, and
-   `markdown_converter` for the `uvx` executable required to invoke the external
-   Markdown converter.
+   `node_runtime` for the currently running Node.js process and
+   `markdown_converter` for the `uvx` executable required to invoke the
+   external Markdown converter.
 2. `doctor` emits exactly one stdout line for each dependency in the format
    `dependency_<label>=<state>`.
 3. Dependency lines appear in this exact order:
    `dependency_node_runtime=...`,
-   `dependency_docker_cli=...`,
-   `dependency_gpg=...`,
    `dependency_markdown_converter=...`.
 4. `<state>` uses only `absent`, `present:unknown_version`, or
    `present:<version_text>`.
-5. The exact dependency executable names are `docker` for `docker_cli`, `gpg`
-   for `gpg`, and `uvx` for `markdown_converter`; `node_runtime` is read from
-   the current Node.js process version rather than resolved on `PATH`.
+5. The exact dependency executable name is `uvx` for `markdown_converter`;
+   `node_runtime` is read from the current Node.js process version rather than
+   resolved on `PATH`.
 6. A dependency is `absent` when its executable name cannot be resolved to an
    executable on `PATH`.
 7. When a dependency executable is present, the version probe is
@@ -59,9 +54,7 @@ dependencies.
    delimit additional fields.
 
 **Dependencies**:
-- `FR-0108`
-- `FR-0132`
-- `FR-0138`
+- `FR-0074`
 - `FR-0142`
 
 **Traceability**:
@@ -99,9 +92,10 @@ dependencies.
 7. `doctor --page-id <id>` emits exactly one stdout line
    `page_access_reason=<reason>` after the `page_access` line. When
    `page_access=ok`, `<reason>` is `none`. When `page_access=failed`,
-   `<reason>` is exactly one of `missing_token`, `auth_rejected`,
-   `page_inaccessible`, `transport_tls`, `transport_dns`, `transport_timeout`,
-   `transport_connection_reset`, `transport_proxy`, or
+   `<reason>` is exactly one of `missing_base_url`, `missing_token`,
+   `invalid_base_url`, `auth_rejected`, `page_inaccessible`, `transport_tls`,
+   `transport_dns`, `transport_timeout`, `transport_connection_reset`,
+   `transport_proxy`, or
    `converter_auth_incompatible`.
 8. Page-access diagnostics never include token values, Authorization header
    values, cookies, full response bodies, or full process environments.
@@ -118,35 +112,40 @@ dependencies.
 - Observable evidence: `page_access` and `page_identity` lines
 
 ### FR-0040
-**Requirement**: `doctor` shall support optional encryption-recipient
-diagnostics.
+**Requirement**: `doctor` shall report public Confluence configuration
+readiness.
 
 **Applicability**:
 - accepted non-help `doctor` invocations that do not fail under `FR-0142`
 
 **Rationale**:
-- Operators need to know whether the effective recipient is missing, valid, or
-  invalid before requesting encrypted runs.
+- Operators need to know whether the env/env-file Confluence configuration can
+  support page access before planning or exporting.
 
 **Acceptance Criteria**:
-1. `doctor` without `--verify-encryption` emits the stdout line
-   `encryption_recipient=skipped` exactly once.
-2. `doctor --verify-encryption` with no effective recipient emits the stdout
-   line `encryption_recipient=missing` exactly once.
-3. `doctor --verify-encryption` with a valid effective recipient emits the
-   stdout line `encryption_recipient=ok` exactly once.
-4. `doctor --verify-encryption` with an invalid effective recipient emits the
-   stdout line `encryption_recipient=failed` exactly once.
+1. `doctor` emits the stdout line `configuration=<state>` exactly once.
+2. `<state>` uses only `ok`, `missing_base_url`, `missing_token`, or
+   `invalid_base_url`.
+3. `configuration=missing_base_url` when no effective
+   `CONFLUEX_CONFLUENCE_BASE_URL` value is selected under `FR-0219`.
+4. `configuration=missing_token` when criterion 3 does not apply and no
+   effective `CONFLUEX_CONFLUENCE_TOKEN` value is selected under `FR-0219`.
+5. `configuration=invalid_base_url` when criteria 3 and 4 do not apply and the
+   selected `CONFLUEX_CONFLUENCE_BASE_URL` value fails the base-URL syntax
+   required by `FR-0216`.
+6. `configuration=ok` when criteria 3 through 5 do not apply and the selected
+   remote-access context satisfies `FR-0216` criteria 4 through 6.
+7. Configuration diagnostics never emit token values.
 
 **Dependencies**:
-- `FR-0030`
-- `FR-0037`
-- `FR-0108`
+- `FR-0047`
 - `FR-0142`
+- `FR-0216`
+- `FR-0219`
 
 **Traceability**:
 - Area: diagnostics
-- Observable evidence: `encryption_recipient` line
+- Observable evidence: `configuration` line
 
 ### FR-0041
 **Requirement**: `doctor` shall report the active support profile.
@@ -190,23 +189,22 @@ diagnostics.
 2. `<value>` uses either the shared absence token defined by `FR-0125` or a
    comma-delimited list serialized with the shared token-list form defined by
    `FR-0126` and containing one or more unique tokens chosen from
-   `install_docker_cli`, `install_gpg`, `install_markdown_converter`,
-   `check_page_access`, `set_encryption_key`, and `fix_encryption_key`.
-3. `install_docker_cli` appears if and only if
-   `dependency_docker_cli=absent`.
-4. `install_gpg` appears if and only if `dependency_gpg=absent`.
-5. `install_markdown_converter` appears if and only if
+   `install_markdown_converter`, `set_confluence_base_url`,
+   `set_confluence_token`, `fix_confluence_base_url`, and
+   `check_page_access`.
+3. `install_markdown_converter` appears if and only if
    `dependency_markdown_converter=absent`.
-6. `check_page_access` appears if and only if `page_access=failed`.
-7. `set_encryption_key` appears if and only if
-   `encryption_recipient=missing`.
-8. `fix_encryption_key` appears if and only if
-   `encryption_recipient=failed` and `dependency_gpg` is not `absent`.
-9. If none of the conditions in criteria 3 through 8 apply,
+4. `set_confluence_base_url` appears if and only if
+   `configuration=missing_base_url`.
+5. `set_confluence_token` appears if and only if `configuration=missing_token`.
+6. `fix_confluence_base_url` appears if and only if
+   `configuration=invalid_base_url`.
+7. `check_page_access` appears if and only if `page_access=failed`.
+8. If none of the conditions in criteria 3 through 7 apply,
    `next_action=none`.
-10. If `next_action` is not `none`, tokens appear only in this order:
-   `install_docker_cli`, `install_gpg`, `install_markdown_converter`,
-   `check_page_access`, `set_encryption_key`, `fix_encryption_key`.
+9. If `next_action` is not `none`, tokens appear only in this order:
+   `install_markdown_converter`, `set_confluence_base_url`,
+   `set_confluence_token`, `fix_confluence_base_url`, `check_page_access`.
 
 **Dependencies**:
 - `FR-0038`
@@ -233,9 +231,8 @@ stdout contract.
 
 **Acceptance Criteria**:
 1. The required informational lines appear on `stdout` in this exact order:
-   dependency lines, `page_access`, optional `page_identity`,
-   `encryption_recipient`, `support_profile`, `supported_link_forms`,
-   `next_action`.
+   dependency lines, `configuration`, `page_access`, optional `page_identity`,
+   `support_profile`, `supported_link_forms`, `next_action`.
 2. Accepted `doctor` invocations emit no additional stdout lines.
 3. Accepted `doctor` invocations write nothing to `stderr`.
 4. The accepted invocation exit code is governed by `FR-0118`.

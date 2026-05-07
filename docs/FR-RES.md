@@ -27,9 +27,8 @@ recovery criteria.
    contracts governed by `FR-0117` and `FR-0119`: it identifies an `export`
    result with the `support_profile` value required by `FR-0119`,
    `page_payload_format` equal to the current invocation's effective page
-   payload format, `resume_mode=0`, `encryption_enabled=0`,
-   `encryption_successful=0`, and
-   `resume_schema_version=2`; its `page_id` value equals the current
+   payload format, `resume_mode=0`, and `resume_schema_version=2`; its
+   `page_id` value equals the current
    invocation's canonical resolved root page identifier established by
    root-page preflight under `FR-0017`, and its `output_root` value is one
    JSON string literal with no surrounding whitespace whose decoded value
@@ -220,14 +219,13 @@ layout before any authoritative final result from that invocation is retained.
 
 **Acceptance Criteria**:
 1. Before the product retains any authoritative final result for a resumed
-   export run, whether that final result is a plain output root or an encrypted
-   archive derived from that root, it makes the regenerated plain export layout
-   satisfy `FR-0077` for the regenerated result, including removing any
-   inherited top-level `INCOMPLETE` marker unless the regenerated retained
-   result itself is interrupted or incomplete, creating any required `pages/`,
-   first-level space-segment, canonical page-folder, or `attachments/`
-   directory as a directory when it is absent, and making the entire `pages/`
-   subtree satisfy the closed export subtree layout from `FR-0077` for the
+   export run, it makes the regenerated plain export layout satisfy `FR-0077`
+   for the regenerated result, including removing any inherited top-level
+   `INCOMPLETE` marker unless the regenerated retained result itself is
+   interrupted or incomplete, creating any required `pages/`, first-level
+   space-segment, canonical page-folder, or `attachments/` directory as a
+   directory when it is absent, and making the entire `pages/` subtree satisfy
+   the closed export subtree layout from `FR-0077` for the
    regenerated result.
 2. To satisfy criterion 1, the product evaluates every existing first-level
    entry under `pages/` using non-following filesystem metadata.
@@ -297,7 +295,6 @@ layout before any authoritative final result from that invocation is retained.
 - `FR-0079`
 - `FR-0080`
 - `FR-0102`
-- `FR-0107`
 - `FR-0154`
 - `FR-0210`
 - `FR-0211`

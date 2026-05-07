@@ -72,7 +72,7 @@ plain output root on disk.
 
 **Applicability**:
 - accepted `export` runs interrupted after the output root has been created or
-  reused and before the encryption phase begins for that run
+  reused
 
 **Rationale**:
 - Operators need a real export interrupted mid-run to remain on disk with its
@@ -94,10 +94,9 @@ plain output root on disk.
    signal-interruption summary values selected by this card under `FR-0113`
    and `FR-0140`.
 6. If interruption occurs after the normal report-set retention threshold from
-   `FR-0181` is reached and before the encryption phase begins, the product
-   rewrites the retained `summary.txt` in the plain output root so that it
-   reports the same signal-interruption summary values from criterion 5 before
-   process exit.
+   `FR-0181` is reached, the product rewrites the retained `summary.txt` in the
+   plain output root so that it reports the same signal-interruption summary
+   values from criterion 5 before process exit.
 7. The retained plain output root contains the `INCOMPLETE` marker required by
    `FR-0076` and `FR-0077`.
 8. If report synthesis required by criterion 4 fails or rewriting the retained
@@ -128,12 +127,12 @@ plain output root on disk.
 - Observable evidence: retained export root, marker file, summary fields
 
 ### FR-0101
-**Requirement**: An interrupted `plan` run shall not leave a misleading partial
-output root.
+**Requirement**: An interrupted `plan` run shall use the interrupted-plan
+cleanup branch.
 
 **Applicability**:
-- accepted `plan` runs interrupted after a plain output root has been created,
-  before completion, and before the encryption phase begins for that run
+- accepted `plan` runs interrupted after a plain output root has been created
+  and before completion
 
 **Rationale**:
 - Operators should not mistake an interrupted plan root for a valid final plan.
@@ -147,10 +146,10 @@ output root.
    signal-interruption summary values selected by this card under `FR-0113`
    and `FR-0140`.
 3. If interruption occurs after the normal report-set retention threshold from
-   `FR-0181` is reached and before the encryption phase begins, the product
-   rewrites the retained `summary.txt` in that plain output root so that it
-   reports the same signal-interruption summary values from criterion 2 before
-   attempting to remove the plain output root.
+   `FR-0181` is reached, the product rewrites the retained `summary.txt` in
+   that plain output root so that it reports the same signal-interruption
+   summary values from criterion 2 before attempting to remove the plain output
+   root.
 4. The product removes the plain output root created for the interrupted plan
    run after the applicable branch from criterion 1 or 3.
 5. The removed path does not retain a partial report set.
@@ -198,8 +197,7 @@ output root.
 
 **Applicability**:
 - accepted `export` and `plan` runs that fail after the accepted-run execution
-  threshold from `FR-0180` is reached and before the encryption phase begins
-  for that run
+  threshold from `FR-0180` is reached
 
 **Rationale**:
 - Operators need a runtime failure to be visible and distinguishable from
@@ -208,9 +206,8 @@ output root.
 **Acceptance Criteria**:
 1. If a runtime failure stops an `export` or `plan` run after accepted run
    execution has begun under `FR-0180` and before any plain output root has
-   been created or reused for that run, no plain output root, encrypted
-   archive, or confidential-mode status sidecar is selected as an authoritative
-   retained artifact for that run.
+   been created or reused for that run, no plain output root or ZIP archive is
+   selected as an authoritative retained artifact for that run.
 2. In the criterion 1 branch, `RUN_COMPLETE` is not emitted because final
    outcome determination did not complete, the process exit code remains the
    accepted-run runtime failure code from `FR-0118`, and stdout contains no
@@ -253,10 +250,10 @@ output root.
     `INCOMPLETE` marker from `FR-0076`, and its `summary.txt` reports the same
     runtime-failure summary values from criterion 7.
 12. If a runtime failure stops an `export` or `plan` run after the normal
-   report-set retention threshold from `FR-0181` is reached and before the
-   encryption phase begins, the product rewrites the retained `summary.txt` in
-   the plain output root so that it reports the same runtime-failure summary
-   values from criterion 7 before final-outcome determination.
+   report-set retention threshold from `FR-0181` is reached, the product
+   rewrites the retained `summary.txt` in the plain output root so that it
+   reports the same runtime-failure summary values from criterion 7 before
+   final-outcome determination.
 13. If criterion 12 succeeds for an `export` run, the plain output root remains on
    disk as the retained runtime-failed partial result, satisfies the export
    layout from `FR-0077`, using inherited-layout sanitation from `FR-0188`
@@ -378,8 +375,8 @@ deterministic partial-report rule.
 - Observable evidence: synthesized partial report rows and summary counts
 
 ### FR-0147
-**Requirement**: Signal interruption before output-root creation shall leave no
-retained run artifact.
+**Requirement**: Signal interruption before output-root creation shall use the
+pre-output-root interruption branch.
 
 **Applicability**:
 - accepted `export` and `plan` runs interrupted after root-page preflight
@@ -391,10 +388,9 @@ retained run artifact.
   but before there is any result container to retain.
 
 **Acceptance Criteria**:
-1. The run leaves no plain output root, encrypted archive, or
-   confidential-mode status sidecar created by that run; persistent log
-   artifacts governed by `FR-0134` are outside the retained-artifact set
-   consumed by `FR-0058` for this criterion.
+1. The run leaves no plain output root or ZIP archive created by that run;
+   persistent log artifacts governed by `FR-0134` are outside the
+   retained-artifact set consumed by `FR-0058` for this criterion.
 2. The run emits no `RUN_COMPLETE` line because retained-artifact and final
    report-set determination did not complete.
 3. If `RUN_START` had already been emitted under `FR-0056` before the signal was
@@ -423,106 +419,3 @@ retained run artifact.
 - Area: interruption
 - Observable evidence: absence of retained artifacts, stdout lifecycle lines,
   exit code
-
-### FR-0156
-**Requirement**: Accepted `selftest` invocations interrupted by signal shall use
-one deterministic interruption branch.
-
-**Applicability**:
-- accepted non-help `confluex selftest` invocations interrupted by signal after
-  invocation acceptance and before process exit
-
-**Rationale**:
-- Maintainers need interrupted self-test runs to have deterministic
-  retained-report behavior and phase-status values without hidden target
-  lifecycle side effects.
-
-**Acceptance Criteria**:
-1. If a signal is observed before a candidate self-test report root under
-   `FR-0173` exists, no self-test report root is retained, no stdout result
-   line is emitted, and the process exits `130` under `FR-0118`.
-2. If a signal is observed after a candidate self-test report root under
-   `FR-0173` exists, `selftest` follows the retained-report status branch from
-   this card and does not attempt Docker lifecycle cleanup.
-3. If a signal is observed after the bootstrap phase is attempted under
-   `FR-0136` and before `bootstrap_status` is determined and a report root is
-   retained, that retained report root reports
-   `bootstrap_status=failed`, `fixture_apply_status=not_run`,
-   `prepare_expected_data_status=not_run`, `live_regression_status=not_run`,
-   and `selftest_status=failed`.
-4. If a signal is observed after `bootstrap_status=passed` and before
-   the fixture-application phase is attempted under `FR-0136`, a retained
-   report root reports
-   `bootstrap_status=passed`, `fixture_apply_status=not_run`,
-   `prepare_expected_data_status=not_run`, `live_regression_status=not_run`,
-   and `selftest_status=failed`.
-5. If a signal is observed after the fixture-application phase is attempted
-   under `FR-0136` and before `fixture_apply_status` is determined, or during
-   fixture dataset preparation before that phase reaches `passed`, a retained
-   report root reports
-   `bootstrap_status=passed`, `fixture_apply_status=failed`,
-   `prepare_expected_data_status=not_run`, `live_regression_status=not_run`,
-   and `selftest_status=failed`.
-6. If a signal is observed after `fixture_apply_status=passed` and before the
-   expected-data phase is attempted under `FR-0136`, a retained report root
-   reports `bootstrap_status=passed`, `fixture_apply_status=passed`,
-   `prepare_expected_data_status=not_run`, `live_regression_status=not_run`,
-   and `selftest_status=failed`.
-7. If a signal is observed after the expected-data phase is attempted under
-   `FR-0136` and before `prepare_expected_data_status` is determined, or during
-   expected-data preparation before that phase reaches `passed`, a retained
-   report root
-   reports `bootstrap_status=passed`, `fixture_apply_status=passed`,
-   `prepare_expected_data_status=failed`, `live_regression_status=not_run`,
-   and `selftest_status=failed`.
-8. If a signal is observed after `prepare_expected_data_status=passed` and
-   before the live-regression phase is attempted under `FR-0136`,
-   a retained report root reports
-   `bootstrap_status=passed`, `fixture_apply_status=passed`,
-   `prepare_expected_data_status=passed`, `live_regression_status=not_run`,
-   and `selftest_status=failed`.
-9. If a signal is observed after the live-regression phase is attempted under
-   `FR-0136` and before `live_regression_status` is determined, or
-   during live regression, a retained report root reports
-   `bootstrap_status=passed`, `fixture_apply_status=passed`,
-   `prepare_expected_data_status=passed`, `live_regression_status=failed`, and
-   `selftest_status=failed`.
-10. If a candidate self-test report root under `FR-0173` exists when the signal
-   is observed, `selftest` attempts to materialize one retained self-test
-   report root at that candidate path using the status values selected by the
-   applicable criterion from 3 through 9. A retained report root exists only
-   when that materialization completes, the path is a retained self-test report
-   root under `FR-0173`, the retained-schema obligations from `FR-0135` and
-   `FR-0182` through `FR-0187` are satisfied using those selected status
-   values, and the stdout result line is governed by `FR-0133`.
-11. Signal interruption does not introduce any self-test phase-status or
-   aggregate-status value outside the vocabularies governed by `FR-0136`; it
-   only selects the `failed` and `not_run` values required by criteria 3
-   through 9 plus exit code `130`.
-12. If a signal is observed after a candidate self-test report root under
-    `FR-0173` exists but before that path becomes a retained self-test report
-    root under `FR-0173`, including because the retained-schema materialization
-    required by criterion 10 does not complete, any remaining path on disk that
-    does not satisfy criteria 3 through 10 is non-authoritative self-test
-    interruption debris and satisfies `FR-0217`.
-13. In the criterion 12 branch, no stdout result line is emitted after the
-    signal is observed, and stderr is non-governed diagnostic text.
-14. Accepted `selftest` invocations interrupted by signal exit `130`.
-
-**Dependencies**:
-- `FR-0118`
-- `FR-0133`
-- `FR-0135`
-- `FR-0136`
-- `FR-0173`
-- `FR-0182`
-- `FR-0183`
-- `FR-0184`
-- `FR-0185`
-- `FR-0186`
-- `FR-0187`
-- `FR-0217`
-
-**Traceability**:
-- Area: interruption
-- Observable evidence: self-test exit code and retained report-root status values

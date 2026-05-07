@@ -14,45 +14,49 @@ logical plain output root for every accepted `export` or `plan` run.
 **Acceptance Criteria**:
 1. If the operator supplies `--out`, the resolved logical plain output-root path
    is the output root.
-2. If the operator omits `--out`, the product generates exactly one output root.
-3. Before creating or reusing the chosen output-root path, the product
+2. If `--out` is omitted and `CONFLUEX_OUTPUT_ROOT` supplies an effective value
+   under `FR-0219`, the resolved logical plain output-root path from that value
+   is the output root.
+3. If neither `--out` nor `CONFLUEX_OUTPUT_ROOT` supplies an output root, the
+   product generates exactly one output root.
+4. Before creating or reusing the chosen output-root path, the product
    evaluates each existing path segment from the filesystem root through the
    chosen output-root path using non-following filesystem metadata under
    `FR-0154`.
-4. If metadata evaluation required by criterion 3 fails for any existing path
+5. If metadata evaluation required by criterion 4 fails for any existing path
    segment or for the chosen output-root path when that path already exists,
    the invocation is rejected under `FR-0019` before invocation acceptance
    under `FR-0212` and before accepted run execution begins.
-5. If any existing ancestor of the chosen output-root path is a symbolic link,
+6. If any existing ancestor of the chosen output-root path is a symbolic link,
    regular file, FIFO, socket, device, or any other non-directory filesystem
    object, the invocation is rejected before invocation acceptance under
    `FR-0212` and before accepted run execution begins.
-6. If the chosen output-root path exists as a symbolic link, regular file, FIFO,
+7. If the chosen output-root path exists as a symbolic link, regular file, FIFO,
    socket, device, or any other non-directory filesystem object, the invocation
    is rejected before invocation acceptance under `FR-0212` and before accepted
    run execution begins.
-7. If the chosen output-root path exists as a directory for a non-resume
+8. If the chosen output-root path exists as a directory for a non-resume
    invocation that supplied `--out`, the invocation is rejected under `FR-0016`
    before invocation acceptance under `FR-0212` and before accepted run
    execution begins.
-8. A generated output root is never reused; if the generated candidate path
+9. A generated output root is never reused; if the generated candidate path
    already exists under the pre-acceptance candidate checks governed by
    `FR-0055`, the product selects another generated candidate under `FR-0055`
    before invocation acceptance under `FR-0212` and before accepted run
    execution begins.
-9. If the chosen output-root path exists as a directory for
+10. If the chosen output-root path exists as a directory for
    `export --resume --out <path>`, reuse is governed by the resume compatibility
    requirements in `FR-0103`.
-10. If the chosen output-root path does not exist, the product creates that
+11. If the chosen output-root path does not exist, the product creates that
    directory path, including missing parent directories, before writing run
    artifacts.
-11. Missing parent directories are created as directories only; the product does
+12. Missing parent directories are created as directories only; the product does
    not follow symbolic links while creating or verifying the output-root path.
-12. If creating or verifying the chosen output-root directory fails after
+13. If creating or verifying the chosen output-root directory fails after
    invocation acceptance under `FR-0212`, the invocation fails as an
    accepted-run runtime failure under `FR-0102`; no page processing begins
    after that failure.
-13. Any retained `INCOMPLETE` marker in a plain output root is a regular UTF-8
+14. Any retained `INCOMPLETE` marker in a plain output root is a regular UTF-8
    text file with LF line endings, contains exactly one line `incomplete=1`, and
    contains no other bytes.
 
@@ -65,6 +69,7 @@ logical plain output root for every accepted `export` or `plan` run.
 - `FR-0103`
 - `FR-0154`
 - `FR-0212`
+- `FR-0219`
 
 **Traceability**:
 - Area: output structure
@@ -336,128 +341,68 @@ output roots shall have one stable functional meaning.
 - Observable evidence: stable artifact naming and interpretation
 
 ### FR-0083
-**Requirement**: Successful encrypted runs shall create a deterministic
-instruction sidecar derived from the logical plain output-root path.
+**Requirement**: Export ZIP sibling artifact paths shall be derived
+deterministically from the logical plain output-root path.
 
 **Applicability**:
-- runs with successful encryption
+- accepted `export --zip` invocations
 
 **Rationale**:
-- Operators need a deterministic instruction-sidecar path for decrypt and
-  extract guidance.
+- Operators need the portable archive path to be predictable from the selected
+  output root.
 
 **Acceptance Criteria**:
-1. If encryption succeeds, the product creates `<out>.tar.gz.gpg.txt`; if that
-   path already exists as a regular file, encryption fails before modifying
-   that path.
-2. That instruction sidecar is UTF-8 text with LF line endings.
-3. The instruction sidecar contains exactly these five lines in this exact
-   order:
-   `archive_path=<quoted_path_string>`
-   `decrypt_output_path=<quoted_path_string>`
-   `extract_directory_path=<quoted_path_string>`
-   `decrypt_argv_json=<json_array>`
-   `extract_argv_json=<json_array>`.
-4. In line 1, `<quoted_path_string>` is the absolute path to
-   `<out>.tar.gz.gpg` serialized with the quoted path-string rules in
-   `FR-0124`.
-5. In line 2, `<quoted_path_string>` is the absolute sibling path
-   `<out>.tar.gz` serialized with the quoted path-string rules in `FR-0124`.
-6. In line 3, `<quoted_path_string>` is the absolute parent directory of
-   `<out>`, serialized with the quoted path-string rules in `FR-0124`.
-7. In line 4, `<json_array>` is a JSON array containing exactly five JSON string
-   elements in this exact order: `"gpg"`, `"--output"`, the absolute sibling
-   path `<out>.tar.gz`, `"--decrypt"`, and the absolute path
-   `<out>.tar.gz.gpg`. The third and fifth elements are JSON string values whose
-   decoded contents equal those unquoted absolute path strings; they are not the
-   `FR-0124` quoted path-string serializations used in lines 2 and 1.
-8. In line 5, `<json_array>` is a JSON array containing exactly five JSON string
-   elements in this exact order: `"tar"`, `"-xzf"`, the absolute sibling path
-   `<out>.tar.gz`, `"-C"`, and the absolute parent directory of `<out>`. The
-   third and fifth elements are JSON string values whose decoded contents equal
-   those unquoted absolute path strings; they are not the `FR-0124` quoted
-   path-string serializations used in lines 2 and 3.
-9. Each `<json_array>` in criteria 7 and 8 is serialized as one JSON array with
-   no whitespace outside string values, exact comma separators, and no bytes
-   outside the array delimiters. Each array element is serialized as a JSON
-   string literal using the escaping rules from `FR-0124` criteria 1 through 4
-   for that element's string value; optional JSON escapes for non-control
-   characters are forbidden.
-10. The instruction sidecar path is a sibling path derived by
-   appending its suffix to the logical plain output-root path string and is not
-   created outside that parent directory.
-11. If the instruction sidecar path exists as a directory, symbolic link, FIFO,
-    socket, device, or any other non-regular filesystem object before sidecar
-    creation, encryption fails before modifying that path.
-12. The line-5 `extract_argv_json` instruction is the governed extraction
-    command only when the absolute path `<out>` does not already exist. If
-    `<out>` already exists, extracting `<out>.tar.gz` with criterion 8 into the
-    absolute parent directory of `<out>` is outside the governed success path;
-    the operator must first remove or rename the pre-existing `<out>` path or
-    extract into some other empty directory.
+1. `<out>` is the logical plain output-root path string selected under
+   `FR-0076`.
+2. The ZIP sibling path is the absolute path produced by appending `.zip` to
+   `<out>` before any path comparison governed by `FR-0134` or ZIP creation
+   governed by `FR-0221`.
+3. The ZIP sibling path has the same parent directory as `<out>`.
+4. The ZIP sibling path is serialized in `summary.txt` only through the
+   `zip_path` value contract governed by `FR-0119`.
 
 **Dependencies**:
-- `FR-0021`
 - `FR-0076`
-- `FR-0124`
+- `FR-0119`
+- `FR-0134`
+- `FR-0221`
 
 **Traceability**:
 - Area: output structure
-- Observable evidence: instruction sidecar path and contents
+- Observable evidence: ZIP path and `summary.txt` `zip_path` field
 
 ### FR-0084
-**Requirement**: Confidential-mode encryption-failure branches that remove the
-plain output root shall create a deterministic status sidecar derived from the
-logical plain output-root path.
+**Requirement**: Final run status shall be recorded in retained report sets.
 
 **Applicability**:
-- confidential-mode encryption-failure branches that remove the plain output
-  root and are not the cleanup-failure branch governed by `FR-0107` where the
-  plain output root remains authoritative or the plain-root-retained
-  confidential-mode cleanup-failure branch from `FR-0110`
+- retained plain `export` output roots
+- retained plain `plan` output roots
 
 **Rationale**:
-- Operators need a deterministic status-sidecar path that records
-  confidential-mode encryption failure without leaving the plain output root
-  behind.
+- Operators need final outcome state to live inside the report set that
+  accompanies the retained run result.
 
 **Acceptance Criteria**:
-1. If confidential-mode encryption fails, the product creates
-   `<out>.status.txt`; if that path already exists as a regular file, the
-   product does not modify that path and the sidecar-unretained
-   confidential-mode no-retained-artifact branch governed by `FR-0110`
-   applies.
-2. `<out>.status.txt` is UTF-8 text with LF line endings and contains exactly
-   one line: `final_status=encryption_failed`.
-3. `<out>.status.txt` contains no other bytes.
-4. The status sidecar path is a sibling path derived by appending its suffix to
-   the logical plain output-root path string and is not created outside that
-   parent directory.
-5. If the status sidecar path exists as a directory, symbolic link, FIFO, socket,
-   device, or any other non-regular filesystem object before sidecar creation,
-   the status sidecar cannot be retained and the sidecar-unretained
-   confidential-mode no-retained-artifact branch governed by `FR-0110` applies
-   instead of criteria 1 through 4 of this card.
-6. If sidecar creation or sidecar writing required by criteria 1 through 4
-   fails after the plain output root has already been removed and criterion 5
-   does not apply, the status sidecar cannot be retained and the
-   sidecar-unretained confidential-mode no-retained-artifact branch governed by
-   `FR-0110` applies instead of criteria 1 through 4 of this card.
+1. A retained plain output root records final run status through the
+   `final_status` field in `summary.txt`.
+2. The `final_status` field uses the vocabulary governed by `FR-0113`.
+3. The `summary.txt` file is part of the report-file set governed by `FR-0085`
+   and the schema governed by `FR-0090`.
+4. This card does not redefine report-set retention branches or summary schema
+   key order.
 
 **Dependencies**:
-- `FR-0021`
-- `FR-0076`
+- `FR-0085`
+- `FR-0090`
 - `FR-0113`
-- `FR-0107`
-- `FR-0110`
 
 **Traceability**:
 - Area: output structure
-- Observable evidence: status sidecar path and contents
+- Observable evidence: retained `summary.txt` final-status field
 
 ### FR-0128
-**Requirement**: Failed per-page export materialization shall not leave
-ambiguous partial payload artifacts in the final run result.
+**Requirement**: Failed per-page export materialization shall produce a
+deterministic failed-page artifact state in the final run result.
 
 **Applicability**:
 - accepted `export` runs
@@ -592,14 +537,13 @@ replacement behavior.
    invocation is rejected if the effective persistent log-artifact path is equal
    to the logical plain output-root path, is inside that root as a path-segment
    descendant, or is equal to any deterministic sibling reserved path owned by
-   the same logical plain output root under `FR-0083`, `FR-0084`, or `FR-0107`.
+   the same logical plain output root under `FR-0083`.
 10. For criterion 9, the deterministic sibling reserved paths are formed from
     the logical plain output-root string before `FR-0159` path normalization:
-    `<out>.tar.gz.gpg`, `<out>.tar.gz.gpg.txt`, and `<out>.status.txt`.
-    Equality comparison uses the normalized path equality rule from `FR-0160`
-    over the path-normalized absolute paths produced under `FR-0159`; symlinks
-    are not followed; and descendant comparison uses the path-segment descendant
-    relation from `FR-0161`.
+    `<out>.zip`. Equality comparison uses the normalized path equality rule from
+    `FR-0160` over the path-normalized absolute paths produced under
+    `FR-0159`; symlinks are not followed; and descendant comparison uses the
+    path-segment descendant relation from `FR-0161`.
 11. Current invocation log text is UTF-8 text produced during that invocation,
    contains no NUL byte, and, if it contains line breaks, uses LF for every line
    break and contains no CR byte.
@@ -633,8 +577,6 @@ replacement behavior.
 - `FR-0043`
 - `FR-0076`
 - `FR-0083`
-- `FR-0084`
-- `FR-0107`
 - `FR-0102`
 - `FR-0142`
 - `FR-0180`
@@ -655,9 +597,6 @@ shall carry one stable disqualifying marker.
 **Applicability**:
 - directory roots left on disk and explicitly classified by another card as
   non-authoritative run-result debris
-- self-test report-root directories left on disk and explicitly classified by
-  another card as non-authoritative self-test report-root debris or
-  non-authoritative self-test interruption debris
 
 **Rationale**:
 - Resume compatibility and post-run tooling need one machine-readable way to
@@ -671,15 +610,13 @@ shall carry one stable disqualifying marker.
 3. `NON_AUTHORITATIVE` contains exactly one line `non_authoritative=1` and no
    other bytes.
 4. A directory root that contains `NON_AUTHORITATIVE` is not a report-set
-   container under `FR-0085` and is not a retained self-test report root under
-   `FR-0173`.
+   container under `FR-0085`.
 5. A card that explicitly classifies an on-disk directory root as
    non-authoritative debris satisfies that classification only when the root
    also satisfies criteria 1 through 3.
 
 **Dependencies**:
 - `FR-0085`
-- `FR-0173`
 
 **Traceability**:
 - Area: output structure
@@ -702,8 +639,9 @@ beside the plain output root.
    creates one ZIP archive path whose basename is the plain output root basename
    plus `.zip` and whose parent directory is the plain output root parent
    directory, unless that path already exists.
-2. If the criterion-1 ZIP path already exists before ZIP creation begins, the
-   accepted invocation fails under `FR-0142` before modifying that path.
+2. If the criterion-1 ZIP path already exists before ZIP creation begins after
+   accepted run execution has begun, the accepted invocation fails under
+   `FR-0102` before modifying that path.
 3. The ZIP archive contains only relative entries for files retained under the
    plain output root. It contains no absolute path entries, no empty directory
    entries, and no entries containing `..` as a path segment.
@@ -713,13 +651,13 @@ beside the plain output root.
 6. `summary.txt` includes exactly one `zip_path=<quoted_path_string>` line when
    ZIP creation succeeds; `<quoted_path_string>` is governed by `FR-0124`.
 7. If ZIP creation fails after accepted run execution begins, the run fails
-   under `FR-0142`; any partially written ZIP archive is non-authoritative
+   under `FR-0102`; any partially written ZIP archive is non-authoritative
    output debris and is not a report-set container.
 
 **Dependencies**:
 - `FR-0085`
+- `FR-0102`
 - `FR-0124`
-- `FR-0142`
 - `FR-0150`
 - `FR-0220`
 

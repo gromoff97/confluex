@@ -10,17 +10,18 @@
 - `confluex export --help`
 
 **Rationale**:
-- Operators need a distinct workflow for materialized export runs.
+- Operators need a distinct workflow for materialized Markdown export runs.
 
 **Acceptance Criteria**:
-1. Top-level help lists `export` as a supported command.
-2. `confluex export --help` identifies `export` as the materialized export
-   workflow.
-3. An accepted `confluex export ...` invocation starts the export workflow rather
-   than any other workflow.
+1. Top-level help lists `export` as a supported command in the command order
+   governed by `FR-0004`.
+2. `confluex export --help` identifies `export` as the materialized Markdown
+   export workflow.
+3. An accepted `confluex export ...` invocation starts the export workflow
+   rather than any other workflow.
 
 **Dependencies**:
-- None
+- `FR-0004`
 
 **Traceability**:
 - Area: command surface
@@ -38,13 +39,14 @@
 - Operators need a distinct workflow for dry-run planning.
 
 **Acceptance Criteria**:
-1. Top-level help lists `plan` as a supported command.
+1. Top-level help lists `plan` as a supported command in the command order
+   governed by `FR-0004`.
 2. `confluex plan --help` identifies `plan` as the dry-run planning workflow.
-3. An accepted `confluex plan ...` invocation starts the planning workflow rather
-   than any other workflow.
+3. An accepted `confluex plan ...` invocation starts the planning workflow
+   rather than any other workflow.
 
 **Dependencies**:
-- None
+- `FR-0004`
 
 **Traceability**:
 - Area: command surface
@@ -62,129 +64,137 @@
 - Operators need a distinct diagnostic workflow.
 
 **Acceptance Criteria**:
-1. Top-level help lists `doctor` as a supported command.
+1. Top-level help lists `doctor` as a supported command in the command order
+   governed by `FR-0004`.
 2. `confluex doctor --help` identifies `doctor` as the diagnostic workflow.
 3. An accepted `confluex doctor ...` invocation starts diagnostics rather than
    any other workflow.
 
 **Dependencies**:
-- None
+- `FR-0004`
 
 **Traceability**:
 - Area: command surface
 - Observable evidence: top-level help output, command help output, workflow entry
 
 ### FR-0004
-**Requirement**: The product shall expose `config` as a top-level command.
+**Requirement**: The public top-level command inventory shall be exactly
+`export`, `plan`, and `doctor` in that order.
 
 **Applicability**:
 - `confluex --help`
-- `confluex config`
-- `confluex config --help`
+- non-help command dispatch
+- command-help dispatch
 
 **Rationale**:
-- Operators need a distinct workflow for saved encryption-recipient state.
+- Operators and automation need one authoritative command surface with
+  deterministic ordering.
 
 **Acceptance Criteria**:
-1. Top-level help lists `config` as a supported command.
-2. `confluex config --help` identifies `config` as the configuration workflow.
-3. An accepted `confluex config ...` invocation starts configuration behavior
-   rather than any other workflow.
+1. The public top-level command tokens are exactly `export`, `plan`, and
+   `doctor`.
+2. Everywhere the public command inventory is serialized as an ordered list, the
+   order is exactly `export`, then `plan`, then `doctor`.
+3. A first argv token after the program path equal to `export`, `plan`, or
+   `doctor` is classified as a supported command before option validation.
+4. Any other first argv token after the program path is classified as an
+   unsupported command under `FR-0011`, except for top-level help shapes
+   governed by `FR-0007`.
 
 **Dependencies**:
-- None
+- `FR-0007`
+- `FR-0011`
 
 **Traceability**:
 - Area: command surface
-- Observable evidence: top-level help output, command help output, workflow entry
+- Observable evidence: top-level help output, command dispatch, unsupported
+  command rejection
 
 ### FR-0005
-**Requirement**: The product shall not expose `install` as a top-level command.
+**Requirement**: Top-level help shall serialize one command summary entry for
+each public top-level command.
 
 **Applicability**:
 - `confluex --help`
-- `confluex install`
-- `confluex install --help`
 
 **Rationale**:
-- Installation is governed by the npm package lifecycle, so the CLI must not
-  provide a competing self-installation workflow.
+- Operators need top-level help to reflect the authoritative command inventory
+  without requiring command-specific help probes.
 
 **Acceptance Criteria**:
-1. Top-level help does not list `install` as a supported command.
-2. `confluex install` and `confluex install --help` are rejected as unsupported
-   command invocations under `FR-0012`.
-3. No accepted Confluex CLI invocation creates, updates, verifies, or removes a
-   package installation; package lifecycle behavior is governed by `FR-0048`
-   through `FR-0051`.
+1. Top-level help emits exactly one command summary entry for each command token
+   governed by `FR-0004`.
+2. Command summary entries appear in the command order governed by `FR-0004`.
+3. Each command summary entry contains the exact command token and a non-empty
+   human-readable description on the same physical line.
+4. This card governs only command summary entry presence and order; the broader
+   top-level help stream contract remains governed by `FR-0007`.
 
 **Dependencies**:
-- `FR-0012`
-- `FR-0048`
-- `FR-0049`
-- `FR-0050`
-- `FR-0051`
+- `FR-0004`
+- `FR-0007`
 
 **Traceability**:
 - Area: command surface
-- Observable evidence: top-level help output, unsupported-command rejection
+- Observable evidence: top-level help command summary lines
 
 ### FR-0006
-**Requirement**: The product shall not expose `uninstall` as a top-level
-command.
+**Requirement**: Command-help dispatch shall be available for each public
+top-level command.
 
 **Applicability**:
-- `confluex --help`
-- `confluex uninstall`
-- `confluex uninstall --help`
+- `confluex export --help`
+- `confluex plan --help`
+- `confluex doctor --help`
 
 **Rationale**:
-- Uninstallation is governed by the npm package lifecycle, so the CLI must not
-  provide a competing self-removal workflow.
+- Operators need command-specific option guidance for every public workflow.
 
 **Acceptance Criteria**:
-1. Top-level help does not list `uninstall` as a supported command.
-2. `confluex uninstall` and `confluex uninstall --help` are rejected as
-   unsupported command invocations under `FR-0012`.
-3. No accepted Confluex CLI invocation removes a package installation; package
-   lifecycle behavior is governed by `FR-0048` through `FR-0051`.
+1. For each command token governed by `FR-0004`, `confluex <command> --help`
+   is a command-help invocation governed by `FR-0008`.
+2. Command-help dispatch for each public command completes before command work
+   or command-specific option validation begins.
+3. Each public command's help output identifies the command token it documents.
+4. This card governs only command-help availability for public commands; the
+   command-help stream, line-order, and exit-code contract remains governed by
+   `FR-0008`.
 
 **Dependencies**:
-- `FR-0012`
-- `FR-0048`
-- `FR-0049`
-- `FR-0050`
-- `FR-0051`
+- `FR-0004`
+- `FR-0008`
 
 **Traceability**:
 - Area: command surface
-- Observable evidence: top-level help output, unsupported-command rejection
+- Observable evidence: command help output and no workflow side effects
 
 ### FR-0129
-**Requirement**: The product shall expose `selftest` as the only supported
-explicit-target live-regression command.
+**Requirement**: Non-help command dispatch shall route each public command token
+to exactly one public workflow.
 
 **Applicability**:
-- `confluex --help`
-- `confluex selftest --url <base-url> --token <token>`
-- `confluex selftest --help`
+- accepted non-help `confluex export ...` invocations
+- accepted non-help `confluex plan ...` invocations
+- accepted non-help `confluex doctor ...` invocations
 
 **Rationale**:
-- Operators and maintainers need one canonical command that uses an already
-  running Confluence 7.13.7 stand, prepares governed fixture data, and runs the
-  governed live-regression suite against that explicit target.
+- Operators need accepted command tokens to select one deterministic workflow.
 
 **Acceptance Criteria**:
-1. Top-level help lists `selftest` as a supported command.
-2. `confluex selftest --help` identifies `selftest` as the live regression
-   self-test workflow.
-3. An accepted `confluex selftest --url <base-url> --token <token>` invocation
-   starts the self-test workflow against the operator-supplied target rather
-   than any export, plan, diagnostic, or configuration workflow.
+1. Accepted non-help `export` invocations route to the materialized Markdown
+   export workflow governed by `FR-0053`.
+2. Accepted non-help `plan` invocations route to the dry-run planning workflow
+   governed by `FR-0054`.
+3. Accepted non-help `doctor` invocations route to the diagnostic workflow
+   governed by `FR-0043`.
+4. One accepted invocation routes to exactly one workflow from criteria 1
+   through 3.
 
 **Dependencies**:
-- None
+- `FR-0043`
+- `FR-0053`
+- `FR-0054`
 
 **Traceability**:
 - Area: command surface
-- Observable evidence: top-level help output, command help output, workflow entry
+- Observable evidence: workflow entry

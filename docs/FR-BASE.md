@@ -162,21 +162,17 @@ shared path cards.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: normalized paths in output-root, log-file, install, and
-  uninstall behavior, and self-test report-root selection
-- Downstream equality or descendant consumers: `FR-0048` install target versus
-  runtime-root comparison; `FR-0134` log-path rejection
+- Observable evidence: normalized paths in output-root, log-file, package
+  lifecycle documentation, and package smoke behavior
+- Downstream equality or descendant consumers: `FR-0134` log-path rejection
 
 ### FR-0150
 **Requirement**: Governed relative path strings shall use one safe segment
 serialization form.
 
 **Applicability**:
-- install-manifest relative paths
 - payload-folder relative paths
-- self-test suite-root-relative paths
-- self-test report-root-relative expected-data paths
-- self-test report-root-relative live-command artifact-bucket paths
+- ZIP entry relative paths
 
 **Rationale**:
 - Relative path strings appear in several machine-readable artifacts and
@@ -205,8 +201,7 @@ serialization form.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: install manifests, payload folder paths, self-test TAP
-  comments, expected-data retained paths, live-command artifact-bucket paths
+- Observable evidence: payload folder paths and ZIP entry paths
 
 ### FR-0152
 **Requirement**: The currently executing Confluex runtime root shall use one
@@ -217,8 +212,8 @@ shared self-location acquisition rule.
   runtime root or runtime-root source string
 
 **Rationale**:
-- Install and self-test both consume the runtime root and need one
-  command-independent authoritative source.
+- Package smoke and release checks need one command-independent authoritative
+  source for the currently executing runtime root.
 
 **Acceptance Criteria**:
 1. The product obtains one runtime-entrypoint path for the current invocation
@@ -232,10 +227,8 @@ shared self-location acquisition rule.
    launcher path do not qualify as the runtime-entrypoint path for this card.
 3. The currently executing Confluex runtime root is the lexical parent
    directory of the absolute runtime-entrypoint path from criterion 2 only when
-   that parent directory contains direct descendant paths named
-   `lib/confluex-node`, `tests/fixtures/confluence-7137`, and `tests/selftest`, and
-   each such direct descendant path exists as a directory under non-following
-   filesystem metadata.
+   that parent directory contains the packaged public runtime entry files
+   governed by `FR-0215`.
 4. If criteria 1 through 3 cannot identify one absolute runtime root path for
    the current invocation, any downstream card that consumes the runtime-root
    source string takes its defined failure route.
@@ -252,17 +245,15 @@ shared self-location acquisition rule.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: runtime-root-dependent install and self-test behavior
+- Observable evidence: runtime-root-dependent package smoke behavior
 
 ### FR-0153
 **Requirement**: Path-normalization failure routing shall remain source-specific.
 
 **Applicability**:
-- operator-supplied path sources acquired under `FR-0158` and normalized under
-  `FR-0159`
+- public operator-supplied path sources acquired under `FR-0158` and normalized
+  under `FR-0159`
 - generated output-root candidate paths normalized under `FR-0159`
-- generated self-test report-root candidate paths normalized under `FR-0159`
-- runtime-root source strings consumed by self-test cards
 
 **Rationale**:
 - Shared lexical path semantics need one authoritative home, but each consuming
@@ -272,15 +263,12 @@ shared self-location acquisition rule.
 1. For operator-supplied `--out` under `FR-0021` and operator-supplied
    `--log-file` under `FR-0029`, any path-normalization failure under
    `FR-0159` rejects the invocation under `FR-0019`.
-2. Generated output-root selection under `FR-0055` uses the generated
+2. For configured `CONFLUEX_OUTPUT_ROOT` under `FR-0021` and configured
+   `CONFLUEX_LOG_FILE` under `FR-0029`, any path-normalization failure under
+   `FR-0159` rejects the invocation under `FR-0019`.
+3. Generated output-root selection under `FR-0055` uses the generated
    output-root candidate path and current-working-directory source as
    path-normalization inputs.
-3. Self-test report-root selection under `FR-0173` uses the generated
-   self-test report-root candidate path and current-working-directory source as
-   path-normalization inputs, with accepted failure routing under `FR-0174`.
-4. Self-test suite-root selection under `FR-0138` uses the runtime-root source
-   string defined by `FR-0152` as its path-normalization input, with the
-   accepted pre-status runtime-failure branch governed by `FR-0174`.
 
 **Dependencies**:
 - `FR-0019`
@@ -288,18 +276,14 @@ shared self-location acquisition rule.
 - `FR-0029`
 - `FR-0033`
 - `FR-0055`
-- `FR-0138`
-- `FR-0152`
 - `FR-0158`
 - `FR-0159`
-- `FR-0173`
-- `FR-0174`
+- `FR-0219`
 
 **Traceability**:
 - Area: shared primitives
 - Observable evidence: `FR-0019` rejected-invocation stderr and side-effect
-  behavior for operator-supplied path sources, `FR-0055` generated-output-root
-  rejection, and `FR-0174` self-test report-root failure
+  behavior for path sources and `FR-0055` generated-output-root rejection
 
 ### FR-0154
 **Requirement**: Filesystem metadata evaluations described as non-following
@@ -343,8 +327,8 @@ input contract.
 
 **Applicability**:
 - operator-supplied path options
-- environment-value sources used by owning cards to select default installation
-  and uninstallation targets
+- public configuration environment-value sources used by owning cards to select
+  output-root and log-file paths
 - current-working-directory sources used by relative-path normalization and
   generated root selection
 
@@ -392,9 +376,6 @@ normalization and serialization form.
 **Applicability**:
 - operator-supplied path sources
 - generated output-root candidate paths selected by owning run-lifecycle cards
-- derived default installation and uninstallation target candidate paths
-  constructed by owning lifecycle cards
-- generated report-root candidate paths selected by owning observability cards
 - current-working-directory sources used by relative-path normalization and
   generated root selection under this card
 
@@ -494,8 +475,8 @@ normalization and serialization form.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: normalized paths in output-root, log-file, install, and
-  uninstall behavior, and self-test report-root selection
+- Observable evidence: normalized paths in output-root, log-file, and generated
+  output-root behavior
 
 ### FR-0160
 **Requirement**: Normalized filesystem paths shall use one shared equality
@@ -526,8 +507,8 @@ rule.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: path equality in install target versus runtime-root
-  comparison and descendant-gated path rejection
+- Observable evidence: normalized path equality for log-path rejection and
+  output-root comparison
 
 ### FR-0161
 **Requirement**: Normalized filesystem paths shall use one shared descendant
@@ -552,4 +533,4 @@ relation.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: descendant-gated install and uninstall behavior
+- Observable evidence: descendant-gated log-path and output-root behavior
