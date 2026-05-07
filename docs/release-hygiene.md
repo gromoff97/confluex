@@ -11,17 +11,19 @@ npm run build
 npm pack --dry-run --json
 ```
 
-The package dry-run must include the npm entrypoints and runtime assets:
+The package dry-run must match the public package inventory from
+`docs/FR-LIFE.md`:
 
+- `package.json`
+- `README.md`
+- `LICENSE`
 - `bin/confluex.js`
-- `dist/main.js`
-- `lib/confluex-node/`
-- `tests/fixtures/`
-- `tests/live-bats/live-regression.bats`
-- `tests/live-bats/helpers/`
+- generated public runtime files under `dist/`
 
-It must not include development-only dependency folders, build scratch output,
-or agent instruction files.
+The allowed public docs inventory is exactly `README.md` and `LICENSE` for this
+lifecycle target. Content outside this inventory is release-blocking when it is
+a development-only dependency folder, test or fixture asset, build scratch
+output, internal source tree, or agent instruction file.
 
 ## Forbidden Reference Scan
 

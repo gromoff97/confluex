@@ -345,7 +345,9 @@ output roots shall have one stable functional meaning.
 deterministically from the logical plain output-root path.
 
 **Applicability**:
-- accepted `export --zip` invocations
+- `export --zip` invocations whose logical plain output-root path has been
+  selected under `FR-0076`
+- pre-acceptance persistent log-path validation for those invocations
 
 **Rationale**:
 - Operators need the portable archive path to be predictable from the selected
@@ -536,25 +538,25 @@ replacement behavior.
 9. For `export` and `plan`, after the logical plain output root has been
    resolved under `FR-0076` and before accepted run execution begins, the
    invocation is rejected if the effective persistent log-artifact path is equal
-   to the logical plain output-root path, is inside that root as a path-segment
-   descendant, or is equal to any deterministic sibling reserved path owned by
-   the same logical plain output root under `FR-0238`.
-10. For criterion 9, the deterministic sibling reserved path is the ZIP sibling
-    path derived under `FR-0238` from the same logical plain output-root path,
-    whether or not `--zip` is active for the current invocation. Equality
-    comparison uses the normalized path equality rule from `FR-0160` over the
-    path-normalized absolute paths produced under `FR-0159`; symlinks are not
-    followed; and descendant comparison uses the path-segment descendant
-    relation from `FR-0161`.
-11. Current invocation log text is UTF-8 text produced during that invocation,
+   to the logical plain output-root path or is inside that root as a
+   path-segment descendant.
+10. For `export --zip`, after the logical plain output root has been resolved
+    under `FR-0076` and before accepted run execution begins, the invocation is
+    rejected if the effective persistent log-artifact path is equal to the ZIP
+    sibling path governed by `FR-0238`.
+11. Equality comparisons in criteria 9 and 10 use the normalized path equality
+    rule from `FR-0160` over the path-normalized absolute paths produced under
+    `FR-0159`; symlinks are not followed; and descendant comparison in
+    criterion 9 uses the path-segment descendant relation from `FR-0161`.
+12. Current invocation log text is UTF-8 text produced during that invocation,
    contains no NUL byte, and, if it contains line breaks, uses LF for every line
    break and contains no CR byte.
-12. This card does not govern log message vocabulary, prefixes, ordering, count,
-   or whether the final line ends with LF; after criterion 11, the remaining log
+13. This card does not govern log message vocabulary, prefixes, ordering, count,
+   or whether the final line ends with LF; after criterion 12, the remaining log
    text is non-governed diagnostic text.
-13. After replacement, the persistent log artifact contains no byte from the
+14. After replacement, the persistent log artifact contains no byte from the
    previous contents of that path.
-14. Rejection-capable path validation from criteria 2 through 9 occurs before
+15. Rejection-capable path validation from criteria 2 through 10 occurs before
     invocation acceptance under `FR-0212`. Persistent log artifact creation,
     replacement, and first write begin only after invocation acceptance. For
     `export` and `plan`, when an effective persistent log-artifact path is
@@ -563,13 +565,13 @@ replacement behavior.
     may begin before output-root creation or reuse, resume-reuse evaluation,
     scope-discovery work, page processing, or report generation. For `doctor`,
     that log setup begins before any governed `doctor` stdout line is emitted.
-15. If creating missing parent directories, opening the log artifact, replacing
+16. If creating missing parent directories, opening the log artifact, replacing
    the log artifact, or writing current invocation log text fails after
-   criterion 14 begins, the invocation does not continue without the selected
+   criterion 15 begins, the invocation does not continue without the selected
    persistent log artifact.
-16. For `export` and `plan`, a failure from criterion 15 is an accepted-run
+17. For `export` and `plan`, a failure from criterion 16 is an accepted-run
    runtime failure governed by `FR-0102`.
-17. For `doctor`, a failure from criterion 15 is a utility-command runtime
+18. For `doctor`, a failure from criterion 16 is a utility-command runtime
    failure governed by `FR-0142`.
 
 **Dependencies**:

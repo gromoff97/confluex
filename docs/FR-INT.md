@@ -99,13 +99,31 @@ plain output root on disk.
    values from criterion 5 before process exit.
 7. The retained plain output root contains the `INCOMPLETE` marker required by
    `FR-0076` and `FR-0077`.
-8. If report synthesis required by criterion 4 fails or rewriting the retained
+8. For interrupted `export --zip` runs, the retained plain output-root report
+   set governed by criteria 4 through 6 is the authoritative report source
+   before any ZIP sibling is selected for `summary.txt` `zip_path` under
+   `FR-0119` or for `RUN_COMPLETE` `artifact` under `FR-0058`.
+9. If interruption occurs before ZIP packaging governed by `FR-0221` completes,
+   including while a ZIP archive at the `FR-0238` sibling path is being written,
+   any ZIP sibling left at that path is non-authoritative ZIP output debris, is
+   not a report-set container, is not treated as a ZIP archive created under
+   `FR-0221` for `FR-0119`, and is not selected as an authoritative retained
+   artifact under `FR-0058`.
+10. If interruption occurs after a ZIP archive has already been created at the
+    `FR-0238` sibling path for the same run, that already-created ZIP sibling is
+    classified as non-authoritative ZIP output debris unless it is regenerated
+    after the report synthesis or rewrite required by criteria 4 through 6; only
+    a regenerated ZIP archive may be treated as created under `FR-0221` and
+    selected ahead of the retained plain output root under `FR-0058`.
+11. If report synthesis required by criterion 4 fails or rewriting the retained
    `summary.txt` required by criterion 6 fails, `RUN_COMPLETE` is not emitted
    because final outcome determination did not complete, the process exit code
    remains the signal-interruption exit code governed by `FR-0118`, and any
    plain output root left on disk is non-authoritative interruption-update
    debris, satisfies `FR-0217`, is not a completed retained result, and is not
-   selected as an authoritative retained artifact for that run.
+   selected as an authoritative retained artifact for that run; any ZIP sibling
+   left on disk is non-authoritative ZIP output debris and is not selected as an
+   authoritative retained artifact for that run.
 
 **Dependencies**:
 - `FR-0058`
@@ -114,6 +132,7 @@ plain output root on disk.
 - `FR-0076`
 - `FR-0085`
 - `FR-0145`
+- `FR-0119`
 - `FR-0098`
 - `FR-0113`
 - `FR-0140`
@@ -121,6 +140,8 @@ plain output root on disk.
 - `FR-0181`
 - `FR-0188`
 - `FR-0217`
+- `FR-0221`
+- `FR-0238`
 
 **Traceability**:
 - Area: interruption

@@ -278,13 +278,18 @@ stdout contract.
 
 **Acceptance Criteria**:
 1. The required informational lines appear on `stdout` in this exact order:
-   dependency lines, `configuration`, `page_access`, optional `page_identity`,
-   `support_profile`, `supported_link_forms`, `next_action`.
-2. Accepted `doctor` invocations emit no additional stdout lines.
-3. Accepted `doctor` invocations write nothing to `stderr`.
-4. The accepted invocation exit code is governed by `FR-0118`.
-5. If an accepted `doctor` invocation fails under `FR-0142`, stdout, stderr, and
-   exit code are governed by `FR-0142` instead of criteria 1 through 4.
+   dependency lines, `configuration`, `page_access`, optional
+   `page_access_reason`, optional `page_identity`, `support_profile`,
+   `supported_link_forms`, `next_action`.
+2. The optional `page_access_reason` line appears exactly for
+   `doctor --page-id <id>` invocations and is governed by `FR-0039`.
+3. The optional `page_identity` line appears only under the successful page
+   access condition governed by `FR-0039`.
+4. Accepted `doctor` invocations emit no additional stdout lines.
+5. Accepted `doctor` invocations write nothing to `stderr`.
+6. The accepted invocation exit code is governed by `FR-0118`.
+7. If an accepted `doctor` invocation fails under `FR-0142`, stdout, stderr, and
+   exit code are governed by `FR-0142` instead of criteria 1 through 6.
 
 **Dependencies**:
 - `FR-0038`
