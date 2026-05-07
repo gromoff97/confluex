@@ -66,6 +66,12 @@ test('root page access composes base path and returns response id identity', asy
 
   await withServer((request, response) => {
     assert.equal(request.method, 'GET')
+    if (request.url === '/confluence/rest/api/user/current') {
+      assert.equal(request.headers.authorization, expectedAuthorization)
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     assert.equal(request.url, '/confluence/rest/api/content/123')
     assert.equal(request.headers.authorization, expectedAuthorization)
     response.setHeader('content-type', 'application/json')
@@ -92,6 +98,11 @@ test('root page access fails for unusable context and invalid responses', async 
 
   await withServer((request, response) => {
     assert.equal(request.headers.authorization, expectedAuthorization)
+    if (request.url === '/rest/api/user/current') {
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     response.statusCode = 404
     response.end('missing')
   }, async baseUrl => {
@@ -103,6 +114,26 @@ test('root page access fails for unusable context and invalid responses', async 
 
   await withServer((request, response) => {
     assert.equal(request.headers.authorization, expectedAuthorization)
+    if (request.url === '/rest/api/user/current') {
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({ type: 'anonymous' }))
+      return
+    }
+    assert.fail(`unexpected request ${request.url}`)
+  }, async baseUrl => {
+    assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl(baseUrl)), {
+      state: 'failed',
+      reason: 'auth_rejected'
+    })
+  })
+
+  await withServer((request, response) => {
+    assert.equal(request.headers.authorization, expectedAuthorization)
+    if (request.url === '/rest/api/user/current') {
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     response.statusCode = 401
     response.setHeader('X-Seraph-LoginReason', 'AUTHENTICATED_FAILED')
     response.end('unauthorized')
@@ -115,6 +146,11 @@ test('root page access fails for unusable context and invalid responses', async 
 
   await withServer((request, response) => {
     assert.equal(request.headers.authorization, expectedAuthorization)
+    if (request.url === '/rest/api/user/current') {
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     response.end(JSON.stringify({ id: '001' }))
   }, async baseUrl => {
     assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl(baseUrl)), {

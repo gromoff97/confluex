@@ -252,6 +252,11 @@ test('public launcher rejects existing output root after successful page preflig
 
   await withServer((request, response) => {
     requests.push({ method: request.method, url: request.url })
+    if (request.url === '/rest/api/user/current') {
+      response.setHeader('content-type', 'application/json')
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     response.setHeader('content-type', 'application/json')
     response.end(JSON.stringify({ id: '123' }))
   }, async baseUrl => {
@@ -267,7 +272,10 @@ test('public launcher rejects existing output root after successful page preflig
     assert.equal(result.stderr, 'ERROR: validation_failed FR-0016\n')
   })
 
-  assert.deepEqual(requests, [{ method: 'GET', url: '/rest/api/content/123' }])
+  assert.deepEqual(requests, [
+    { method: 'GET', url: '/rest/api/user/current' },
+    { method: 'GET', url: '/rest/api/content/123' }
+  ])
 })
 
 test('public launcher plans remote child tree when child listing is available', async () => {
@@ -278,6 +286,10 @@ test('public launcher plans remote child tree when child listing is available', 
   await withServer((request, response) => {
     requests.push({ method: request.method, url: request.url })
     response.setHeader('content-type', 'application/json')
+    if (request.url === '/rest/api/user/current') {
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     if (request.url === '/rest/api/content/123') {
       response.end(JSON.stringify({
         id: '123',
@@ -360,6 +372,7 @@ test('public launcher plans remote child tree when child listing is available', 
   })
 
   assert.deepEqual(requests, [
+    { method: 'GET', url: '/rest/api/user/current' },
     { method: 'GET', url: '/rest/api/content/123' },
     { method: 'GET', url: '/rest/api/content/123/child/page?limit=200&expand=space' },
     { method: 'GET', url: '/rest/api/content/456/child/page?limit=200&expand=space' },
@@ -380,6 +393,10 @@ test('public launcher resolves remote title links when candidate listing is avai
   await withServer((request, response) => {
     requests.push({ method: request.method, url: request.url })
     response.setHeader('content-type', 'application/json')
+    if (request.url === '/rest/api/user/current') {
+      response.end(JSON.stringify({ type: 'known', username: 'admin' }))
+      return
+    }
     if (request.url === '/rest/api/content/123') {
       response.end(JSON.stringify({
         id: '123',
@@ -460,6 +477,7 @@ test('public launcher resolves remote title links when candidate listing is avai
   })
 
   assert.deepEqual(requests, [
+    { method: 'GET', url: '/rest/api/user/current' },
     { method: 'GET', url: '/rest/api/content/123' },
     { method: 'GET', url: '/rest/api/content/123/child/page?limit=200&expand=space' },
     { method: 'GET', url: '/rest/api/content/123?expand=body.storage' },

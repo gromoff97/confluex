@@ -126,7 +126,9 @@ dependencies.
 9. Missing base URL selects `missing_base_url`.
 10. Missing token selects `missing_token`.
 11. Invalid base URL selects `invalid_base_url`.
-12. HTTP status `401` or `403` selects `auth_rejected`.
+12. HTTP status `401` or `403`, or a completed current-user identity probe
+    whose JSON object does not contain `type` equal to `known`, selects
+    `auth_rejected`.
 13. HTTP status `404`, HTTP status `410`, or any other completed HTTP response
     whose status is not `200` selects `page_inaccessible`.
 14. DNS name-resolution failure selects `transport_dns`.

@@ -93,8 +93,13 @@ export async function checkRootPageAccess (
   }
 
   try {
-    const url = rootPageUrl(context.baseUrl, pageId)
     const request = dependencies.request ?? get
+    const identity = await checkTokenIdentity(context, request)
+    if (identity.state === 'failed') {
+      return { state: 'failed', reason: identity.reason }
+    }
+
+    const url = rootPageUrl(context.baseUrl, pageId)
     const response = await request(url, context.authorization)
     if (response.statusCode !== 200) {
       return { state: 'failed', reason: classifyHttpFailure(response) }
@@ -119,6 +124,30 @@ export async function checkRootPageAccess (
           metadata,
           metadataBytes: Buffer.byteLength(bodyText, 'utf8')
         }
+  } catch (error) {
+    return { state: 'failed', reason: classifyTransportFailure(error) }
+  }
+}
+
+async function checkTokenIdentity (
+  context: Extract<RemoteAccessContext, { usable: true }>,
+  request: HttpRequest
+): Promise<
+  | { state: 'ok' }
+  | { state: 'failed', reason: RootPageFailureReason }
+> {
+  try {
+    const response = await request(currentUserUrl(context.baseUrl), context.authorization)
+    if (response.statusCode !== 200) {
+      return { state: 'failed', reason: classifyHttpFailure(response) }
+    }
+
+    const body = parseJson(decodeBodyText(response.chunks))
+    if (!isRecord(body) || body.type !== 'known') {
+      return { state: 'failed', reason: 'auth_rejected' }
+    }
+
+    return { state: 'ok' }
   } catch (error) {
     return { state: 'failed', reason: classifyTransportFailure(error) }
   }
@@ -442,6 +471,10 @@ function parseUsableBaseUrl (value: string): { baseUrl: string } | null {
 
 function rootPageUrl (baseUrl: string, pageId: string): URL {
   return new URL(`${baseUrl}/rest/api/content/${pageId}`)
+}
+
+function currentUserUrl (baseUrl: string): URL {
+  return new URL(`${baseUrl}/rest/api/user/current`)
 }
 
 function childPagesUrl (baseUrl: string, pageId: string): URL {
