@@ -313,16 +313,17 @@ artifacts.
 - Observable evidence: persistent log-file creation, overwrite, or rejection
 
 ### FR-0030
-**Requirement**: Configured public option values shall use the same value
-validation as command-line option values.
+**Requirement**: Configured public option-equivalent values shall use the same
+value validation as command-line option values.
 
 **Applicability**:
-- effective values selected from env files under `FR-0219`
-- effective values selected from the process environment under `FR-0219`
+- effective option-equivalent values selected from env files under `FR-0219`
+- effective option-equivalent values selected from the process environment
+  under `FR-0219`
 
 **Rationale**:
-- Operators need env-file and process-environment inputs to fail the same way
-  as equivalent command-line inputs.
+- Operators need env-file and process-environment inputs that select public
+  option behavior to fail the same way as equivalent command-line inputs.
 
 **Acceptance Criteria**:
 1. A configured value selected for `CONFLUEX_OUTPUT_ROOT` is validated as the
@@ -333,16 +334,18 @@ validation as command-line option values.
    `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
    `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` are validated by
    the corresponding numeric syntax rules in `FR-0014`.
-4. A configured value selected for `CONFLUEX_CONFLUENCE_BASE_URL` or
-   `CONFLUEX_CONFLUENCE_TOKEN` is validated by the remote-access context rules
-   in `FR-0216`.
-5. If a configured value fails the validation required by criteria 1 through 4,
+4. Effective Confluence access values selected under `FR-0219` are interpreted
+   by the remote-access context rules in `FR-0216`, and `doctor` configuration
+   readiness serialization is governed by `FR-0040`.
+5. If a configured option-equivalent value fails the validation required by
+   criteria 1 through 3,
    the invocation is rejected before command work begins.
 
 **Dependencies**:
 - `FR-0014`
 - `FR-0021`
 - `FR-0029`
+- `FR-0040`
 - `FR-0216`
 - `FR-0219`
 

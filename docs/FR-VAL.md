@@ -257,7 +257,7 @@ output-root reuse begins.
 1. An invocation becomes accepted only after every rejection-capable validation
    and preflight requirement that applies to that command has completed without
    rejection and immediately before the command-specific accepted-work
-   threshold from criteria 5 through 11 is crossed.
+   threshold from criteria 5 and 6 is crossed.
 2. Any failure or validation outcome observed before criterion 1 is
    pre-acceptance and is not an accepted-command or accepted-run runtime
    failure.
@@ -386,7 +386,7 @@ first-line precedence and serialization rule.
    validation enumerates missing option values, unsupported options, unsupported
    positional operands, invalid effective option values, invalid option
    combinations, and missing required options that are determinable without
-   traversal, filesystem mutation, network access, report-root creation, or
+   traversal, filesystem mutation, network access, report artifact creation, or
    run-artifact creation.
 4. Command-surface diagnostics from criterion 3 are selected using this
    precedence order after repeated-option effective values are determined under
@@ -411,7 +411,7 @@ first-line precedence and serialization rule.
    can be determined before mutation without violating any earlier-timing rule
    from another applicable rejecting requirement and without executing
    traversal, filesystem mutation, network access beyond explicitly required
-   preflight probes, report-root creation, or run-artifact creation. If one
+   preflight probes, report artifact creation, or run-artifact creation. If one
    applicable rejecting requirement explicitly requires the
    invocation to reject before another rejecting preflight begins, that
    earlier-ordering rule takes precedence and `FR-0146` does not require the

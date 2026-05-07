@@ -149,8 +149,9 @@ readiness.
    `invalid_base_url`.
 3. `configuration=missing_base_url` when no effective
    `CONFLUEX_CONFLUENCE_BASE_URL` value is selected under `FR-0219`.
-4. `configuration=missing_token` when criterion 3 does not apply and no
-   effective `CONFLUEX_CONFLUENCE_TOKEN` value is selected under `FR-0219`.
+4. `configuration=missing_token` when criterion 3 does not apply and either no
+   effective `CONFLUEX_CONFLUENCE_TOKEN` value is selected under `FR-0219` or
+   the selected value is empty or contains TAB, LF, or CR.
 5. `configuration=invalid_base_url` when criteria 3 and 4 do not apply and the
    selected `CONFLUEX_CONFLUENCE_BASE_URL` value fails the base-URL syntax
    required by `FR-0216`.

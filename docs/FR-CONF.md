@@ -149,12 +149,13 @@ invocation-local access context.
   Authorization under one invocation
 
 ### FR-0219
-**Requirement**: Confluex shall select one env-file source before reading
-effective public configuration.
+**Requirement**: Confluex shall select and parse one env-file source before
+reading effective public configuration.
 
 **Applicability**:
-- accepted non-help `export`, `plan`, and `doctor` invocations whose closed
-  option set includes `--env-file <file>`
+- non-help `export`, `plan`, and `doctor` invocations before invocation
+  acceptance under `FR-0212`
+- effective public configuration selection
 
 **Rationale**:
 - Operators need reproducible configuration without relying only on shell
@@ -162,45 +163,62 @@ effective public configuration.
   precedence.
 
 **Acceptance Criteria**:
-1. If `--env-file <file>` is supplied, the selected env file is exactly
-   `<file>` after path normalization under `FR-0159`; `./.confluex.env` is not
-   read for that invocation.
-2. If `--env-file <file>` is supplied and the selected file cannot be read as a
-   regular UTF-8 text file, the invocation is rejected before command work
-   begins.
+1. If `--env-file <file>` is supplied, the selected env file is exactly the
+   normalized path produced from `<file>` under `FR-0158` and `FR-0159`;
+   `./.confluex.env` is not read for that invocation.
+2. If `--env-file <file>` is supplied and path normalization under criterion 1
+   fails, the invocation is rejected under `FR-0019` before command work begins.
 3. If `--env-file <file>` is absent and `./.confluex.env` exists in the current
    working directory as a regular file, that file is the selected env file.
-4. If `--env-file <file>` is absent and `./.confluex.env` does not exist, no env
-   file is selected.
-5. An env-file line whose first non-space byte is `#`, or whose content is empty
-   after removing trailing LF, is ignored.
-6. A non-ignored env-file line must contain `KEY=value`; the key is trimmed of
-   surrounding ASCII space and TAB, must be non-empty, and must contain no `=`,
-   NUL, LF, or CR. The value is the bytes after the first `=`, except that one
-   surrounding double-quote pair is removed when both the first and final value
-   bytes are `"`.
-7. Only keys from the public configuration key inventory governed by `FR-0045`
-   participate in effective public configuration selection.
-8. Effective configuration precedence is exactly command-line option value,
-   then selected env-file value, then process environment value, then no value.
-9. Command-line option precedence applies to these selector pairs:
+4. If `--env-file <file>` is absent and `./.confluex.env` is absent or exists
+   but is not a regular file, no env file is selected.
+5. When no env file is selected, the env-file source contributes no key-value
+   pairs to effective public configuration selection.
+6. If a selected env file cannot be read as a regular UTF-8 text file, the
+   invocation is rejected under `FR-0019` before command work begins.
+7. A selected env file is split into logical lines at LF. If the file does not
+   end with LF, the final byte sequence after the last LF is one logical line.
+   For each logical line, one trailing CR is removed when present before line
+   classification or key-value parsing.
+8. An env-file line is ignored when the line is empty after removing leading and
+   trailing ASCII space and TAB, or when the first code point after removing
+   leading ASCII space and TAB is `#`.
+9. A non-ignored env-file line is malformed unless it contains `KEY=value`.
+   `KEY` is the text before the first `=` after removing leading and trailing
+   ASCII space and TAB; it must be non-empty and contain no ASCII space, TAB,
+   `=`, NUL, LF, or CR. The value is the text after the first `=`, except that
+   one surrounding double-quote pair is removed when both the first and final
+   value code points are `"`.
+10. If any non-ignored env-file line is malformed under criterion 9, the
+   invocation is rejected under `FR-0019` before command work begins.
+11. If the same key appears on more than one non-ignored env-file line, the
+    selected env-file value for that key is the value from the last parsed line
+    with that key.
+12. Only keys from the public configuration key inventory governed by `FR-0045`
+    participate in effective public configuration selection.
+13. Effective configuration precedence is exactly command-line option value,
+    then selected env-file value, then process environment value, then no value.
+14. Command-line option precedence applies to these selector pairs:
    `--out <path>` over `CONFLUEX_OUTPUT_ROOT`, `--log-file <file>` over
    `CONFLUEX_LOG_FILE`, `--max-pages <n>` over `CONFLUEX_MAX_PAGES`,
    `--max-download-mib <n>` over `CONFLUEX_MAX_DOWNLOAD_MIB`,
    `--sleep-ms <n>` over `CONFLUEX_SLEEP_MS`,
    `--max-find-candidates <n>` over `CONFLUEX_MAX_FIND_CANDIDATES`, and
    `--link-depth <n>` over `CONFLUEX_LINK_DEPTH`.
-10. `CONFLUEX_CONFLUENCE_BASE_URL` and `CONFLUEX_CONFLUENCE_TOKEN` have no
+15. `CONFLUEX_CONFLUENCE_BASE_URL` and `CONFLUEX_CONFLUENCE_TOKEN` have no
     command-line option aliases in the public CLI.
-11. Env-file values never supply hidden fallbacks for unsupported options or
+16. Env-file values never supply hidden fallbacks for unsupported options or
     unsupported commands.
-12. Secret effective values, including `CONFLUEX_CONFLUENCE_TOKEN`, are never
+17. Secret effective values, including `CONFLUEX_CONFLUENCE_TOKEN`, are never
     emitted to stdout, stderr, logs, reports, or diagnostic fields.
 
 **Dependencies**:
+- `FR-0019`
 - `FR-0036`
 - `FR-0045`
+- `FR-0158`
 - `FR-0159`
+- `FR-0212`
 
 **Traceability**:
 - Area: configuration

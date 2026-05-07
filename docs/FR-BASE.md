@@ -130,8 +130,6 @@ shared path cards.
 - generated output-root candidate paths selected by owning run-lifecycle cards
 - current-working-directory sources used by relative-path normalization and
   generated root selection under this card
-- generated report-root candidate paths selected by owning observability cards,
-  including suffixed collision candidates
 
 **Rationale**:
 - Path comparisons, artifact names, summaries, and result lines need one shared
@@ -225,23 +223,31 @@ shared self-location acquisition rule.
    command entrypoint; wrapper launchers, symbolic-link launchers, `.cmd`
    shims that delegate outside their own directory tree, and any other indirect
    launcher path do not qualify as the runtime-entrypoint path for this card.
-3. The currently executing Confluex runtime root is the lexical parent
-   directory of the absolute runtime-entrypoint path from criterion 2 only when
-   that parent directory contains the packaged public runtime entry files
-   governed by `FR-0215`.
-4. If criteria 1 through 3 cannot identify one absolute runtime root path for
+3. Candidate runtime-root directories are the lexical ancestor directories of
+   the absolute runtime-entrypoint path from criterion 2, evaluated from nearest
+   ancestor to farthest ancestor.
+4. A candidate runtime-root directory qualifies only when non-following
+   filesystem metadata under `FR-0154` reports that the candidate is a
+   directory, its exact child path `package.json` is a regular file, its exact
+   descendant path `bin/confluex.js` is a regular file, its exact child path
+   `dist` is a directory, and at least one regular file exists under the exact
+   descendant path `dist/`.
+5. The currently executing Confluex runtime root is the first qualifying
+   candidate runtime-root directory from criterion 4.
+6. If criteria 1 through 5 cannot identify one absolute runtime root path for
    the current invocation, any downstream card that consumes the runtime-root
    source string takes its defined failure route.
-5. The runtime-root source string consumed by downstream cards is exactly the
-   absolute parent-directory path string from criterion 3 before downstream
+7. The runtime-root source string consumed by downstream cards is exactly the
+   absolute path string from criterion 5 before downstream
    path normalization, platform validation, support-root inventory checks, or
    overlap checks.
-6. This card defines only the shared runtime-root primitive; downstream cards
+8. This card defines only the shared runtime-root primitive; downstream cards
    govern path normalization, failure routing, support-root inventories, and
    overlap checks for the contexts that consume it.
 
 **Dependencies**:
 - `FR-0154`
+- `FR-0215`
 
 **Traceability**:
 - Area: shared primitives
