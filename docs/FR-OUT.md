@@ -2,8 +2,8 @@
 
 
 ### FR-0076
-**Requirement**: Output-root validation and selection shall yield exactly one
-logical plain output root for every accepted `export` or `plan` run.
+**Requirement**: The selected logical plain output root shall be validated and
+materialized for every accepted `export` or `plan` run.
 
 **Applicability**:
 - non-help `export` and `plan` invocations
@@ -12,51 +12,46 @@ logical plain output root for every accepted `export` or `plan` run.
 - Operators need one authoritative filesystem location for a run result.
 
 **Acceptance Criteria**:
-1. If the operator supplies `--out`, the resolved logical plain output-root path
-   is the output root.
-2. If `--out` is omitted and `CONFLUEX_OUTPUT_ROOT` supplies an effective value
-   under `FR-0219`, the resolved logical plain output-root path from that value
-   is the output root.
-3. If neither `--out` nor `CONFLUEX_OUTPUT_ROOT` supplies an output root, the
-   product generates exactly one output root.
-4. Before creating or reusing the chosen output-root path, the product
+1. The chosen output-root path for this card is the logical plain output-root
+   path selected, normalized, or generated under `FR-0021`.
+2. Before creating or reusing the chosen output-root path, the product
    evaluates each existing path segment from the filesystem root through the
    chosen output-root path using non-following filesystem metadata under
    `FR-0154`.
-5. If metadata evaluation required by criterion 4 fails for any existing path
+3. If metadata evaluation required by criterion 2 fails for any existing path
    segment or for the chosen output-root path when that path already exists,
    the invocation is rejected under `FR-0019` before invocation acceptance
    under `FR-0212` and before accepted run execution begins.
-6. If any existing ancestor of the chosen output-root path is a symbolic link,
+4. If any existing ancestor of the chosen output-root path is a symbolic link,
    regular file, FIFO, socket, device, or any other non-directory filesystem
    object, the invocation is rejected before invocation acceptance under
    `FR-0212` and before accepted run execution begins.
-7. If the chosen output-root path exists as a symbolic link, regular file, FIFO,
+5. If the chosen output-root path exists as a symbolic link, regular file, FIFO,
    socket, device, or any other non-directory filesystem object, the invocation
    is rejected before invocation acceptance under `FR-0212` and before accepted
    run execution begins.
-8. If the chosen output-root path exists as a directory for a non-resume
+6. If the chosen output-root path exists as a directory for a non-resume
    invocation that supplied `--out`, the invocation is rejected under `FR-0016`
    before invocation acceptance under `FR-0212` and before accepted run
    execution begins.
-9. A generated output root is never reused; if the generated candidate path
-   already exists under the pre-acceptance candidate checks governed by
-   `FR-0055`, the product selects another generated candidate under `FR-0055`
-   before invocation acceptance under `FR-0212` and before accepted run
-   execution begins.
-10. If the chosen output-root path exists as a directory for
+7. A generated output root selected under `FR-0021` is never reused; if the
+   generated candidate path already exists under the pre-acceptance candidate
+   checks governed by `FR-0055`, the product selects another generated
+   candidate under `FR-0055` before invocation acceptance under `FR-0212` and
+   before accepted run execution begins.
+8. If the chosen output-root path exists as a directory for
    `export --resume --out <path>`, reuse is governed by the resume compatibility
    requirements in `FR-0103`.
-11. If the chosen output-root path does not exist, the product creates that
+9. If the chosen output-root path does not exist, the product creates that
    directory path, including missing parent directories, before writing run
    artifacts.
-12. Missing parent directories are created as directories only; the product does
+10. Missing parent directories are created as directories only; the product does
    not follow symbolic links while creating or verifying the output-root path.
-13. If creating or verifying the chosen output-root directory fails after
+11. If creating or verifying the chosen output-root directory fails after
    invocation acceptance under `FR-0212`, the invocation fails as an
    accepted-run runtime failure under `FR-0102`; no page processing begins
    after that failure.
-14. Any retained `INCOMPLETE` marker in a plain output root is a regular UTF-8
+12. Any retained `INCOMPLETE` marker in a plain output root is a regular UTF-8
    text file with LF line endings, contains exactly one line `incomplete=1`, and
    contains no other bytes.
 
@@ -69,7 +64,6 @@ logical plain output root for every accepted `export` or `plan` run.
 - `FR-0103`
 - `FR-0154`
 - `FR-0212`
-- `FR-0219`
 
 **Traceability**:
 - Area: output structure
@@ -632,16 +626,18 @@ shall carry one stable disqualifying marker.
 beside the plain output root.
 
 **Applicability**:
-- accepted `export --zip` invocations
+- accepted `export --zip` invocations whose retained-artifact branch creates an
+  authoritative ZIP archive
 
 **Rationale**:
 - Operators need a portable archive while retaining the ordinary output root for
   inspection and recovery.
 
 **Acceptance Criteria**:
-1. After the plain output root reaches its final retained content, the product
-   creates one ZIP archive at the ZIP sibling path governed by `FR-0238`, unless
-   that path already exists.
+1. In a retained-artifact branch governed by this card, after the plain output
+   root reaches its final retained content, the product creates one ZIP archive
+   at the ZIP sibling path governed by `FR-0238`, unless that path already
+   exists.
 2. If the `FR-0238` ZIP sibling path already exists before ZIP creation begins
    after accepted run execution has begun, the accepted invocation fails under
    `FR-0102` before modifying that path.

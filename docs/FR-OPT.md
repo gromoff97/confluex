@@ -728,29 +728,32 @@ for `export`.
 **Requirement**: `--zip` shall request a retained ZIP archive for `export`.
 
 **Applicability**:
-- accepted `export --zip` invocations
+- `export` invocations with or without `--zip`
 
 **Rationale**:
 - Operators need a portable retained artifact without losing the plain output
   root by default.
 
 **Acceptance Criteria**:
-1. If `--zip` is supplied on `export`, the run creates a ZIP archive after the
-   plain output root has reached its final retained content.
-2. If `--zip` is omitted, no ZIP archive is created by this option.
+1. Supplying `--zip` on `export` selects a ZIP-packaging request for that
+   invocation.
+2. Omitting `--zip` on `export` selects no ZIP-packaging request for that
+   invocation.
 3. `--zip` is a flag option and consumes no following argv token as a value.
 4. Any command other than `export` used with `--zip` is rejected.
-5. ZIP packaging contains only the retained plain output root governed by
-   `FR-0221`.
+5. ZIP artifact path derivation, creation timing, archive contents, retained
+   plain-root relationship, `summary.txt` `zip_path`, and ZIP packaging failure
+   behavior are governed by `FR-0221` and `FR-0238`.
 
 **Dependencies**:
 - `FR-0036`
 - `FR-0221`
+- `FR-0238`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: ZIP archive presence, unsupported command rejection,
-  final artifact reporting
+- Observable evidence: ZIP-packaging request selection and unsupported command
+  rejection
 
 ### FR-0218
 **Requirement**: `--link-depth <n>` shall select the effective link-depth for

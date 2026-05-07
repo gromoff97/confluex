@@ -257,23 +257,31 @@ output-root reuse begins.
 1. An invocation becomes accepted only after every rejection-capable validation
    and preflight requirement that applies to that command has completed without
    rejection and immediately before the command-specific accepted-work
-   threshold from criteria 5 and 6 is crossed.
+   threshold from criteria 6 and 7 is crossed.
 2. Any failure or validation outcome observed before criterion 1 is
    pre-acceptance and is not an accepted-command or accepted-run runtime
    failure.
 3. For `export` and `plan`, pre-acceptance work occurs in this order:
-   command-surface validation; root-page preflight under `FR-0017`;
-   explicit-output-root rejection under `FR-0016`, including resume-root
-   compatibility evaluation under `FR-0103` when `export --resume --out <path>`
-   applies; and generated output-root candidate selection under `FR-0055` when
-   no output-root selector supplies a path.
-4. Creating or reusing an output root, creating or replacing a persistent log
+   command-surface validation; env-file source selection, env-file path
+   validation, env-file parsing, and effective public configuration selection
+   under `FR-0219`; output-root selector normalization and generated-root
+   selection under `FR-0021` and `FR-0055`; explicit-output-root rejection
+   under `FR-0016`, including resume-root compatibility evaluation under
+   `FR-0103` when `export --resume --out <path>` applies; persistent log-path
+   validation under `FR-0134` when a persistent log-artifact path is selected
+   under `FR-0029`; and root-page preflight under `FR-0017`.
+4. For `doctor`, pre-acceptance work occurs in this order: command-surface
+   validation; env-file source selection, env-file path validation, env-file
+   parsing, and effective public configuration selection under `FR-0219`; and
+   persistent log-path validation under `FR-0134` when a persistent
+   log-artifact path is selected under `FR-0029`.
+5. Creating or reusing an output root, creating or replacing a persistent log
    artifact, traversing Confluence data, generating reports, materializing page
-   payloads, downloading attachments, or creating a ZIP archive occurs only
-   after criterion 1.
-5. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
+   payloads, downloading attachments, creating a ZIP archive, dependency
+   probing, or emitting page-access diagnostics occurs only after criterion 1.
+6. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
-6. For `doctor`, the accepted-work threshold from criterion 1 is the first
+7. For `doctor`, the accepted-work threshold from criterion 1 is the first
    governed diagnostic step needed for that invocation: dependency probing
    under `FR-0038`, page-access diagnostics under `FR-0039` when `--page-id`
    is supplied, support-profile reporting under `FR-0041`, supported-link-form
@@ -282,14 +290,18 @@ output-root reuse begins.
 **Dependencies**:
 - `FR-0016`
 - `FR-0017`
+- `FR-0021`
+- `FR-0029`
 - `FR-0038`
 - `FR-0039`
 - `FR-0041`
 - `FR-0042`
 - `FR-0044`
 - `FR-0055`
+- `FR-0134`
 - `FR-0103`
 - `FR-0180`
+- `FR-0219`
 
 **Traceability**:
 - Area: invocation validation

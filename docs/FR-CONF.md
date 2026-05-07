@@ -209,8 +209,8 @@ reading effective public configuration.
     command-line option aliases in the public CLI.
 16. Env-file values never supply hidden fallbacks for unsupported options or
     unsupported commands.
-17. Secret effective values, including `CONFLUEX_CONFLUENCE_TOKEN`, are never
-    emitted to stdout, stderr, logs, reports, or diagnostic fields.
+17. Public output redaction for secret effective values selected through this
+    card is governed by `FR-0237`.
 
 **Dependencies**:
 - `FR-0019`
@@ -219,11 +219,12 @@ reading effective public configuration.
 - `FR-0158`
 - `FR-0159`
 - `FR-0212`
+- `FR-0237`
 
 **Traceability**:
 - Area: configuration
 - Observable evidence: selected env-file reads, effective option selection,
-  rejection timing, secret redaction
+  rejection timing
 
 ### FR-0237
 **Requirement**: Public output channels shall redact secret configuration

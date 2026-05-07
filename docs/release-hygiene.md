@@ -8,6 +8,7 @@ Run these checks before pushing or publishing a release candidate.
 npm run lint
 npm run typecheck
 npm run build
+npm run test
 npm pack --dry-run --json
 ```
 

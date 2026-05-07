@@ -249,10 +249,13 @@ export explicitly.
   without suggesting removed HTML compatibility.
 
 **Acceptance Criteria**:
-1. The `Purpose` section identifies `export` as a Markdown export workflow.
-2. The `Examples` section contains exactly one accepted `export` example line.
+1. The `Purpose` section contains exactly one non-empty line:
+   `  materialized Markdown export workflow`.
+2. The `Examples` section contains exactly one non-empty line:
+   `  confluex export --page-id <id> --zip`.
 3. The `Optional options` section contains a `--zip` entry whose description
-   names ZIP archive creation without changing the Markdown payload format.
+   line is exactly
+   `  --zip  create a ZIP archive beside the Markdown output root`.
 
 **Dependencies**:
 - `FR-0001`
@@ -283,14 +286,20 @@ diagnostics.
 2. The `Optional options` section lists exactly `--page-id <id>`,
    `--env-file <file>`, and `--log-file <file>` in the relative order governed
    by `FR-0036`.
-3. The `Purpose` section identifies `doctor` as a diagnostic workflow for local
-   prerequisites, token-only Confluence configuration, optional page access,
-   and supported link forms.
-4. The `Examples` section contains exactly one accepted `doctor` example line.
+3. The `Optional options` section contains these exact option entry lines in
+   this order:
+   `  --page-id <id>  test access to a Confluence page`,
+   `  --env-file <file>  load public configuration from an env file`, and
+   `  --log-file <file>  write a persistent diagnostic log`.
+4. The `Purpose` section contains exactly one non-empty line:
+   `  diagnostic workflow for local prerequisites, token-only Confluence configuration, optional page access, and supported link forms`.
+5. The `Examples` section contains exactly one non-empty line:
+   `  confluex doctor --page-id <id>`.
 
 **Dependencies**:
 - `FR-0008`
 - `FR-0036`
+- `FR-0039`
 - `FR-0043`
 - `FR-0219`
 

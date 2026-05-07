@@ -103,18 +103,16 @@ plain output root on disk.
    set governed by criteria 4 through 6 is the authoritative report source
    before any ZIP sibling is selected for `summary.txt` `zip_path` under
    `FR-0119` or for `RUN_COMPLETE` `artifact` under `FR-0058`.
-9. If interruption occurs before ZIP packaging governed by `FR-0221` completes,
-   including while a ZIP archive at the `FR-0238` sibling path is being written,
-   any ZIP sibling left at that path is non-authoritative ZIP output debris, is
-   not a report-set container, is not treated as a ZIP archive created under
-   `FR-0221` for `FR-0119`, and is not selected as an authoritative retained
-   artifact under `FR-0058`.
-10. If interruption occurs after a ZIP archive has already been created at the
-    `FR-0238` sibling path for the same run, that already-created ZIP sibling is
-    classified as non-authoritative ZIP output debris unless it is regenerated
-    after the report synthesis or rewrite required by criteria 4 through 6; only
-    a regenerated ZIP archive may be treated as created under `FR-0221` and
-    selected ahead of the retained plain output root under `FR-0058`.
+9. The interrupted `export --zip` branch selects the retained plain output root
+   as the only authoritative retained artifact for `FR-0058`, and `summary.txt`
+   serializes `zip_path` as the absence value governed by `FR-0119`.
+10. If a filesystem object exists at the ZIP sibling path governed by `FR-0238`
+    when interruption is observed or before final outcome determination for the
+    interrupted run completes, including an in-progress ZIP file or an
+    already-created same-run ZIP file, that object is non-authoritative ZIP
+    output debris, is not a report-set container, is not treated as a ZIP
+    archive created under `FR-0221` for the interrupted outcome, and is not
+    selected as an authoritative retained artifact under `FR-0058`.
 11. If report synthesis required by criterion 4 fails or rewriting the retained
    `summary.txt` required by criterion 6 fails, `RUN_COMPLETE` is not emitted
    because final outcome determination did not complete, the process exit code
@@ -145,7 +143,8 @@ plain output root on disk.
 
 **Traceability**:
 - Area: interruption
-- Observable evidence: retained export root, marker file, summary fields
+- Observable evidence: retained export root, marker file, summary fields, ZIP
+  sibling state
 
 ### FR-0101
 **Requirement**: An interrupted `plan` run shall use the interrupted-plan
@@ -282,42 +281,64 @@ cleanup branch.
    `FR-0085`, contains the `INCOMPLETE` marker from `FR-0076`, and its
    `summary.txt` reports the same runtime-failure summary values from
    criterion 7.
-14. If criterion 12 succeeds for a `plan` run, the product removes the plain output
+14. For an `export --zip` runtime-failure branch whose report synthesis from
+   criterion 7 or summary rewrite from criterion 12 succeeds, any filesystem
+   object at the ZIP sibling path governed by `FR-0238` that was not created
+   after that runtime-failure report update is outside the retained-artifact set
+   for that run, is not treated as a ZIP archive created under `FR-0221` for
+   `FR-0119`, and is not selected as an authoritative retained artifact under
+   `FR-0058`.
+15. For criterion 14, a same-run ZIP sibling is non-authoritative ZIP output
+    debris and is not a report-set container; a pre-existing ZIP sibling remains
+    an external path unmodified by the runtime-failure branch and is not a run
+    artifact.
+16. For an `export --zip` runtime-failure branch whose report synthesis from
+    criterion 7 or summary rewrite from criterion 12 succeeds and does not
+    create a ZIP archive under `FR-0221` after that update, `summary.txt`
+    serializes `zip_path` as the absence value governed by `FR-0119`, and
+    `RUN_COMPLETE` selects the retained plain output root as the authoritative
+    artifact under `FR-0058`.
+17. If a ZIP archive is created under `FR-0221` after the runtime-failure report
+    synthesis from criterion 7 or summary rewrite from criterion 12 succeeds,
+    that ZIP archive is the only ZIP sibling eligible for `summary.txt`
+    `zip_path` under `FR-0119` and for the ZIP-first artifact precedence under
+    `FR-0058`.
+18. If criterion 12 succeeds for a `plan` run, the product removes the plain output
    root created for that run and does not leave a partial report set behind at
    that path.
-15. If removal of the runtime-failed plan output root from criterion 14 fails,
+19. If removal of the runtime-failed plan output root from criterion 18 fails,
     the plain output root remains on disk as a runtime-failed partial result.
-16. The retained cleanup-failure root from criterion 15 satisfies the plan
+20. The retained cleanup-failure root from criterion 19 satisfies the plan
     layout from `FR-0078`, contains the report-file set from `FR-0085`,
     contains the `INCOMPLETE` marker from `FR-0076`, and its `summary.txt`
     reports the same runtime-failure summary values from criterion 7.
-17. If rewriting the retained `summary.txt` under criterion 12 fails,
+21. If rewriting the retained `summary.txt` under criterion 12 fails,
     `RUN_COMPLETE` is not emitted because final outcome determination did not
     complete, and the exit code remains the accepted-run runtime failure code
     from `FR-0118`.
-18. If criterion 17 leaves any output-root path on disk, that path is
+22. If criterion 21 leaves any output-root path on disk, that path is
     non-authoritative runtime-failure debris, satisfies `FR-0217`, is not a
     partial result, is not a report-set container, and is not selected as a
     retained artifact.
-19. In the criterion 17 branch, stdout contains no `RUN_COMPLETE` line and no
+23. In the criterion 21 branch, stdout contains no `RUN_COMPLETE` line and no
     stdout line emitted after the summary-rewrite failure is observed.
-20. In the criterion 17 branch, stderr is UTF-8 text with LF line endings and
+24. In the criterion 21 branch, stderr is UTF-8 text with LF line endings and
     its first line is exactly `ERROR: runtime_failure summary_update`.
-21. Additional stderr lines in the criterion 17 branch, if any, are
+25. Additional stderr lines in the criterion 21 branch, if any, are
     non-governed diagnostic text.
-22. If runtime-failure report synthesis itself fails, no retained path is a
+26. If runtime-failure report synthesis itself fails, no retained path is a
     report-set container for that run; `RUN_COMPLETE` is not emitted because
     final outcome determination did not complete, and the exit code remains the
     accepted-run runtime failure code from `FR-0118`.
-23. If criterion 22 leaves any output-root path on disk, that path is
+27. If criterion 26 leaves any output-root path on disk, that path is
     non-authoritative runtime-failure debris, satisfies `FR-0217`, is not a
     partial result, is not a report-set container, and is not selected as a
     retained artifact.
-24. In the criterion 22 branch, stdout contains no `RUN_COMPLETE` line and no
+28. In the criterion 26 branch, stdout contains no `RUN_COMPLETE` line and no
     stdout line emitted after the report-synthesis failure is observed.
-25. In the criterion 22 branch, stderr is UTF-8 text with LF line endings and
+29. In the criterion 26 branch, stderr is UTF-8 text with LF line endings and
     its first line is exactly `ERROR: runtime_failure report_synthesis`.
-26. Additional stderr lines in the criterion 22 branch, if any, are
+30. Additional stderr lines in the criterion 26 branch, if any, are
     non-governed diagnostic text.
 
 **Dependencies**:
@@ -329,6 +350,7 @@ cleanup branch.
 - `FR-0078`
 - `FR-0098`
 - `FR-0058`
+- `FR-0119`
 - `FR-0118`
 - `FR-0113`
 - `FR-0140`
@@ -337,10 +359,13 @@ cleanup branch.
 - `FR-0181`
 - `FR-0188`
 - `FR-0217`
+- `FR-0221`
+- `FR-0238`
 
 **Traceability**:
 - Area: interruption
-- Observable evidence: summary fields, removed plan root, exit code
+- Observable evidence: summary fields, ZIP sibling state, removed plan root,
+  exit code
 
 ### FR-0145
 **Requirement**: Interrupted and runtime-failed report synthesis shall use one
