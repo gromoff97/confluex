@@ -103,8 +103,8 @@ decimal syntax.
 
 **Applicability**:
 - non-help invocations using numeric options
-- governed report fields, lifecycle lines, artifact paths, and fixture identity
-  files that serialize canonical page identifiers
+- governed report fields, lifecycle lines, and artifact paths that serialize
+  canonical page identifiers or numeric product values
 
 **Rationale**:
 - Operators need deterministic numeric validation boundaries.
