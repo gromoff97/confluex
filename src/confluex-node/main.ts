@@ -6,6 +6,7 @@ import { parseInvocation } from './cli/parse'
 import { isCommand } from './cli/registry'
 import { loadSelectedEnvFile } from './config/env-file'
 import { buildEffectiveOptions } from './config/effective-options'
+import { checkNodeVersion, runtimePrerequisiteFailure } from './prereq/checks'
 import type { EffectiveOptions } from './cli/validate'
 
 type Streams = {
@@ -31,15 +32,6 @@ type CommandRunners = {
   runExportRelatedCommand: (command: 'export' | 'plan', options: CommandOptions) => Promise<CommandResult>
 }
 
-type NodeVersionCheck =
-  | { state: 'passed' }
-  | { state: 'failed', required: string, actual: string }
-
-type PrereqRuntime = {
-  checkNodeVersion: () => NodeVersionCheck
-  runtimePrerequisiteFailure: (name: string, detail: string) => string
-}
-
 type EnvContext = {
   values: Map<string, string>
   defaultValues: Record<string, string>
@@ -48,15 +40,14 @@ type EnvContext = {
 
 const exportRuntime = require('../../lib/confluex-node/commands/export-related') as Pick<CommandRunners, 'runExportRelatedCommand'>
 const doctorRuntime = require('../../lib/confluex-node/commands/doctor') as Pick<CommandRunners, 'runDoctorCommand'>
-const prereqRuntime = require('../../lib/confluex-node/prereq/checks') as PrereqRuntime
 
 const checkedRunDoctorCommand = doctorRuntime.runDoctorCommand
 const checkedRunExportRelatedCommand = exportRuntime.runExportRelatedCommand
 
 export async function run (argv: string[], streams: Streams = process): Promise<number> {
-  const nodeVersion = prereqRuntime.checkNodeVersion()
+  const nodeVersion = checkNodeVersion()
   if (nodeVersion.state !== 'passed') {
-    streams.stderr.write(prereqRuntime.runtimePrerequisiteFailure('node_version', `required=${nodeVersion.required} actual=${nodeVersion.actual}`))
+    streams.stderr.write(runtimePrerequisiteFailure('node_version', `required=${nodeVersion.required} actual=${nodeVersion.actual}`))
     return 4
   }
 
