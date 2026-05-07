@@ -14,3 +14,9 @@ test('repository runtime footprint excludes removed legacy Bash roots', () => {
   assert.equal(fs.existsSync(path.join(repoRoot, 'scripts', 'lint-shell.sh')), false)
   assert.match(fs.readFileSync(path.join(repoRoot, 'confluex'), 'utf8'), /^#!\/usr\/bin\/env node\n/)
 })
+
+test('repository runtime footprint excludes removed encryption config workflow files', () => {
+  assert.equal(fs.existsSync(path.join(repoRoot, 'lib', 'confluex-node', 'commands', 'config.js')), false)
+  assert.equal(fs.existsSync(path.join(repoRoot, 'lib', 'confluex-node', 'config', 'store.js')), false)
+  assert.equal(fs.existsSync(path.join(repoRoot, 'lib', 'confluex-node', 'encryption')), false)
+})

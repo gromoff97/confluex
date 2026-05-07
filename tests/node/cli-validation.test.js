@@ -83,28 +83,22 @@ test('unsupported option selects earliest raw option token', () => {
   assert.deepEqual(validateCommandInvocation('export', [
     '--page-id',
     '123',
-    '--safe',
-    '--critical'
+    '--not-a-real-option',
+    '--another-unknown-option'
   ]), {
     kind: 'rejected',
     diagnostic: {
       type: 'unsupported-option',
-      optionToken: '--safe'
+      optionToken: '--not-a-real-option'
     }
   })
 })
 
-test('retired composite encryption and selftest options are unsupported', () => {
+test('unsupported public command options are rejected', () => {
   for (const optionToken of [
-    '--safe',
-    '--critical',
-    '--encrypt',
-    '--confidential',
-    '--encryption-key',
-    '--clear-encryption-key',
-    '--verify-encryption',
-    '--url',
-    '--token'
+    '--not-a-real-option',
+    '--another-unknown-option',
+    '--custom-token'
   ]) {
     assert.deepEqual(validateCommandInvocation('export', [
       '--page-id',

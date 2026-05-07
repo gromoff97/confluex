@@ -21,9 +21,7 @@ test('empty run report texts use governed report filenames headers and summary o
     pagePayloadFormat: 'none',
     finalStatus: 'incomplete',
     scopeTrust: 'degraded',
-    interruptReason: 'max_pages_limit_reached',
-    encryptionEnabled: false,
-    encryptionSuccessful: false
+    interruptReason: 'max_pages_limit_reached'
   })
 
   assert.deepEqual(Object.keys(report), [
@@ -67,8 +65,6 @@ test('empty run report texts use governed report filenames headers and summary o
     'resume_schema_version=2',
     'reused_pages=0',
     'fresh_pages=0',
-    'encryption_enabled=0',
-    'encryption_successful=0',
     ''
   ].join('\n'))
 })
@@ -83,9 +79,7 @@ test('runReportTexts serializes retained zip path', () => {
     pagePayloadFormat: 'md',
     finalStatus: 'success',
     scopeTrust: 'trusted',
-    interruptReason: 'none',
-    encryptionEnabled: false,
-    encryptionSuccessful: false
+    interruptReason: 'none'
   })
 
   assert.match(report['summary.txt'], /^output_root="\/tmp\/confluex-export"\nzip_path="\/tmp\/confluex-export\.zip"\noutput_path_provenance=explicit$/m)
@@ -101,9 +95,7 @@ test('writeRunReportSet materializes exactly the closed report-file set', async 
     pagePayloadFormat: 'md',
     finalStatus: 'success',
     scopeTrust: 'trusted',
-    interruptReason: 'none',
-    encryptionEnabled: false,
-    encryptionSuccessful: false
+    interruptReason: 'none'
   })
 
   await writeRunReportSet(outputRoot, report)
@@ -124,8 +116,6 @@ test('runReportTexts serializes rows counts blocking reasons and TSV escaping', 
     finalStatus: 'success_with_findings',
     scopeTrust: 'degraded',
     interruptReason: 'none',
-    encryptionEnabled: false,
-    encryptionSuccessful: false,
     manifestRows: [
       {
         page_id: '456',
@@ -188,8 +178,6 @@ test('runReportTexts serializes resumed export reuse accounting', () => {
     resumeMode: true,
     reusedPages: 1,
     freshPages: 0,
-    encryptionEnabled: false,
-    encryptionSuccessful: false,
     manifestRows: [
       {
         page_id: '123',
@@ -218,8 +206,6 @@ test('runReportTexts serializes markdown payload remnant findings', () => {
     finalStatus: 'success_with_findings',
     scopeTrust: 'degraded',
     interruptReason: 'none',
-    encryptionEnabled: false,
-    encryptionSuccessful: false,
     manifestRows: [
       {
         page_id: '123',

@@ -115,18 +115,6 @@ function fakeDoctorBin () {
     'exit 1',
     ''
   ].join('\n'))
-  writeExecutable(path.join(bin, 'gpg'), [
-    '#!/bin/sh',
-    'if [ "$1" = "--version" ]; then',
-    '  printf "gpg 2.4.0\\n"',
-    '  exit 0',
-    'fi',
-    'if [ "$1" = "--list-keys" ] && [ "$2" = "--with-colons" ] && [ "$3" = "recipient" ]; then',
-    '  exit 0',
-    'fi',
-    'exit 2',
-    ''
-  ].join('\n'))
   writeExecutable(path.join(bin, 'uvx'), [
     '#!/bin/sh',
     'if [ "$1" = "--version" ]; then',
@@ -263,30 +251,14 @@ test('public launcher rejects bare selftest before report root creation', () => 
   assert.deepEqual(fs.readdirSync(cwd), [])
 })
 
-test('public launcher rejects encrypted export option before page preflight', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-export-encrypt-missing-'))
+test('public launcher rejects unsupported export option before page preflight', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-export-unsupported-'))
 
-  const result = runLauncherWithHome(['export', '--page-id', '123', '--encrypt'], home)
-
-  assert.equal(result.status, 1)
-  assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: unsupported_option --encrypt\n')
-})
-
-test('public launcher rejects encryption recipient option before page preflight', () => {
-  const bin = fakeDoctorBin()
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-export-encrypt-valid-'))
-  const env = {
-    HOME: home,
-    USERPROFILE: home,
-    PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`
-  }
-
-  const result = runLauncherWithEnv(['export', '--page-id', '123', '--encrypt', '--encryption-key', 'recipient'], env)
+  const result = runLauncherWithHome(['export', '--page-id', '123', '--not-a-real-option'], home)
 
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: unsupported_option --encrypt\n')
+  assert.equal(result.stderr, 'ERROR: unsupported_option --not-a-real-option\n')
 })
 
 test('public launcher rejects existing output root after successful page preflight', async () => {
@@ -532,32 +504,30 @@ test('public launcher implements doctor scaffold without page access', () => {
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
     `dependency_node_runtime=present:${process.version}`,
-    'dependency_docker_cli=present:Docker version 27.0.0',
-    'dependency_gpg=present:gpg 2.4.0',
     'dependency_markdown_converter=present:uvx 0.9.0',
+    'configuration=missing_base_url',
     'page_access=skipped',
-    'encryption_recipient=skipped',
     'support_profile=default',
     'supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title',
-    'next_action=none',
+    'next_action=set_confluence_base_url',
     ''
   ].join('\n'))
 })
 
-test('public launcher rejects doctor encryption verification options', () => {
+test('public launcher rejects unsupported doctor option', () => {
   const bin = fakeDoctorBin()
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-doctor-verify-'))
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-doctor-unsupported-'))
   const env = {
     HOME: home,
     USERPROFILE: home,
     PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`
   }
 
-  const result = runLauncherWithEnv(['doctor', '--verify-encryption', '--encryption-key', 'recipient'], env)
+  const result = runLauncherWithEnv(['doctor', '--not-a-real-option'], env)
 
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: unsupported_option --verify-encryption\n')
+  assert.equal(result.stderr, 'ERROR: unsupported_option --not-a-real-option\n')
 })
 
 test('public launcher reports failed doctor page access when remote context is absent', () => {
@@ -565,7 +535,7 @@ test('public launcher reports failed doctor page access when remote context is a
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
   assert.match(result.stdout, /^page_access=failed$/m)
-  assert.match(result.stdout, /^page_access_reason=missing_token$/m)
+  assert.match(result.stdout, /^page_access_reason=missing_base_url$/m)
   assert.doesNotMatch(result.stdout, /^page_identity=/m)
   assert.match(result.stdout, /^next_action=.*check_page_access/m)
 })
@@ -579,12 +549,12 @@ test('public launcher rejects removed lifecycle and legacy commands', () => {
   }
 })
 
-test('public launcher rejects legacy config without home-local state mutation', () => {
+test('public launcher rejects removed config command without home-local state mutation', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-home-'))
   const otherCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-cwd-'))
 
   const initial = runLauncherWithHome(['config'], home)
-  const fromOtherCwd = runLauncherWithHome(['config', '--clear-encryption-key'], home, otherCwd)
+  const fromOtherCwd = runLauncherWithHome(['config', '--not-a-real-option'], home, otherCwd)
 
   assert.equal(initial.status, 1)
   assert.equal(initial.stdout, '')

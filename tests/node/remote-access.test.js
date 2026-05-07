@@ -48,7 +48,7 @@ test('remote access context validates base URL and Bearer token', () => {
 
   assert.deepEqual(resolveRemoteAccessContext(envForBaseUrl('http://user@example.test')), {
     usable: false,
-    reason: 'page_inaccessible'
+    reason: 'invalid_base_url'
   })
 
   assert.deepEqual(resolveRemoteAccessContext({
@@ -91,7 +91,7 @@ test('root page access composes base path and returns response id identity', asy
 test('root page access fails for unusable context and invalid responses', async () => {
   assert.deepEqual(await checkRootPageAccess('123', {}), {
     state: 'failed',
-    reason: 'missing_token'
+    reason: 'missing_base_url'
   })
 
   await withServer((request, response) => {

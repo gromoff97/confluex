@@ -39,8 +39,8 @@ test('validation diagnostics use governed first-line templates', () => {
 
   assert.equal(formatDiagnostic({
     type: 'invalid-option-combination',
-    optionTokens: ['--confidential', '--no-fail-fast']
-  }), 'ERROR: invalid_option_combination --confidential,--no-fail-fast')
+    optionTokens: ['--out', '--resume']
+  }), 'ERROR: invalid_option_combination --out,--resume')
 
   assert.equal(formatDiagnostic({
     type: 'missing-required-option',
