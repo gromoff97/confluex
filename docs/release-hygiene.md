@@ -34,7 +34,7 @@ machine doing the release check:
 
 ```bash
 rg -n -i "<linux-home-path>|<windows-home-path>|<ide-workspace-segment>|<agent-dir-marker>" . \
-  -g '!node_modules' -g '!dist' -g '!confluex_selftest_*'
+  -g '!node_modules' -g '!dist'
 ```
 
 Search Git history before publication:
@@ -57,7 +57,7 @@ Search content patterns:
 
 ```bash
 rg -n -i "password|token|secret|Authorization|PRIVATE KEY|BEGIN RSA|BEGIN OPENSSH" . \
-  -g '!node_modules' -g '!dist' -g '!confluex_selftest_*'
+  -g '!node_modules' -g '!dist'
 ```
 
 Search suspicious historical filenames:
