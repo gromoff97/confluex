@@ -14,14 +14,14 @@
 
 **Acceptance Criteria**:
 1. Top-level help lists `export` as a supported command in the command order
-   governed by `FR-0004`.
+   governed by `FR-0222`.
 2. `confluex export --help` identifies `export` as the materialized Markdown
    export workflow.
 3. An accepted `confluex export ...` invocation starts the export workflow
    rather than any other workflow.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 
 **Traceability**:
 - Area: command surface
@@ -40,13 +40,13 @@
 
 **Acceptance Criteria**:
 1. Top-level help lists `plan` as a supported command in the command order
-   governed by `FR-0004`.
+   governed by `FR-0222`.
 2. `confluex plan --help` identifies `plan` as the dry-run planning workflow.
 3. An accepted `confluex plan ...` invocation starts the planning workflow
    rather than any other workflow.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 
 **Traceability**:
 - Area: command surface
@@ -65,19 +65,19 @@
 
 **Acceptance Criteria**:
 1. Top-level help lists `doctor` as a supported command in the command order
-   governed by `FR-0004`.
+   governed by `FR-0222`.
 2. `confluex doctor --help` identifies `doctor` as the diagnostic workflow.
 3. An accepted `confluex doctor ...` invocation starts diagnostics rather than
    any other workflow.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 
 **Traceability**:
 - Area: command surface
 - Observable evidence: top-level help output, command help output, workflow entry
 
-### FR-0004
+### FR-0222
 **Requirement**: The public top-level command inventory shall be exactly
 `export`, `plan`, and `doctor` in that order.
 
@@ -110,7 +110,7 @@
 - Observable evidence: top-level help output, command dispatch, unsupported
   command rejection
 
-### FR-0005
+### FR-0223
 **Requirement**: Top-level help shall serialize one command summary entry for
 each public top-level command.
 
@@ -123,22 +123,22 @@ each public top-level command.
 
 **Acceptance Criteria**:
 1. Top-level help emits exactly one command summary entry for each command token
-   governed by `FR-0004`.
-2. Command summary entries appear in the command order governed by `FR-0004`.
+   governed by `FR-0222`.
+2. Command summary entries appear in the command order governed by `FR-0222`.
 3. Each command summary entry contains the exact command token and a non-empty
    human-readable description on the same physical line.
 4. This card governs only command summary entry presence and order; the broader
    top-level help stream contract remains governed by `FR-0007`.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 - `FR-0007`
 
 **Traceability**:
 - Area: command surface
 - Observable evidence: top-level help command summary lines
 
-### FR-0006
+### FR-0224
 **Requirement**: Command-help dispatch shall be available for each public
 top-level command.
 
@@ -151,7 +151,7 @@ top-level command.
 - Operators need command-specific option guidance for every public workflow.
 
 **Acceptance Criteria**:
-1. For each command token governed by `FR-0004`, `confluex <command> --help`
+1. For each command token governed by `FR-0222`, `confluex <command> --help`
    is a command-help invocation governed by `FR-0008`.
 2. Command-help dispatch for each public command completes before command work
    or command-specific option validation begins.
@@ -161,14 +161,14 @@ top-level command.
    `FR-0008`.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 - `FR-0008`
 
 **Traceability**:
 - Area: command surface
 - Observable evidence: command help output and no workflow side effects
 
-### FR-0129
+### FR-0242
 **Requirement**: Non-help command dispatch shall route each public command token
 to exactly one public workflow.
 

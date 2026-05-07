@@ -1,7 +1,7 @@
 # Configuration Requirements
 
 
-### FR-0045
+### FR-0235
 **Requirement**: Public configuration keys shall use one closed environment
 variable inventory.
 
@@ -31,11 +31,11 @@ variable inventory.
 6. `CONFLUEX_LOG_FILE` supplies the log-file selector consumed by `FR-0029`.
 7. `CONFLUEX_MAX_PAGES`, `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
    `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` supply the numeric
-   run-control selectors consumed by `FR-0025`.
+   run-control selectors consumed by `FR-0228`.
 
 **Dependencies**:
 - `FR-0021`
-- `FR-0025`
+- `FR-0228`
 - `FR-0029`
 - `FR-0216`
 
@@ -44,7 +44,7 @@ variable inventory.
 - Observable evidence: env-file keys, process-environment reads, effective
   option values
 
-### FR-0046
+### FR-0236
 **Requirement**: Public Confluence credentials shall use token-only Bearer
 authentication.
 
@@ -64,10 +64,10 @@ authentication.
 3. The selected token value is not case-normalized, percent-decoded,
    percent-encoded, URL encoded, trimmed, split, or otherwise transformed before
    it is placed in the Authorization field governed by `FR-0216`.
-4. Secret-output redaction for the selected token is governed by `FR-0047`.
+4. Secret-output redaction for the selected token is governed by `FR-0237`.
 
 **Dependencies**:
-- `FR-0047`
+- `FR-0237`
 - `FR-0216`
 
 **Traceability**:
@@ -194,7 +194,7 @@ reading effective public configuration.
 11. If the same key appears on more than one non-ignored env-file line, the
     selected env-file value for that key is the value from the last parsed line
     with that key.
-12. Only keys from the public configuration key inventory governed by `FR-0045`
+12. Only keys from the public configuration key inventory governed by `FR-0235`
     participate in effective public configuration selection.
 13. Effective configuration precedence is exactly command-line option value,
     then selected env-file value, then process environment value, then no value.
@@ -215,7 +215,7 @@ reading effective public configuration.
 **Dependencies**:
 - `FR-0019`
 - `FR-0036`
-- `FR-0045`
+- `FR-0235`
 - `FR-0158`
 - `FR-0159`
 - `FR-0212`
@@ -225,7 +225,7 @@ reading effective public configuration.
 - Observable evidence: selected env-file reads, effective option selection,
   rejection timing, secret redaction
 
-### FR-0047
+### FR-0237
 **Requirement**: Public output channels shall redact secret configuration
 values.
 

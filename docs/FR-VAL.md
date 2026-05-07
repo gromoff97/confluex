@@ -14,7 +14,7 @@
 **Acceptance Criteria**:
 1. If the invocation is not one of the exact help shapes governed by `FR-0007`
    or `FR-0008` and the first argv token after the program path is not a
-   public command token governed by `FR-0004`, the invocation is rejected under
+   public command token governed by `FR-0222`, the invocation is rejected under
    the rejected-invocation stream, side-effect, and exit-code contracts governed
    by `FR-0019` and `FR-0118`.
 2. The first stderr line uses the exact unknown-command diagnostic template
@@ -25,7 +25,7 @@
 **Dependencies**:
 - `FR-0007`
 - `FR-0008`
-- `FR-0004`
+- `FR-0222`
 - `FR-0019`
 - `FR-0118`
 - `FR-0146`
@@ -57,7 +57,7 @@ combinations before command work begins.
    creation begins.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 - `FR-0008`
 - `FR-0036`
 
@@ -90,7 +90,7 @@ option values before command work begins.
 **Dependencies**:
 - `FR-0020`
 - `FR-0021`
-- `FR-0033`
+- `FR-0232`
 - `FR-0036`
 
 **Traceability**:
@@ -351,11 +351,11 @@ output-root reuse begins.
     dependencies, perform page-access diagnostics, emit diagnostic stdout, or
     create, append, or overwrite a persistent log artifact.
 11. If the rejected invocation targets an unsupported command token, the CLI
-    does not dispatch to any public workflow governed by `FR-0129`.
+    does not dispatch to any public workflow governed by `FR-0242`.
 
 **Dependencies**:
 - `FR-0009`
-- `FR-0129`
+- `FR-0242`
 - `FR-0212`
 
 **Traceability**:
@@ -479,7 +479,7 @@ first-line precedence and serialization rule.
 - Area: invocation validation
 - Observable evidence: first stderr line for rejected invocations
 
-### FR-0122
+### FR-0241
 **Requirement**: Unsupported public-command options shall be rejected by the
 closed option set before command work begins.
 
@@ -492,7 +492,7 @@ closed option set before command work begins.
   used by help and parsing.
 
 **Acceptance Criteria**:
-1. For a public command token governed by `FR-0004`, any option token not
+1. For a public command token governed by `FR-0222`, any option token not
    present in that command's closed option set from `FR-0036` is rejected as an
    unsupported option.
 2. Unsupported-option rejection occurs before invocation acceptance under
@@ -502,7 +502,7 @@ closed option set before command work begins.
    compatibility fallbacks.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 - `FR-0012`
 - `FR-0036`
 - `FR-0146`
@@ -512,7 +512,7 @@ closed option set before command work begins.
 - Area: invocation validation
 - Observable evidence: unsupported-option rejection before command work
 
-### FR-0131
+### FR-0244
 **Requirement**: Remote-access diagnostics and run preflight shall require a
 usable token-only Confluence access context.
 

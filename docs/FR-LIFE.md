@@ -224,14 +224,14 @@ and prerequisites.
    command validation.
 2. Installation docs identify npm as the package manager for install, update,
    and uninstall.
-3. Installation docs identify the public CLI commands from `FR-0004` as the
+3. Installation docs identify the public CLI commands from `FR-0222` as the
    installed command surface operators can validate after package setup.
 
 **Dependencies**:
 - `FR-0048`
 - `FR-0049`
 - `FR-0050`
-- `FR-0004`
+- `FR-0222`
 - `FR-0219`
 
 **Traceability**:
@@ -293,7 +293,7 @@ mechanisms.
 - Area: installation lifecycle
 - Observable evidence: local install docs and smoke commands
 
-### FR-0171
+### FR-0245
 **Requirement**: Package lifecycle documentation shall use npm commands for
 package install, update, and removal workflows.
 
@@ -311,11 +311,11 @@ package install, update, and removal workflows.
 2. Package update documentation uses the npm command governed by `FR-0049`.
 3. Package removal documentation uses the npm command governed by `FR-0050`.
 4. Package smoke documentation validates the public command inventory governed
-   by `FR-0004` through the installed-package smoke checks governed by
+   by `FR-0222` through the installed-package smoke checks governed by
    `FR-0051`.
 
 **Dependencies**:
-- `FR-0004`
+- `FR-0222`
 - `FR-0048`
 - `FR-0049`
 - `FR-0050`
@@ -350,7 +350,7 @@ next steps.
 **Dependencies**:
 - `FR-0038`
 - `FR-0039`
-- `FR-0040`
+- `FR-0234`
 - `FR-0118`
 - `FR-0166`
 

@@ -21,7 +21,7 @@
 
 **Dependencies**:
 - `FR-0009`
-- `FR-0025`
+- `FR-0228`
 - `FR-0034`
 
 **Traceability**:
@@ -78,7 +78,7 @@ best-effort behavior.
 - Area: safety
 - Observable evidence: continued processing behavior and failed-pages reporting
 
-### FR-0096
+### FR-0240
 **Requirement**: Report findings shall remain completed-run safety outcomes.
 
 **Applicability**:

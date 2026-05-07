@@ -244,7 +244,7 @@ per-page artifacts are persisted.
    `page.md` when payload materialization succeeded, `attachments/` when
    criterion 2 applies, `_info.txt` when criterion 3 applies, and
    `_storage.xml` when criterion 4 applies.
-8. `_info.txt` and `_storage.xml` contents are non-governed metadata snapshots;
+7. `_info.txt` and `_storage.xml` contents are non-governed metadata snapshots;
    this card governs their presence, names, and placement, not their internal
    serialization.
 
@@ -340,7 +340,7 @@ output roots shall have one stable functional meaning.
 - Area: output structure
 - Observable evidence: stable artifact naming and interpretation
 
-### FR-0083
+### FR-0238
 **Requirement**: Export ZIP sibling artifact paths shall be derived
 deterministically from the logical plain output-root path.
 
@@ -371,7 +371,7 @@ deterministically from the logical plain output-root path.
 - Area: output structure
 - Observable evidence: ZIP path and `summary.txt` `zip_path` field
 
-### FR-0084
+### FR-0239
 **Requirement**: Final run status shall be recorded in retained report sets.
 
 **Applicability**:
@@ -538,9 +538,9 @@ replacement behavior.
    invocation is rejected if the effective persistent log-artifact path is equal
    to the logical plain output-root path, is inside that root as a path-segment
    descendant, or is equal to any deterministic sibling reserved path owned by
-   the same logical plain output root under `FR-0083`.
+   the same logical plain output root under `FR-0238`.
 10. For criterion 9, the deterministic sibling reserved path is the ZIP sibling
-    path derived under `FR-0083` from the same logical plain output-root path,
+    path derived under `FR-0238` from the same logical plain output-root path,
     whether or not `--zip` is active for the current invocation. Equality
     comparison uses the normalized path equality rule from `FR-0160` over the
     path-normalized absolute paths produced under `FR-0159`; symlinks are not
@@ -578,7 +578,7 @@ replacement behavior.
 - `FR-0029`
 - `FR-0043`
 - `FR-0076`
-- `FR-0083`
+- `FR-0238`
 - `FR-0102`
 - `FR-0142`
 - `FR-0180`
@@ -638,9 +638,9 @@ beside the plain output root.
 
 **Acceptance Criteria**:
 1. After the plain output root reaches its final retained content, the product
-   creates one ZIP archive at the ZIP sibling path governed by `FR-0083`, unless
+   creates one ZIP archive at the ZIP sibling path governed by `FR-0238`, unless
    that path already exists.
-2. If the `FR-0083` ZIP sibling path already exists before ZIP creation begins
+2. If the `FR-0238` ZIP sibling path already exists before ZIP creation begins
    after accepted run execution has begun, the accepted invocation fails under
    `FR-0102` before modifying that path.
 3. The ZIP archive contains only relative entries for files retained under the
@@ -650,7 +650,7 @@ beside the plain output root.
    governed relative path under `FR-0150`.
 5. The plain output root remains on disk after successful ZIP creation.
 6. `summary.txt` includes exactly one `zip_path=<quoted_path_string>` line when
-   ZIP creation succeeds; the serialized ZIP path is governed by `FR-0083` and
+   ZIP creation succeeds; the serialized ZIP path is governed by `FR-0238` and
    `FR-0119`.
 7. If ZIP creation fails after accepted run execution begins, the run fails
    under `FR-0102`; any partially written ZIP archive is non-authoritative
@@ -658,7 +658,7 @@ beside the plain output root.
 
 **Dependencies**:
 - `FR-0085`
-- `FR-0083`
+- `FR-0238`
 - `FR-0102`
 - `FR-0119`
 - `FR-0150`

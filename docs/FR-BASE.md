@@ -280,7 +280,7 @@ shared self-location acquisition rule.
 - `FR-0019`
 - `FR-0021`
 - `FR-0029`
-- `FR-0033`
+- `FR-0232`
 - `FR-0055`
 - `FR-0158`
 - `FR-0159`

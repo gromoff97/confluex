@@ -59,7 +59,7 @@ output root for export-related runs.
 - Area: option semantics
 - Observable evidence: output-root location, path normalization, summary output
 
-### FR-0022
+### FR-0225
 **Requirement**: `--env-file <file>` shall select the invocation's env-file
 configuration source.
 
@@ -88,7 +88,7 @@ configuration source.
 - Area: option semantics
 - Observable evidence: selected env-file reads and unsupported-command rejection
 
-### FR-0023
+### FR-0226
 **Requirement**: `export` and `plan` shall use fail-fast page processing unless
 best-effort page processing is requested.
 
@@ -117,7 +117,7 @@ best-effort page processing is requested.
 - Area: option semantics
 - Observable evidence: continued processing or stop after page-local failure
 
-### FR-0024
+### FR-0227
 **Requirement**: Public path-valued option inputs shall use one invocation-local
 source model.
 
@@ -152,7 +152,7 @@ source model.
 - Area: option semantics
 - Observable evidence: effective output-root and log-file paths
 
-### FR-0025
+### FR-0228
 **Requirement**: Public numeric run-control inputs shall use one
 invocation-local source model.
 
@@ -312,7 +312,7 @@ artifacts.
 - Area: option semantics
 - Observable evidence: persistent log-file creation, overwrite, or rejection
 
-### FR-0030
+### FR-0229
 **Requirement**: Configured public option-equivalent values shall use the same
 value validation as command-line option values.
 
@@ -336,7 +336,7 @@ value validation as command-line option values.
    the corresponding numeric syntax rules in `FR-0014`.
 4. Effective Confluence access values selected under `FR-0219` are interpreted
    by the remote-access context rules in `FR-0216`, and `doctor` configuration
-   readiness serialization is governed by `FR-0040`.
+   readiness serialization is governed by `FR-0234`.
 5. If a configured option-equivalent value fails the validation required by
    criteria 1 through 3,
    the invocation is rejected before command work begins.
@@ -345,7 +345,7 @@ value validation as command-line option values.
 - `FR-0014`
 - `FR-0021`
 - `FR-0029`
-- `FR-0040`
+- `FR-0234`
 - `FR-0216`
 - `FR-0219`
 
@@ -353,7 +353,7 @@ value validation as command-line option values.
 - Area: option semantics
 - Observable evidence: invalid configured value rejection
 
-### FR-0031
+### FR-0230
 **Requirement**: `doctor` public options shall select diagnostic checks and
 diagnostic artifacts only.
 
@@ -376,7 +376,7 @@ diagnostic artifacts only.
 
 **Dependencies**:
 - `FR-0020`
-- `FR-0022`
+- `FR-0225`
 - `FR-0029`
 - `FR-0039`
 - `FR-0134`
@@ -386,7 +386,7 @@ diagnostic artifacts only.
 - Area: option semantics
 - Observable evidence: diagnostic stdout and persistent log behavior
 
-### FR-0032
+### FR-0231
 **Requirement**: Public flag options shall consume no following argv token as a
 value.
 
@@ -412,7 +412,7 @@ value.
 - Area: option semantics
 - Observable evidence: argv parsing for public flag options
 
-### FR-0033
+### FR-0232
 **Requirement**: Public valued options shall consume exactly one following argv
 token as their value.
 
@@ -655,13 +655,13 @@ candidate inspection.
 
 **Dependencies**:
 - `FR-0019`
-- `FR-0004`
+- `FR-0222`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: command-specific option acceptance and rejection behavior
 
-### FR-0037
+### FR-0233
 **Requirement**: Effective public option values shall be selected from
 invocation-local inputs only.
 

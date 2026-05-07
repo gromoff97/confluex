@@ -116,34 +116,30 @@ dependencies.
    `<reason>` is exactly one of `missing_base_url`, `missing_token`,
    `invalid_base_url`, `auth_rejected`, `page_inaccessible`, `transport_tls`,
    `transport_dns`, `transport_timeout`, `transport_connection_reset`,
-   `transport_proxy`, or
-   `converter_auth_incompatible`.
+   `transport_proxy`.
 8. When `page_access=failed`, `<reason>` is selected from the failure conditions
    observed while evaluating criterion 2 using this precedence order:
-   missing base URL, missing token, invalid base URL, converter-auth
-   incompatibility, authentication rejection, page inaccessible or non-OK HTTP
-   response, DNS transport failure, TLS transport failure, timeout transport
-   failure, connection-reset transport failure, proxy transport failure, then
-   page identity resolution failure.
+   missing base URL, missing token, invalid base URL, authentication rejection,
+   page inaccessible or non-OK HTTP response, DNS transport failure, TLS
+   transport failure, timeout transport failure, connection-reset transport
+   failure, proxy transport failure, then page identity resolution failure.
 9. Missing base URL selects `missing_base_url`.
 10. Missing token selects `missing_token`.
 11. Invalid base URL selects `invalid_base_url`.
-12. Converter authentication incompatibility selects
-    `converter_auth_incompatible`.
-13. HTTP status `401` or `403` selects `auth_rejected`.
-14. HTTP status `404`, HTTP status `410`, or any other completed HTTP response
+12. HTTP status `401` or `403` selects `auth_rejected`.
+13. HTTP status `404`, HTTP status `410`, or any other completed HTTP response
     whose status is not `200` selects `page_inaccessible`.
-15. DNS name-resolution failure selects `transport_dns`.
-16. TLS handshake, certificate validation, or protocol-version failure selects
+14. DNS name-resolution failure selects `transport_dns`.
+15. TLS handshake, certificate validation, or protocol-version failure selects
     `transport_tls`.
-17. Connect, read, write, or response timeout selects `transport_timeout`.
-18. Connection reset by peer or premature connection close selects
+16. Connect, read, write, or response timeout selects `transport_timeout`.
+17. Connection reset by peer or premature connection close selects
     `transport_connection_reset`.
-19. Proxy connection, proxy authentication, or proxy response failure selects
+18. Proxy connection, proxy authentication, or proxy response failure selects
     `transport_proxy`.
-20. A completed HTTP `200` response that cannot be resolved to the canonical page
+19. A completed HTTP `200` response that cannot be resolved to the canonical page
     identity required by criterion 2 selects `page_inaccessible`.
-21. Page-access diagnostics never include token values, Authorization header
+20. Page-access diagnostics never include token values, Authorization header
     values, cookies, full response bodies, or full process environments.
 
 **Dependencies**:
@@ -157,7 +153,7 @@ dependencies.
 - Area: diagnostics
 - Observable evidence: `page_access` and `page_identity` lines
 
-### FR-0040
+### FR-0234
 **Requirement**: `doctor` shall report public Confluence configuration
 readiness.
 
@@ -185,7 +181,7 @@ readiness.
 7. Configuration diagnostics never emit token values.
 
 **Dependencies**:
-- `FR-0047`
+- `FR-0237`
 - `FR-0142`
 - `FR-0216`
 - `FR-0219`
@@ -260,7 +256,7 @@ readiness.
 **Dependencies**:
 - `FR-0038`
 - `FR-0039`
-- `FR-0040`
+- `FR-0234`
 - `FR-0125`
 - `FR-0126`
 - `FR-0142`
@@ -293,7 +289,7 @@ stdout contract.
 **Dependencies**:
 - `FR-0038`
 - `FR-0039`
-- `FR-0040`
+- `FR-0234`
 - `FR-0041`
 - `FR-0042`
 - `FR-0044`

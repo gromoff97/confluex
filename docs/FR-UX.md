@@ -20,7 +20,7 @@
 3. The `Usage` section contains exactly one non-empty line:
    `  confluex <command> [options]`.
 4. Under `Commands`, supported top-level commands appear exactly once each in
-   the public command order governed by `FR-0004`: `export`, `plan`, `doctor`.
+   the public command order governed by `FR-0222`: `export`, `plan`, `doctor`.
 5. Under `Commands`, each supported top-level command has exactly one purpose
    statement that fits on one line and identifies that command's canonical
    workflow.
@@ -50,8 +50,8 @@
 - `FR-0001`
 - `FR-0002`
 - `FR-0003`
-- `FR-0004`
-- `FR-0129`
+- `FR-0222`
+- `FR-0242`
 - `FR-0118`
 
 **Traceability**:
@@ -83,7 +83,7 @@ correctly.
 4. For criterion 3, a mutually exclusive option relationship is any rejected
    option combination in `FR-0015` that involves the target command.
 5. For criterion 3, a dependent option relationship is an accepted option whose
-   use requires another accepted option under `FR-0026` or `FR-0031`.
+   use requires another accepted option under `FR-0026` or `FR-0230`.
 6. If a command has no required options, the `Required options` section states
    exactly one line `  none`.
 7. If a command has no optional options, the `Optional options` section states
@@ -166,15 +166,15 @@ correctly.
 - `FR-0001`
 - `FR-0002`
 - `FR-0003`
-- `FR-0004`
-- `FR-0005`
-- `FR-0006`
+- `FR-0222`
+- `FR-0223`
+- `FR-0224`
 - `FR-0014`
-- `FR-0129`
+- `FR-0242`
 - `FR-0013`
 - `FR-0015`
 - `FR-0026`
-- `FR-0031`
+- `FR-0230`
 - `FR-0036`
 - `FR-0118`
 
@@ -265,7 +265,7 @@ export explicitly.
 - Area: operator experience
 - Observable evidence: `confluex export --help` option text and examples
 
-### FR-0130
+### FR-0243
 **Requirement**: `doctor --help` shall document token-only env/env-file
 diagnostics.
 

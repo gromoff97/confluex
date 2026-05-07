@@ -316,8 +316,8 @@ support-profile, payload-format, output-root, ZIP path, and page-id fields.
 
 **Dependencies**:
 - `FR-0021`
-- `FR-0024`
-- `FR-0025`
+- `FR-0227`
+- `FR-0228`
 - `FR-0058`
 - `FR-0085`
 - `FR-0076`
