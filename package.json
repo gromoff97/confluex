@@ -17,26 +17,23 @@
     "bin/",
     "dist/",
     "README.md",
+    "LICENSE",
     "package.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "npm run typecheck:src && npm run typecheck:tests",
-    "typecheck:src": "tsc -p tsconfig.json --noEmit",
-    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:tools": "tsc -p tsconfig.tools.json --noEmit",
     "prepack": "npm run build",
-    "test:node": "npm run build && node --test tests/node/*.test.ts",
-    "lint:js": "node scripts/lint-js.js",
-    "lint:ts": "eslint \"src/**/*.ts\" eslint.config.mjs --max-warnings 0",
-    "lint:shell": "node scripts/lint-shell.js",
-    "lint": "npm run lint:js && npm run lint:ts && npm run lint:shell"
+    "lint": "eslint \"src/**/*.ts\" \"tools/**/*.ts\" eslint.config.mjs --max-warnings 0",
+    "verify:public-cleanup": "TMPDIR=/tmp tsx tools/verify-public-cleanup.ts"
   },
   "devDependencies": {
     "@eslint/js": "^8.57.1",
     "@types/node": "^25.6.0",
     "eslint": "^8.57.1",
     "globals": "^17.6.0",
-    "standard": "^17.1.2",
+    "tsx": "^4.19.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2"
   },

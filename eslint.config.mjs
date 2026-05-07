@@ -6,7 +6,8 @@ export default [
   {
     ignores: [
       'dist/**',
-      'node_modules/**'
+      'node_modules/**',
+      '.agents/**'
     ]
   },
   {
@@ -15,14 +16,14 @@ export default [
   },
   ...tseslint.configs.strictTypeChecked.map(config => ({
     ...config,
-    files: ['src/**/*.ts']
+    files: ['src/**/*.ts', 'tools/**/*.ts']
   })),
   ...tseslint.configs.stylisticTypeChecked.map(config => ({
     ...config,
-    files: ['src/**/*.ts']
+    files: ['src/**/*.ts', 'tools/**/*.ts']
   })),
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'tools/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
@@ -30,7 +31,7 @@ export default [
         ...globals.node
       },
       parserOptions: {
-        projectService: true,
+        project: ['./tsconfig.json', './tsconfig.tools.json'],
         tsconfigRootDir: import.meta.dirname
       }
     },
