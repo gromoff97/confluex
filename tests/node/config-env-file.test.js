@@ -122,7 +122,7 @@ test('buildEffectiveOptions ignores env-backed options outside the command surfa
   })
 })
 
-test('--env-file is accepted for network and selftest commands', () => {
+test('--env-file is accepted for public commands', () => {
   assert.equal(validateCommandInvocation('export', [
     '--page-id',
     '123',
@@ -136,14 +136,6 @@ test('--env-file is accepted for network and selftest commands', () => {
     '.confluex.env'
   ]).kind, 'valid')
   assert.equal(validateCommandInvocation('doctor', [
-    '--env-file',
-    '.confluex.env'
-  ]).kind, 'valid')
-  assert.equal(validateCommandInvocation('selftest', [
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'test-token',
     '--env-file',
     '.confluex.env'
   ]).kind, 'valid')

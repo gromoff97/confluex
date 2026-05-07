@@ -35,6 +35,18 @@ test('parser rejects unsupported command before command work', () => {
   })
 })
 
+test('parser rejects retired public commands before command work', () => {
+  for (const command of ['config', 'selftest', 'install', 'uninstall']) {
+    assert.deepEqual(parseInvocation([command]), {
+      kind: 'rejected',
+      diagnostic: {
+        type: 'unknown-command',
+        commandToken: command
+      }
+    })
+  }
+})
+
 test('parser rejects invalid known command argv before command dispatch', () => {
   assert.deepEqual(parseInvocation(['export']), {
     kind: 'rejected',
@@ -46,35 +58,14 @@ test('parser rejects invalid known command argv before command dispatch', () => 
 })
 
 test('parser returns effective options for valid known command argv', () => {
-  assert.deepEqual(parseInvocation(['export', '--page-id', '123', '--safe']), {
+  assert.deepEqual(parseInvocation(['export', '--page-id', '123', '--zip']), {
     kind: 'command',
     command: 'export',
-    argv: ['--page-id', '123', '--safe'],
+    argv: ['--page-id', '123', '--zip'],
     options: {
-      flags: ['--safe'],
+      flags: ['--zip'],
       values: {
         '--page-id': '123'
-      }
-    }
-  })
-})
-
-test('parser returns explicit selftest target options for valid selftest argv', () => {
-  assert.deepEqual(parseInvocation([
-    'selftest',
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'test-token'
-  ]), {
-    kind: 'command',
-    command: 'selftest',
-    argv: ['--url', 'http://127.0.0.1:8090', '--token', 'test-token'],
-    options: {
-      flags: [],
-      values: {
-        '--url': 'http://127.0.0.1:8090',
-        '--token': 'test-token'
       }
     }
   })

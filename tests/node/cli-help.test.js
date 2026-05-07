@@ -9,11 +9,9 @@ const expectedTopLevelHelp = [
   'Usage',
   '  confluex <command> [options]',
   'Commands',
-  '  export  materialized export workflow',
+  '  export  materialized Markdown export workflow',
   '  plan  dry-run planning workflow',
   '  doctor  diagnostic workflow',
-  '  config  configuration workflow',
-  '  selftest  live regression self-test workflow',
   ''
 ].join('\n')
 
@@ -26,9 +24,7 @@ test('command order is the supported top-level order', () => {
   assert.deepEqual(commandNames(), [
     'export',
     'plan',
-    'doctor',
-    'config',
-    'selftest'
+    'doctor'
   ])
 })
 
@@ -37,50 +33,69 @@ test('export command help has governed sections and notes', () => {
     'Usage',
     '  confluex export --page-id <id> [options]',
     'Purpose',
-    '  materialized export workflow',
+    '  materialized Markdown export workflow',
     'Required options',
     '  --page-id <id>  Root Confluence page id to export.',
     'Optional options',
     '  --out <path>  Output directory. Default: generated automatically.',
-    '  --safe  Apply conservative defaults for routine runs.',
-    '  --critical  Fail closed when findings or failures remain.',
-    '  --encrypt  Request encrypted output delivery.',
-    '  --confidential  Request encrypted fail-closed delivery with plaintext cleanup on encryption failure.',
     '  --resume  Reuse a compatible existing export root selected by --out.',
     '  --no-fail-fast  Continue after page-local runtime failures.',
     '  --keep-metadata  Persist page metadata files such as _info.txt and _storage.xml.',
-    '  --zip  Retain a ZIP archive beside the plain Markdown output root.',
-    '  --env-file <file>  Read configuration from this env file.',
+    '  --zip  create a ZIP archive beside the Markdown output root',
+    '  --env-file <file>  Load public configuration from this env file.',
     '  --log-file <file>  Write a persistent log artifact.',
-    '  --encryption-key <value>  Use this encryption recipient for the current command.',
     '  --max-pages <n>  Stop after n processed pages.',
     '  --max-download-mib <n>  Stop after downloading n MiB in total.',
     '  --sleep-ms <n>  Sleep n ms between processed pages.',
     '  --max-find-candidates <n>  Inspect at most n title-resolution candidates per link.',
     '  --link-depth <n>  Follow supported internal links up to n hops from the root child tree; default: 1.',
     'Examples',
-    '  confluex export --page-id <id>',
+    '  confluex export --page-id <id> --zip',
     'Notes',
     '  --resume requires --out',
-    '  --critical mutually exclusive with --no-fail-fast',
-    '  --confidential mutually exclusive with --no-fail-fast',
     ''
   ].join('\n'))
 })
 
-test('selftest command help uses explicit target options and refined purpose', () => {
-  assert.equal(commandHelp('selftest'), [
+test('plan command help has governed sections and no notes', () => {
+  assert.equal(commandHelp('plan'), [
     'Usage',
-    '  confluex selftest --url <base-url> --token <token>',
+    '  confluex plan --page-id <id> [options]',
     'Purpose',
-    '  explicit-target live regression self-test workflow for an already running Confluence 7.13.7 stand with fixture preparation, live regression, and self-test report root',
+    '  dry-run planning workflow',
     'Required options',
-    '  --url <base-url>  Base URL of the already running Confluence stand.',
-    '  --token <token>  Bearer token used for selftest reset, fixture apply, and live regression.',
+    '  --page-id <id>  Root Confluence page id to plan.',
     'Optional options',
-    '  --env-file <file>  Read configuration from this env file.',
+    '  --out <path>  Output directory. Default: generated automatically.',
+    '  --no-fail-fast  Continue after page-local runtime failures.',
+    '  --keep-metadata  Persist page metadata files such as _info.txt and _storage.xml.',
+    '  --env-file <file>  Load public configuration from this env file.',
+    '  --log-file <file>  Write a persistent log artifact.',
+    '  --max-pages <n>  Stop after n processed pages.',
+    '  --max-download-mib <n>  Stop after downloading n MiB in total.',
+    '  --sleep-ms <n>  Sleep n ms between processed pages.',
+    '  --max-find-candidates <n>  Inspect at most n title-resolution candidates per link.',
+    '  --link-depth <n>  Follow supported internal links up to n hops from the root child tree; default: 1.',
     'Examples',
-    '  confluex selftest --url http://127.0.0.1:8090 --token test-token',
+    '  confluex plan --page-id <id>',
+    ''
+  ].join('\n'))
+})
+
+test('doctor command help documents public diagnostics only', () => {
+  assert.equal(commandHelp('doctor'), [
+    'Usage',
+    '  confluex doctor [options]',
+    'Purpose',
+    '  diagnostic workflow for local prerequisites, token-only Confluence configuration, optional page access, and supported link forms',
+    'Required options',
+    '  none',
+    'Optional options',
+    '  --page-id <id>  test access to a Confluence page',
+    '  --env-file <file>  load public configuration from an env file',
+    '  --log-file <file>  write a persistent diagnostic log',
+    'Examples',
+    '  confluex doctor --page-id <id>',
     ''
   ].join('\n'))
 })

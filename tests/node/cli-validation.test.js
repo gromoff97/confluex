@@ -7,8 +7,8 @@ const { validateCommandInvocation } = require('../../lib/confluex-node/cli/valid
 
 test('valid invocation returns effective flags and last valued option value', () => {
   assert.deepEqual(validateCommandInvocation('export', [
-    '--safe',
-    '--safe',
+    '--no-fail-fast',
+    '--no-fail-fast',
     '--zip',
     '--zip',
     '--page-id',
@@ -22,7 +22,7 @@ test('valid invocation returns effective flags and last valued option value', ()
   ]), {
     kind: 'valid',
     options: {
-      flags: ['--safe', '--zip'],
+      flags: ['--no-fail-fast', '--zip'],
       values: {
         '--page-id': '123',
         '--link-depth': '2'
@@ -80,11 +80,9 @@ test('valued options consume the next argv token even when it looks like an opti
 })
 
 test('unsupported option selects earliest raw option token', () => {
-  assert.deepEqual(validateCommandInvocation('selftest', [
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'test-token',
+  assert.deepEqual(validateCommandInvocation('export', [
+    '--page-id',
+    '123',
     '--safe',
     '--critical'
   ]), {
@@ -96,69 +94,80 @@ test('unsupported option selects earliest raw option token', () => {
   })
 })
 
-test('selftest requires explicit target options before command work', () => {
-  assert.deepEqual(validateCommandInvocation('selftest', []), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'missing-required-option',
-      optionToken: '--url'
-    }
-  })
-
-  assert.deepEqual(validateCommandInvocation('selftest', [
+test('retired composite encryption and selftest options are unsupported', () => {
+  for (const optionToken of [
+    '--safe',
+    '--critical',
+    '--encrypt',
+    '--confidential',
+    '--encryption-key',
+    '--clear-encryption-key',
+    '--verify-encryption',
     '--url',
-    'http://127.0.0.1:8090'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'missing-required-option',
-      optionToken: '--token'
-    }
-  })
-})
-
-test('selftest target options reject empty and control-containing values', () => {
-  assert.deepEqual(validateCommandInvocation('selftest', [
-    '--url',
-    '',
-    '--token',
-    'test-token'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-value',
-      optionToken: '--url'
-    }
-  })
-
-  assert.deepEqual(validateCommandInvocation('selftest', [
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'bad\ttoken'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-value',
-      optionToken: '--token'
-    }
-  })
-})
-
-test('selftest valid invocation returns explicit target values', () => {
-  assert.deepEqual(validateCommandInvocation('selftest', [
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'test-token'
-  ]), {
-    kind: 'valid',
-    options: {
-      flags: [],
-      values: {
-        '--url': 'http://127.0.0.1:8090',
-        '--token': 'test-token'
+    '--token'
+  ]) {
+    assert.deepEqual(validateCommandInvocation('export', [
+      '--page-id',
+      '123',
+      optionToken
+    ]), {
+      kind: 'rejected',
+      diagnostic: {
+        type: 'unsupported-option',
+        optionToken
       }
+    }, optionToken)
+  }
+})
+
+test('resume is supported only by export and requires out', () => {
+  assert.deepEqual(validateCommandInvocation('plan', [
+    '--page-id',
+    '123',
+    '--resume'
+  ]), {
+    kind: 'rejected',
+    diagnostic: {
+      type: 'unsupported-option',
+      optionToken: '--resume'
+    }
+  })
+
+  assert.deepEqual(validateCommandInvocation('export', [
+    '--page-id',
+    '123',
+    '--resume'
+  ]), {
+    kind: 'rejected',
+    diagnostic: {
+      type: 'invalid-option-combination',
+      optionTokens: ['--out', '--resume']
+    }
+  })
+})
+
+test('empty path-like values are invalid values', () => {
+  assert.deepEqual(validateCommandInvocation('export', [
+    '--page-id',
+    '123',
+    '--out',
+    ''
+  ]), {
+    kind: 'rejected',
+    diagnostic: {
+      type: 'invalid-option-value',
+      optionToken: '--out'
+    }
+  })
+
+  assert.deepEqual(validateCommandInvocation('doctor', [
+    '--env-file',
+    ''
+  ]), {
+    kind: 'rejected',
+    diagnostic: {
+      type: 'invalid-option-value',
+      optionToken: '--env-file'
     }
   })
 })
@@ -241,69 +250,6 @@ test('invalid link depth is rejected before command work', () => {
     diagnostic: {
       type: 'invalid-option-value',
       optionToken: '--link-depth'
-    }
-  })
-})
-
-test('empty path-like and encryption values are invalid values', () => {
-  assert.deepEqual(validateCommandInvocation('config', ['--encryption-key', 'none']), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-value',
-      optionToken: '--encryption-key'
-    }
-  })
-})
-
-test('invalid combinations select bytewise-smallest serialized option token list', () => {
-  assert.deepEqual(validateCommandInvocation('export', [
-    '--page-id',
-    '123',
-    '--critical',
-    '--confidential',
-    '--no-fail-fast'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-combination',
-      optionTokens: ['--confidential', '--no-fail-fast']
-    }
-  })
-})
-
-test('command-specific invalid combinations are rejected', () => {
-  assert.deepEqual(validateCommandInvocation('config', [
-    '--clear-encryption-key',
-    '--encryption-key',
-    'recipient'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-combination',
-      optionTokens: ['--clear-encryption-key', '--encryption-key']
-    }
-  })
-
-  assert.deepEqual(validateCommandInvocation('doctor', [
-    '--encryption-key',
-    'recipient'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-combination',
-      optionTokens: ['--encryption-key', '--verify-encryption']
-    }
-  })
-
-  assert.deepEqual(validateCommandInvocation('export', [
-    '--page-id',
-    '123',
-    '--resume'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'invalid-option-combination',
-      optionTokens: ['--out', '--resume']
     }
   })
 })

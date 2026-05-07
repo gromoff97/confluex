@@ -157,21 +157,22 @@ test('node entrypoint renders top-level help for no argv', () => {
 })
 
 test('node entrypoint renders command help', () => {
-  const result = runNodeMain(['selftest', '--help'])
+  const result = runNodeMain(['doctor', '--help'])
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, [
     'Usage',
-    '  confluex selftest --url <base-url> --token <token>',
+    '  confluex doctor [options]',
     'Purpose',
-    '  explicit-target live regression self-test workflow for an already running Confluence 7.13.7 stand with fixture preparation, live regression, and self-test report root',
+    '  diagnostic workflow for local prerequisites, token-only Confluence configuration, optional page access, and supported link forms',
     'Required options',
-    '  --url <base-url>  Base URL of the already running Confluence stand.',
-    '  --token <token>  Bearer token used for selftest reset, fixture apply, and live regression.',
+    '  none',
     'Optional options',
-    '  --env-file <file>  Read configuration from this env file.',
+    '  --page-id <id>  test access to a Confluence page',
+    '  --env-file <file>  load public configuration from an env file',
+    '  --log-file <file>  write a persistent diagnostic log',
     'Examples',
-    '  confluex selftest --url http://127.0.0.1:8090 --token test-token',
+    '  confluex doctor --page-id <id>',
     ''
   ].join('\n'))
 })
@@ -192,11 +193,9 @@ test('node entrypoint rejects missing required known-command options', () => {
 
 test('node entrypoint rejects unsupported known-command options on stderr only', () => {
   const result = runNodeMain([
-    'selftest',
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'test-token',
+    'export',
+    '--page-id',
+    '123',
     '--safe'
   ])
   assert.equal(result.status, 1)
@@ -220,11 +219,9 @@ test('public launcher uses JS top-level help without legacy Bash fallback', () =
     'Usage',
     '  confluex <command> [options]',
     'Commands',
-    '  export  materialized export workflow',
+    '  export  materialized Markdown export workflow',
     '  plan  dry-run planning workflow',
     '  doctor  diagnostic workflow',
-    '  config  configuration workflow',
-    '  selftest  live regression self-test workflow',
     ''
   ].join('\n'))
 })
@@ -238,11 +235,9 @@ test('public launcher rejects unknown command through JS diagnostics', () => {
 
 test('public launcher validates known commands before development checkpoint', () => {
   const rejected = runLauncher([
-    'selftest',
-    '--url',
-    'http://127.0.0.1:8090',
-    '--token',
-    'test-token',
+    'export',
+    '--page-id',
+    '123',
     '--safe'
   ])
   assert.equal(rejected.status, 1)
@@ -264,21 +259,21 @@ test('public launcher rejects bare selftest before report root creation', () => 
 
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: missing_required_option --url\n')
+  assert.equal(result.stderr, 'ERROR: unknown_command selftest\n')
   assert.deepEqual(fs.readdirSync(cwd), [])
 })
 
-test('public launcher rejects encrypted export with missing recipient before page preflight', () => {
+test('public launcher rejects encrypted export option before page preflight', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-export-encrypt-missing-'))
 
   const result = runLauncherWithHome(['export', '--page-id', '123', '--encrypt'], home)
 
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: validation_failed FR-0024\n')
+  assert.equal(result.stderr, 'ERROR: unsupported_option --encrypt\n')
 })
 
-test('public launcher validates encryption recipient before page preflight', () => {
+test('public launcher rejects encryption recipient option before page preflight', () => {
   const bin = fakeDoctorBin()
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-export-encrypt-valid-'))
   const env = {
@@ -291,7 +286,7 @@ test('public launcher validates encryption recipient before page preflight', () 
 
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: validation_failed FR-0017 --page-id 123\n')
+  assert.equal(result.stderr, 'ERROR: unsupported_option --encrypt\n')
 })
 
 test('public launcher rejects existing output root after successful page preflight', async () => {
@@ -396,7 +391,7 @@ test('public launcher plans remote child tree when child listing is available', 
     response.statusCode = 404
     response.end('missing')
   }, async baseUrl => {
-    const result = await runLauncherWithEnvAsync(['plan', '--page-id', '123', '--out', out, '--safe'], {
+    const result = await runLauncherWithEnvAsync(['plan', '--page-id', '123', '--out', out, '--max-pages', '10'], {
       HOME: home,
       USERPROFILE: home,
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
@@ -496,7 +491,7 @@ test('public launcher resolves remote title links when candidate listing is avai
     response.statusCode = 404
     response.end('missing')
   }, async baseUrl => {
-    const result = await runLauncherWithEnvAsync(['plan', '--page-id', '123', '--out', out, '--safe'], {
+    const result = await runLauncherWithEnvAsync(['plan', '--page-id', '123', '--out', out, '--max-pages', '10'], {
       HOME: home,
       USERPROFILE: home,
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
@@ -549,7 +544,7 @@ test('public launcher implements doctor scaffold without page access', () => {
   ].join('\n'))
 })
 
-test('public launcher implements doctor encryption verification with explicit recipient', () => {
+test('public launcher rejects doctor encryption verification options', () => {
   const bin = fakeDoctorBin()
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-doctor-verify-'))
   const env = {
@@ -560,20 +555,9 @@ test('public launcher implements doctor encryption verification with explicit re
 
   const result = runLauncherWithEnv(['doctor', '--verify-encryption', '--encryption-key', 'recipient'], env)
 
-  assert.equal(result.status, 0)
-  assert.equal(result.stderr, '')
-  assert.equal(result.stdout, [
-    `dependency_node_runtime=present:${process.version}`,
-    'dependency_docker_cli=present:Docker version 27.0.0',
-    'dependency_gpg=present:gpg 2.4.0',
-    'dependency_markdown_converter=present:uvx 0.9.0',
-    'page_access=skipped',
-    'encryption_recipient=ok',
-    'support_profile=default',
-    'supported_link_forms=child_result,content_id,page_ref,macro_param,href_page_id,href_space_title,ri_url_page_id,ri_url_space_title',
-    'next_action=none',
-    ''
-  ].join('\n'))
+  assert.equal(result.status, 1)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, 'ERROR: unsupported_option --verify-encryption\n')
 })
 
 test('public launcher reports failed doctor page access when remote context is absent', () => {
@@ -586,8 +570,8 @@ test('public launcher reports failed doctor page access when remote context is a
   assert.match(result.stdout, /^next_action=.*check_page_access/m)
 })
 
-test('public launcher rejects removed lifecycle commands', () => {
-  for (const command of ['install', 'uninstall']) {
+test('public launcher rejects removed lifecycle and legacy commands', () => {
+  for (const command of ['config', 'selftest', 'install', 'uninstall']) {
     const result = runLauncher([command])
     assert.equal(result.status, 1, command)
     assert.equal(result.stdout, '', command)
@@ -595,42 +579,18 @@ test('public launcher rejects removed lifecycle commands', () => {
   }
 })
 
-test('public launcher implements config read save and clear with home-local state', () => {
+test('public launcher rejects legacy config without home-local state mutation', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-home-'))
   const otherCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-cwd-'))
 
   const initial = runLauncherWithHome(['config'], home)
-  assert.equal(initial.status, 0)
-  assert.equal(initial.stdout, 'default_encryption_key=none\n')
-  assert.equal(initial.stderr, '')
+  const fromOtherCwd = runLauncherWithHome(['config', '--clear-encryption-key'], home, otherCwd)
 
-  const saved = runLauncherWithHome(['config', '--encryption-key', 'recipient'], home)
-  assert.equal(saved.status, 0)
-  assert.equal(saved.stdout, 'default_encryption_key=recipient\n')
-  assert.equal(saved.stderr, '')
-
-  const readFromOtherCwd = runLauncherWithHome(['config'], home, otherCwd)
-  assert.equal(readFromOtherCwd.status, 0)
-  assert.equal(readFromOtherCwd.stdout, 'default_encryption_key=recipient\n')
-  assert.equal(readFromOtherCwd.stderr, '')
-
-  const cleared = runLauncherWithHome(['config', '--clear-encryption-key'], home)
-  assert.equal(cleared.status, 0)
-  assert.equal(cleared.stdout, 'default_encryption_key=none\n')
-  assert.equal(cleared.stderr, '')
-
-  const afterClear = runLauncherWithHome(['config'], home)
-  assert.equal(afterClear.status, 0)
-  assert.equal(afterClear.stdout, 'default_encryption_key=none\n')
-  assert.equal(afterClear.stderr, '')
-})
-
-test('public launcher keeps invalid config invocations rejected before state mutation', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-invalid-'))
-
-  const result = runLauncherWithHome(['config', '--clear-encryption-key', '--encryption-key', 'recipient'], home)
-
-  assert.equal(result.status, 1)
-  assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: invalid_option_combination --clear-encryption-key,--encryption-key\n')
+  assert.equal(initial.status, 1)
+  assert.equal(initial.stdout, '')
+  assert.equal(initial.stderr, 'ERROR: unknown_command config\n')
+  assert.equal(fromOtherCwd.status, 1)
+  assert.equal(fromOtherCwd.stdout, '')
+  assert.equal(fromOtherCwd.stderr, 'ERROR: unknown_command config\n')
+  assert.deepEqual(fs.readdirSync(home), [])
 })
