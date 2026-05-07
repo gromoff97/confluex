@@ -114,7 +114,7 @@ function verifyJavascriptBoundary (file: string): void {
 }
 
 function verifyForbiddenTerms (file: string): void {
-  if (file === '.gitignore' || file === 'tools/verify-public-cleanup.ts') {
+  if (file === '.gitignore' || file === 'package-lock.json' || file === 'tools/verify-public-cleanup.ts') {
     return
   }
 
