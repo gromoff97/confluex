@@ -245,8 +245,7 @@ export explicitly.
 - `confluex export --help`
 
 **Rationale**:
-- Operators need command help that makes Markdown-only export discoverable
-  without suggesting removed HTML compatibility.
+- Operators need command help that states the materialized export format.
 
 **Acceptance Criteria**:
 1. The `Purpose` section contains exactly one non-empty line:

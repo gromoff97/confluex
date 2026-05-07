@@ -35,7 +35,7 @@ test('parser rejects unsupported command before command work', () => {
   })
 })
 
-test('parser rejects retired public commands before command work', () => {
+test('parser rejects commands outside the public inventory before command work', () => {
   for (const command of ['config', 'selftest', 'install', 'uninstall']) {
     assert.deepEqual(parseInvocation([command]), {
       kind: 'rejected',

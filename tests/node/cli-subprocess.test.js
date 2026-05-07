@@ -540,7 +540,7 @@ test('public launcher reports failed doctor page access when remote context is a
   assert.match(result.stdout, /^next_action=.*check_page_access/m)
 })
 
-test('public launcher rejects removed lifecycle and legacy commands', () => {
+test('public launcher rejects commands outside the public inventory', () => {
   for (const command of ['config', 'selftest', 'install', 'uninstall']) {
     const result = runLauncher([command])
     assert.equal(result.status, 1, command)
@@ -549,7 +549,7 @@ test('public launcher rejects removed lifecycle and legacy commands', () => {
   }
 })
 
-test('public launcher rejects removed config command without home-local state mutation', () => {
+test('public launcher rejects config command without home-local state mutation', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-home-'))
   const otherCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-config-cwd-'))
 
