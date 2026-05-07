@@ -11,12 +11,11 @@ for final run status.
 
 **Rationale**:
 - Operators need one stable final-status vocabulary across clean completion,
-  completion with findings, policy failure, incomplete completion, and
-  interruption.
+  completion with findings, incomplete completion, and interruption.
 
 **Acceptance Criteria**:
 1. `final_status` uses only `success`, `success_with_findings`,
-   `policy_failed`, `incomplete`, or `interrupted`.
+   `incomplete`, or `interrupted`.
 2. A completed run that has `blocking_reasons=none` uses
    `final_status=success`.
 3. A completed run that has `blocking_reasons` not equal to `none` uses
@@ -24,12 +23,9 @@ for final run status.
 4. A configured stop condition or runtime failure that leaves the run incomplete
    uses `final_status=incomplete`.
 5. Signal interruption uses `final_status=interrupted`.
-6. `policy_failed` is reserved for policy-overlay requirements that explicitly
-   select it, including `FR-0096`.
 
 **Dependencies**:
 - `FR-0116`
-- `FR-0096`
 
 **Traceability**:
 - Area: observability and outcomes
@@ -53,8 +49,8 @@ for final run status.
    reports `unresolved_links` greater than `0`, or if `failed-pages.tsv`
    contains at least one data row with `operation=page_metadata` or
    `operation=storage_content`, `scope_trust=degraded`.
-4. If `final_status` is `success`, `success_with_findings`, or
-   `policy_failed`, and criterion 3 does not apply, `scope_trust=trusted`.
+4. If `final_status` is `success` or `success_with_findings`, and criterion 3
+   does not apply, `scope_trust=trusted`.
 5. Page-local failures counted only through `failed-pages.tsv` do not by
    themselves change `scope_trust` unless criterion 3 applies.
 
@@ -233,12 +229,11 @@ fields.
    corpus exit `0`.
 4. Accepted `doctor` invocations that fail after accepted command work begins
    exit `4`.
-5. `policy_failed` exits `2`.
-6. Configured stop conditions exit `3`.
-7. Runtime failure after accepted run execution has begun exits `4`.
-8. Signal interruption exits `130`.
-9. Top-level help invocations governed by `FR-0007` exit `0`.
-10. Command-help invocations governed by `FR-0008` exit `0`.
+5. Configured stop conditions exit `3`.
+6. Runtime failure after accepted run execution has begun exits `4`.
+7. Signal interruption exits `130`.
+8. Top-level help invocations governed by `FR-0007` exit `0`.
+9. Command-help invocations governed by `FR-0008` exit `0`.
 
 **Dependencies**:
 - `FR-0007`
@@ -249,6 +244,7 @@ fields.
 - `FR-0101`
 - `FR-0102`
 - `FR-0097`
+- `FR-0142`
 
 **Traceability**:
 - Area: observability and outcomes

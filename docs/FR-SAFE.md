@@ -79,29 +79,40 @@ best-effort behavior.
 - Observable evidence: continued processing behavior and failed-pages reporting
 
 ### FR-0096
-**Requirement**: Policy-failed final status shall remain reserved for explicit
-future policy overlays.
+**Requirement**: Report findings shall remain completed-run safety outcomes.
 
 **Applicability**:
 - report sets whose `summary.txt` schema is governed by `FR-0090`
 
 **Rationale**:
-- Operators and tests need `policy_failed` to keep one stable meaning even when
-  no current public option selects a policy overlay.
+- Operators need unresolved links, scope findings, and failed operations to
+  remain visible as completed-run findings.
 
 **Acceptance Criteria**:
-1. No current public command-line option selects `policy_failed`.
-2. `policy_failed` may be selected only by a requirement that explicitly
-   defines a policy overlay and depends on this card.
-3. If no applicable policy-overlay requirement selects `policy_failed`, completed
-   runs use `success` or `success_with_findings` under `FR-0113`.
-4. Interrupted, runtime-failed, or configured-stop runs use the non-policy
-   final-status and interrupt-reason outcomes under `FR-0113` and `FR-0140`.
+1. For completed accepted `export` and `plan` runs, unresolved links, scope
+   findings, and failed operations are represented through the report files
+   governed by `FR-0085` and the `blocking_reasons` value governed by
+   `FR-0116`.
+2. A completed accepted `export` or `plan` run with `blocking_reasons=none`
+   uses `final_status=success` under `FR-0113` and exit code `0` under
+   `FR-0118`.
+3. A completed accepted `export` or `plan` run with `blocking_reasons` not equal
+   to `none` uses `final_status=success_with_findings` under `FR-0113` and exit
+   code `0` under `FR-0118`.
+4. Configured-stop, runtime-failure, and signal-interruption branches use the
+   incomplete or interrupted outcomes governed by `FR-0097`, `FR-0100`,
+   `FR-0101`, `FR-0102`, `FR-0113`, `FR-0118`, and `FR-0140`.
 
 **Dependencies**:
+- `FR-0085`
 - `FR-0090`
+- `FR-0097`
+- `FR-0100`
+- `FR-0101`
+- `FR-0102`
 - `FR-0113`
 - `FR-0116`
+- `FR-0118`
 - `FR-0140`
 
 **Traceability**:

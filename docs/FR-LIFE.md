@@ -13,14 +13,17 @@ CLI package.
 
 **Acceptance Criteria**:
 1. `package.json` contains a lowercase package `name`, a semver `version`, a
-   non-empty `description`, an `engines.node` constraint, a `bin.confluex`
-   mapping, and a `files` allowlist.
-2. `bin.confluex` points to a built CLI entrypoint included by the `files`
-   allowlist.
-3. The package allowlist includes the built runtime, required runtime assets,
-   and README, and excludes development-only test bulk unless another card
-   explicitly includes it.
-4. Package metadata does not mark the package `private` when publication is the
+   non-empty `description`, an `engines.node` constraint exactly equal to
+   `>=20.11.0`, a `bin.confluex` mapping exactly equal to
+   `./bin/confluex.js`, and a `files` allowlist.
+2. The `files` allowlist is exactly this ordered JSON string array:
+   `["bin/", "dist/", "README.md", "LICENSE", "package.json"]`.
+3. The publishable package path inventory is closed to these path classes:
+   `package.json`, `README.md`, `LICENSE`, `bin/confluex.js`, and regular
+   files whose package-relative path begins with `dist/`.
+4. The package-public docs inventory beyond `README.md` and `LICENSE` is empty
+   for this lifecycle target.
+5. Package metadata does not mark the package `private` when publication is the
    active lifecycle target.
 
 **Dependencies**:
@@ -45,14 +48,14 @@ CLI package.
 1. The documented fresh install command is `npm install -g <package-name>`.
 2. A successful fresh install exposes `confluex` on `PATH` through the npm
    `bin` mapping governed by `FR-0215`.
-3. A fresh install is valid only when `confluex --help` and
-   `confluex doctor --help` both run from the installed package without loading
-   missing runtime modules.
+3. A fresh install is valid only when the installed-package smoke checks
+   governed by `FR-0051` pass.
 4. Fresh install validation uses the installed `confluex` command exposed by
    the npm `bin` mapping governed by `FR-0215`.
 
 **Dependencies**:
 - `FR-0215`
+- `FR-0051`
 
 **Traceability**:
 - Area: installation lifecycle
@@ -70,11 +73,13 @@ CLI package.
 
 **Acceptance Criteria**:
 1. The documented update command is `npm install -g <package-name>@latest`.
-2. Update validation uses the same installed-command smoke checks as `FR-0048`.
+2. Update validation uses the installed-package smoke checks governed by
+   `FR-0051`.
 3. Update documentation identifies npm as the update mechanism.
 
 **Dependencies**:
 - `FR-0048`
+- `FR-0051`
 
 **Traceability**:
 - Area: installation lifecycle
@@ -118,16 +123,27 @@ dispatch.
   runtime paths.
 
 **Acceptance Criteria**:
-1. Installed-package smoke checks run `confluex --help`,
-   `confluex doctor --help`, and one rejected `confluex doctor --page-id <id>`
-   invocation with no token.
-2. The missing-token doctor smoke must fail with a classified validation or
-   diagnostic result, not a module-load stack trace.
-3. Smoke checks include one command path that loads the Markdown payload
-   converter or verifies its prerequisite under `FR-0074`.
+1. Installed-package smoke checks run these commands in order:
+   `confluex --help`, `confluex doctor --help`, `confluex doctor`.
+2. The `confluex --help` command follows the top-level help contract governed
+   by `FR-0007`.
+3. The `confluex doctor --help` command follows the command-help contract
+   governed by `FR-0008`.
+4. The `confluex doctor` command is invoked without `--page-id` and without
+   requiring `CONFLUEX_CONFLUENCE_TOKEN`; it follows the accepted `doctor`
+   stdout, stderr, and exit-code contract governed by `FR-0043`.
+5. The `confluex doctor` smoke command validates the package path that loads the
+   Markdown payload module through the `markdown_converter` diagnostic governed
+   by `FR-0038`.
+6. Any smoke command output containing a JavaScript module-resolution stack
+   trace, an unhandled exception stack trace, or a missing packaged-runtime
+   path fails installed-package validation.
 
 **Dependencies**:
-- `FR-0039`
+- `FR-0007`
+- `FR-0008`
+- `FR-0038`
+- `FR-0043`
 - `FR-0074`
 - `FR-0118`
 
@@ -150,11 +166,12 @@ publication.
 **Acceptance Criteria**:
 1. Release verification runs `npm pack --dry-run` or an equivalent package
    content listing.
-2. The package content listing includes the npm `bin` entrypoint, built runtime,
-   README, and package metadata.
-3. The package content listing excludes local env files, secrets, generated
-   report roots, temporary directories, and development-only fixture bulk unless
-   another requirement explicitly includes them.
+2. The package content review normalizes each listed path by removing exactly
+   one leading `package/` prefix when that prefix is present.
+3. The normalized package content listing contains `package.json`, `README.md`,
+   `LICENSE`, `bin/confluex.js`, and at least one path beginning with `dist/`.
+4. Every normalized package content path belongs to exactly one package path
+   class from the closed inventory governed by `FR-0215`.
 
 **Dependencies**:
 - `FR-0215`
@@ -175,12 +192,12 @@ runtime.
   the packaged runtime.
 
 **Acceptance Criteria**:
-1. The package contains one executable `bin` entrypoint for the command name
-   `confluex`.
-2. The `bin` entrypoint delegates to the built runtime included by `FR-0215`.
-3. The `bin` entrypoint does not depend on repository-relative shell wrappers,
-   root-level development launchers, or unchecked source files outside the
-   package allowlist.
+1. The package contains one executable public shim at `bin/confluex.js` for the
+   command name `confluex`.
+2. The public shim delegates to the generated public `dist/` runtime included
+   by `FR-0215`.
+3. The public shim resolves its runtime target through package-relative paths
+   inside the closed package path inventory governed by `FR-0215`.
 
 **Dependencies**:
 - `FR-0215`
@@ -202,7 +219,8 @@ and prerequisites.
 
 **Acceptance Criteria**:
 1. Installation docs include fresh install, update, uninstall, local development
-   install, prerequisites, env-file configuration, token setup, and installed
+   install, the Node.js `>=20.11.0` runtime prerequisite, the `uvx` Markdown
+   converter prerequisite, env-file configuration, token setup, and installed
    command validation.
 2. Installation docs identify npm as the package manager for install, update,
    and uninstall.
@@ -262,11 +280,12 @@ mechanisms.
 1. Local development install documentation uses `npm install` for dependencies.
 2. Local package install testing uses either `npm install -g <package-path>` or
    a tarball created by `npm pack`.
-3. Local package smoke testing uses the installed `confluex` command exposed by
-   the npm `bin` mapping governed by `FR-0215`.
+3. Local package smoke testing uses the installed-package smoke checks governed
+   by `FR-0051`.
 
 **Dependencies**:
 - `FR-0048`
+- `FR-0051`
 - `FR-0166`
 - `FR-0215`
 
@@ -292,13 +311,15 @@ package install, update, and removal workflows.
 2. Package update documentation uses the npm command governed by `FR-0049`.
 3. Package removal documentation uses the npm command governed by `FR-0050`.
 4. Package smoke documentation validates the public command inventory governed
-   by `FR-0004` through the installed npm `bin` mapping governed by `FR-0215`.
+   by `FR-0004` through the installed-package smoke checks governed by
+   `FR-0051`.
 
 **Dependencies**:
 - `FR-0004`
 - `FR-0048`
 - `FR-0049`
 - `FR-0050`
+- `FR-0051`
 - `FR-0215`
 
 **Traceability**:
@@ -317,9 +338,9 @@ next steps.
   runtime prerequisites are the next problem.
 
 **Acceptance Criteria**:
-1. Lifecycle docs distinguish npm installation failure, unsupported Node
-   version, missing runtime dependency, missing token configuration, and
-   Confluence access failure.
+1. Lifecycle docs distinguish npm installation failure, unsupported Node.js
+   versions lower than `20.11.0`, missing runtime dependency, missing token
+   configuration, and Confluence access failure.
 2. Lifecycle validation failures do not print token values, Authorization header
    values, cookies, or full process environments.
 3. When package smoke fails because the installed runtime cannot load, the next
@@ -327,7 +348,9 @@ next steps.
    Confluence troubleshooting.
 
 **Dependencies**:
+- `FR-0038`
 - `FR-0039`
+- `FR-0040`
 - `FR-0118`
 - `FR-0166`
 

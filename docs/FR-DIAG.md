@@ -22,36 +22,57 @@ dependencies.
 3. Dependency lines appear in this exact order:
    `dependency_node_runtime=...`,
    `dependency_markdown_converter=...`.
-4. `<state>` uses only `absent`, `present:unknown_version`, or
-   `present:<version_text>`.
-5. The exact dependency executable name is `uvx` for `markdown_converter`;
-   `node_runtime` is read from the current Node.js process version rather than
-   resolved on `PATH`.
-6. A dependency is `absent` when its executable name cannot be resolved to an
-   executable on `PATH`.
-7. When a dependency executable is present, the version probe is
-   `<executable> --version`.
-8. A dependency is `present:unknown_version` when the version probe exits
-   non-zero, when its stdout bytes are not valid UTF-8, when its UTF-8 stdout
-   contains no non-empty line after removing leading and trailing ASCII space,
-   TAB, LF, and CR, when the first such non-empty line contains any ASCII
-   control character with code point `0x00` through `0x1F` or `0x7F`, or when
-   the first such non-empty line after removing leading and trailing ASCII
-   space, TAB, LF, and CR is exactly `unknown_version`.
-9. A dependency is `present:<version_text>` when the version probe exits `0` and
-   its stdout bytes are valid UTF-8, and the decoded stdout contains at least
-   one non-empty line after removing leading and trailing ASCII space, TAB, LF,
-   and CR, and the first such non-empty line contains no ASCII control
-   character with code point `0x00` through `0x1F` or `0x7F` and is not
-   exactly `unknown_version`.
-10. In `present:<version_text>`, `<version_text>` is the first non-empty stdout
-   line from criterion 9 after removing leading and trailing ASCII space, TAB,
-   LF, and CR; stderr from the version probe is ignored.
-11. The serialized `<version_text>` contains no ASCII control character with code
-   point `0x00` through `0x1F` or `0x7F` and does not begin or end with an
-   ASCII space.
-12. ASCII space inside `<version_text>` is part of `<version_text>` and does not
-   delimit additional fields.
+4. `<state>` uses only `absent`, `present:unknown_version`,
+   `present:<version_text>`, or `unsupported:<version_text>`.
+5. The supported Node.js runtime threshold is exactly `>=20.11.0`.
+6. `node_runtime` is read from the current Node.js process version string
+   `process.version`; it is not resolved on `PATH`.
+7. For `node_runtime`, `<version_text>` is `process.version` after removing
+   leading and trailing ASCII space, TAB, LF, and CR.
+8. For `node_runtime`, semantic-version comparison removes one leading `v` from
+   `<version_text>` when present and then parses exactly three dot-separated
+   non-negative base-10 integer components: major, minor, and patch.
+9. `dependency_node_runtime=present:unknown_version` when criterion 7 yields an
+   empty string, when `<version_text>` is exactly `unknown_version`, when
+   `<version_text>` contains any ASCII control character with code point
+   `0x00` through `0x1F` or `0x7F`, or when semantic-version parsing under
+   criterion 8 fails.
+10. `dependency_node_runtime=unsupported:<version_text>` when semantic-version
+    parsing under criterion 8 succeeds and the parsed version is lower than
+    `20.11.0`.
+11. `dependency_node_runtime=present:<version_text>` when semantic-version
+    parsing under criterion 8 succeeds and the parsed version is greater than
+    or equal to `20.11.0`.
+12. The exact dependency executable name is `uvx` for `markdown_converter`.
+13. The `markdown_converter` check is executed through the packaged Markdown
+    payload module that owns converter invocation under `FR-0074`; if that
+    module cannot load after invocation acceptance, the `doctor` invocation
+    fails under `FR-0142`.
+14. `dependency_markdown_converter=absent` when `uvx` cannot be resolved to an
+    executable on `PATH`.
+15. When `uvx` is present, the version probe is `uvx --version`.
+16. `dependency_markdown_converter=present:unknown_version` when the version
+    probe exits non-zero, when its stdout bytes are not valid UTF-8, when its
+    UTF-8 stdout contains no non-empty line after removing leading and trailing
+    ASCII space, TAB, LF, and CR, when the first such non-empty line contains
+    any ASCII control character with code point `0x00` through `0x1F` or
+    `0x7F`, or when the first such non-empty line after removing leading and
+    trailing ASCII space, TAB, LF, and CR is exactly `unknown_version`.
+17. `dependency_markdown_converter=present:<version_text>` when the version
+    probe exits `0`, its stdout bytes are valid UTF-8, and the decoded stdout
+    contains at least one non-empty line after removing leading and trailing
+    ASCII space, TAB, LF, and CR, and the first such non-empty line contains no
+    ASCII control character with code point `0x00` through `0x1F` or `0x7F` and
+    is not exactly `unknown_version`.
+18. For `dependency_markdown_converter=present:<version_text>`,
+    `<version_text>` is the first non-empty stdout line from criterion 17 after
+    removing leading and trailing ASCII space, TAB, LF, and CR; stderr from the
+    version probe is ignored.
+19. The serialized `<version_text>` contains no ASCII control character with code
+    point `0x00` through `0x1F` or `0x7F` and does not begin or end with an
+    ASCII space.
+20. ASCII space inside `<version_text>` is part of `<version_text>` and does not
+    delimit additional fields.
 
 **Dependencies**:
 - `FR-0074`
@@ -189,22 +210,26 @@ readiness.
 2. `<value>` uses either the shared absence token defined by `FR-0125` or a
    comma-delimited list serialized with the shared token-list form defined by
    `FR-0126` and containing one or more unique tokens chosen from
-   `install_markdown_converter`, `set_confluence_base_url`,
-   `set_confluence_token`, `fix_confluence_base_url`, and
-   `check_page_access`.
-3. `install_markdown_converter` appears if and only if
+   `upgrade_node_runtime`, `install_markdown_converter`,
+   `set_confluence_base_url`, `set_confluence_token`,
+   `fix_confluence_base_url`, and `check_page_access`.
+3. `upgrade_node_runtime` appears if and only if the emitted
+   `dependency_node_runtime` line begins with
+   `dependency_node_runtime=unsupported:`.
+4. `install_markdown_converter` appears if and only if
    `dependency_markdown_converter=absent`.
-4. `set_confluence_base_url` appears if and only if
+5. `set_confluence_base_url` appears if and only if
    `configuration=missing_base_url`.
-5. `set_confluence_token` appears if and only if `configuration=missing_token`.
-6. `fix_confluence_base_url` appears if and only if
+6. `set_confluence_token` appears if and only if `configuration=missing_token`.
+7. `fix_confluence_base_url` appears if and only if
    `configuration=invalid_base_url`.
-7. `check_page_access` appears if and only if `page_access=failed`.
-8. If none of the conditions in criteria 3 through 7 apply,
+8. `check_page_access` appears if and only if `page_access=failed`.
+9. If none of the conditions in criteria 3 through 8 apply,
    `next_action=none`.
-9. If `next_action` is not `none`, tokens appear only in this order:
-   `install_markdown_converter`, `set_confluence_base_url`,
-   `set_confluence_token`, `fix_confluence_base_url`, `check_page_access`.
+10. If `next_action` is not `none`, tokens appear only in this order:
+   `upgrade_node_runtime`, `install_markdown_converter`,
+   `set_confluence_base_url`, `set_confluence_token`,
+   `fix_confluence_base_url`, `check_page_access`.
 
 **Dependencies**:
 - `FR-0038`
