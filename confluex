@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 
-const { run } = require('./lib/confluex-node/main.js')
+const { run } = require('./dist/main.js')
 
 run(process.argv.slice(2), process)
   .then(exitCode => {
