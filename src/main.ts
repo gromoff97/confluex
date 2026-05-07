@@ -18,8 +18,9 @@ async function main (): Promise<void> {
 }
 
 if (require.main === module) {
-  main().catch((error: Error) => {
-    process.stderr.write(`ERROR: internal_error ${error.name}\n`)
+  main().catch((error: unknown) => {
+    const errorName = error instanceof Error ? error.name : 'unknown'
+    process.stderr.write(`ERROR: internal_error ${errorName}\n`)
     process.exitCode = 4
   })
 }
