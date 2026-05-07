@@ -184,11 +184,11 @@ test('node entrypoint rejects unsupported known-command options on stderr only',
     'export',
     '--page-id',
     '123',
-    '--safe'
+    '--not-a-real-option'
   ])
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'ERROR: unsupported_option --safe\n')
+  assert.equal(result.stderr, 'ERROR: unsupported_option --not-a-real-option\n')
 })
 
 test('node entrypoint rejects export when root page preflight cannot run', () => {
@@ -226,11 +226,11 @@ test('public launcher validates known commands before development checkpoint', (
     'export',
     '--page-id',
     '123',
-    '--safe'
+    '--not-a-real-option'
   ])
   assert.equal(rejected.status, 1)
   assert.equal(rejected.stdout, '')
-  assert.equal(rejected.stderr, 'ERROR: unsupported_option --safe\n')
+  assert.equal(rejected.stderr, 'ERROR: unsupported_option --not-a-real-option\n')
 
   const preflightRejected = runLauncher(['plan', '--page-id', '123'])
   assert.equal(preflightRejected.status, 1)

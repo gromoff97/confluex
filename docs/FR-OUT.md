@@ -221,19 +221,18 @@ per-page artifacts are persisted.
 - Operators need predictable placement of materialized content and metadata.
 
 **Acceptance Criteria**:
-1. A successfully materialized export page payload folder contains `page.md` and
-   does not contain `page.html`.
+1. A successfully materialized export page payload folder contains the
+   materialized Markdown payload file `page.md`.
 2. If the page has persisted attachments, the folder contains `attachments/`.
 3. If `--keep-metadata` is in effect and page-metadata acquisition for that page
    succeeded under `FR-0069`, the folder also contains `_info.txt`.
 4. If `--keep-metadata` is in effect and storage-content acquisition for that
    page succeeded under `FR-0070`, the folder also contains `_storage.xml`.
-5. This card governs payload file names, mutual exclusion of supported payload
-   formats, folder placement, and metadata or attachment side files; it does
-   not define Markdown payload acquisition, Markdown normalization,
-   Markdown internal-link localization, inline unresolved-marker rendering, or
-   any other page-content semantics inside `page.md`; those
-   semantics are governed by `FR-0074`.
+5. This card governs payload file names, folder placement, and metadata or
+   attachment side files; it does not define Markdown payload acquisition,
+   Markdown normalization, Markdown internal-link localization, inline
+   unresolved-marker rendering, or any other page-content semantics inside
+   `page.md`; those semantics are governed by `FR-0074`.
 6. Any retained export page payload folder contains no direct entries other than
    `page.md` when payload materialization succeeded, `attachments/` when
    criterion 2 applies, `_info.txt` when criterion 3 applies, and

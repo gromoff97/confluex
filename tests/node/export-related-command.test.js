@@ -21,6 +21,16 @@ function options ({ pageId = '123', out, flags = [], values = {} } = {}) {
   }
 }
 
+function boundedValues (values = {}) {
+  return {
+    '--max-pages': '200',
+    '--max-download-mib': '256',
+    '--sleep-ms': '200',
+    '--max-find-candidates': '5',
+    ...values
+  }
+}
+
 function escapeRegExp (value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -101,7 +111,7 @@ test('plan root metadata failure writes retained report set instead of developme
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -146,7 +156,7 @@ test('export root metadata failure writes retained report set and empty pages di
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -208,7 +218,7 @@ test('no-fail-fast export with root metadata writes failed-payload report set', 
   })
 
   assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, 'WARNING: unbounded_run use --safe or --max-pages or --max-download-mib\n')
+  assert.equal(result.stderr, 'WARNING: unbounded_run use --max-pages or --max-download-mib\n')
   assert.match(result.stdout, /^RUN_COMPLETE final_status=success_with_findings artifact=/m)
   assert.deepEqual(fs.readdirSync(out).sort(), [
     'failed-pages.tsv',
@@ -248,7 +258,7 @@ test('basic export with root metadata writes failed-payload report set and lifec
   })
 
   assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, 'WARNING: unbounded_run use --safe or --max-pages or --max-download-mib\n')
+  assert.equal(result.stderr, 'WARNING: unbounded_run use --max-pages or --max-download-mib\n')
   assert.equal(result.stdout, [
     `RUN_START command=export page_id=123 output_root="${out}"`,
     'RUN_PHASE phase=scope_discovery',
@@ -293,7 +303,7 @@ test('basic md export with complete scope materializes page payload', async () =
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -345,7 +355,8 @@ test('basic zip export retains plain root and writes deterministic archive', asy
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--zip']
+    flags: ['--zip'],
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -401,7 +412,8 @@ test('basic zip export fails without overwriting pre-existing zip archive', asyn
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--zip']
+    flags: ['--zip'],
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -437,7 +449,7 @@ test('basic md export records markdown payload diagnostics without dropping payl
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -493,7 +505,7 @@ test('basic md export records page payload acquisition failure without writing p
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -543,7 +555,7 @@ test('basic md export with unresolved links still materializes available page pa
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -608,7 +620,7 @@ test('basic md export rewrites localized links before writing page payloads', as
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async pageId => ({
       state: 'ok',
@@ -698,7 +710,7 @@ test('basic md export downloads attachment payloads into page folder', async () 
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -804,7 +816,7 @@ test('basic export records attachment download failure without retaining attachm
   })
 
   assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, 'WARNING: unbounded_run use --safe or --max-pages or --max-download-mib\n')
+  assert.equal(result.stderr, 'WARNING: unbounded_run use --max-pages or --max-download-mib\n')
   assert.match(result.stdout, /^RUN_COMPLETE final_status=success_with_findings artifact=/m)
   assert.equal(fs.readFileSync(path.join(out, 'manifest.tsv'), 'utf8'), [
     'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count',
@@ -832,10 +844,9 @@ test('basic export max-download stops after page payload bytes', async () => {
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '2'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -905,10 +916,9 @@ test('basic resume export reuses matching prior page payload and regenerates rep
   const first = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '2'
-    }
+    })
   }), dependencies())
 
   assert.equal(first.exitCode, 3)
@@ -921,7 +931,8 @@ test('basic resume export reuses matching prior page payload and regenerates rep
   const second = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--resume']
+    flags: ['--resume'],
+    values: boundedValues()
   }), dependencies())
 
   assert.equal(second.exitCode, 0)
@@ -977,10 +988,9 @@ test('basic resume export refreshes changed prior page payload', async () => {
   const first = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '2'
-    }
+    })
   }), dependencies())
 
   assert.equal(first.exitCode, 3)
@@ -992,7 +1002,8 @@ test('basic resume export refreshes changed prior page payload', async () => {
   const second = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--resume']
+    flags: ['--resume'],
+    values: boundedValues()
   }), dependencies())
 
   assert.equal(second.exitCode, 0)
@@ -1015,7 +1026,7 @@ test('basic md export materializes linked page payloads after scope expansion', 
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1132,7 +1143,7 @@ test('basic export keep-metadata retains root page info artifact and failed payl
   })
 
   assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, 'WARNING: unbounded_run use --safe or --max-pages or --max-download-mib\n')
+  assert.equal(result.stderr, 'WARNING: unbounded_run use --max-pages or --max-download-mib\n')
   assert.deepEqual(fs.readdirSync(out).sort(), [
     'failed-pages.tsv',
     'manifest.tsv',
@@ -1160,13 +1171,13 @@ test('basic export keep-metadata retains root page info artifact and failed payl
   assert.match(infoText, /^space_key=CX$/m)
 })
 
-test('basic safe export with root metadata suppresses unbounded warning', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-safe-export-')), 'out')
+test('basic bounded export with root metadata suppresses unbounded warning', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-bounded-export-')), 'out')
 
   const result = await runExportRelatedCommand('export', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1231,7 +1242,7 @@ test('basic plan with root metadata writes retained report set and lifecycle std
   })
 
   assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, 'WARNING: unbounded_run use --safe or --max-pages or --max-download-mib\n')
+  assert.equal(result.stderr, 'WARNING: unbounded_run use --max-pages or --max-download-mib\n')
   assert.equal(result.stdout, [
     `RUN_START command=plan page_id=123 output_root="${out}"`,
     'RUN_PHASE phase=scope_discovery',
@@ -1272,7 +1283,7 @@ test('basic plan with complete listing and no-link storage produces clean succes
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1318,7 +1329,8 @@ test('basic plan records attachment preview count and metadata artifact', async 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--keep-metadata']
+    flags: ['--keep-metadata'],
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1378,7 +1390,8 @@ test('basic plan no-fail-fast continues attachment preview after page failure', 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--no-fail-fast']
+    flags: ['--no-fail-fast'],
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1445,7 +1458,7 @@ test('basic plan reports unsupported internal-looking storage patterns without e
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1487,7 +1500,7 @@ test('basic plan ignores external href noise and code-body literals while report
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1528,7 +1541,7 @@ test('basic plan resolves content-id storage links into linked pages', async () 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1587,10 +1600,9 @@ test('basic plan link-depth zero does not expand storage links but keeps unsuppo
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--link-depth': '0'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1640,10 +1652,9 @@ test('basic plan link-depth two expands first-hop linked page links without dupl
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--link-depth': '2'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1723,7 +1734,7 @@ test('basic plan resolves href page-id storage links into linked pages', async (
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1782,7 +1793,7 @@ test('basic plan resolves href space-title storage links into linked pages', asy
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1841,7 +1852,7 @@ test('basic plan resolves ri-url page-id storage links into linked pages', async
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1900,7 +1911,7 @@ test('basic plan resolves ri-url space-title storage links into linked pages', a
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -1959,7 +1970,7 @@ test('basic plan resolves page-ref storage links into linked pages', async () =>
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2024,7 +2035,7 @@ test('basic plan resolves page-ref titles with Confluence named entities', async
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2083,7 +2094,7 @@ test('basic plan ignores attachment storage references during page-link inspecti
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2123,10 +2134,9 @@ test('basic plan max-find-candidates leaves title link unresolved with candidate
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-find-candidates': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2188,7 +2198,7 @@ test('basic plan resolves macro page parameter links into linked pages', async (
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2360,14 +2370,14 @@ test('basic plan sleep-ms waits between processed pages only', async () => {
   assert.deepEqual(events, ['storage:123', 'sleep:25', 'storage:456'])
 })
 
-test('basic safe plan uses default sleep between processed pages', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-plan-safe-sleep-')), 'out')
+test('basic bounded plan uses explicit sleep between processed pages', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-plan-bounded-sleep-')), 'out')
   const events = []
 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2407,13 +2417,13 @@ test('basic safe plan uses default sleep between processed pages', async () => {
   assert.deepEqual(events, ['storage:123', 'sleep:200', 'storage:456'])
 })
 
-test('basic safe plan applies default title candidate limit', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-safe-max-find-default-')), 'out')
+test('basic bounded plan applies explicit title candidate limit', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-bounded-max-find-default-')), 'out')
 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2453,8 +2463,8 @@ test('basic safe plan applies default title candidate limit', async () => {
   ].join('\n'))
 })
 
-test('basic safe plan applies default max-pages limit', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-safe-max-pages-default-')), 'out')
+test('basic bounded plan applies explicit max-pages limit', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-bounded-max-pages-default-')), 'out')
   const childPages = Array.from({ length: 200 }, (_, index) => ({
     page_id: String(1000 + index),
     page_title: `Child Page ${index}`,
@@ -2465,7 +2475,7 @@ test('basic safe plan applies default max-pages limit', async () => {
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2500,13 +2510,13 @@ test('basic safe plan applies default max-pages limit', async () => {
   assert.match(summary, /^interrupt_reason=max_pages_limit_reached$/m)
 })
 
-test('basic safe plan applies default max-download limit', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-safe-max-download-default-')), 'out')
+test('basic bounded plan applies explicit max-download limit', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-bounded-max-download-default-')), 'out')
 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2587,10 +2597,9 @@ test('basic plan max-pages stops before processing child page', async () => {
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-pages': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2657,10 +2666,9 @@ test('basic plan max-download stops after storage metadata bytes', async () => {
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2716,10 +2724,9 @@ test('basic plan max-download stops after root metadata bytes', async () => {
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2765,10 +2772,9 @@ test('basic plan max-download uses storage metadataBytes before storage text byt
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2814,10 +2820,9 @@ test('basic plan max-download stops after child listing metadata bytes', async (
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2879,10 +2884,9 @@ test('basic plan max-download stops after page-id lookup metadata bytes', async 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -2955,10 +2959,9 @@ test('basic plan max-download stops after title candidate metadata bytes', async
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe'],
-    values: {
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -3038,10 +3041,10 @@ test('basic plan max-download stops after attachment preview metadata bytes', as
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe', '--keep-metadata'],
-    values: {
+    flags: ['--keep-metadata'],
+    values: boundedValues({
       '--max-download-mib': '1'
-    }
+    })
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -3099,13 +3102,13 @@ test('basic plan max-download stops after attachment preview metadata bytes', as
   assert.match(summary, /^interrupt_reason=max_download_limit_reached$/m)
 })
 
-test('basic safe plan with root metadata suppresses unbounded warning', async () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-safe-plan-')), 'out')
+test('basic bounded plan with root metadata suppresses unbounded warning', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'confluex-basic-bounded-plan-')), 'out')
 
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--safe']
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',
@@ -3202,7 +3205,7 @@ test('basic plan keep-metadata retains root page info artifact', async () => {
   })
 
   assert.equal(result.exitCode, 0)
-  assert.equal(result.stderr, 'WARNING: unbounded_run use --safe or --max-pages or --max-download-mib\n')
+  assert.equal(result.stderr, 'WARNING: unbounded_run use --max-pages or --max-download-mib\n')
   assert.deepEqual(fs.readdirSync(out).sort(), [
     'failed-pages.tsv',
     'manifest.tsv',
@@ -3234,7 +3237,8 @@ test('basic plan keep-metadata retains acquired storage artifact', async () => {
   const result = await runExportRelatedCommand('plan', options({
     pageId: '123',
     out,
-    flags: ['--keep-metadata', '--safe']
+    flags: ['--keep-metadata'],
+    values: boundedValues()
   }), {
     checkRootPageAccess: async () => ({
       state: 'ok',

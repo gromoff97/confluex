@@ -193,33 +193,6 @@ test('invalid effective option value selects earliest supported option list toke
   })
 })
 
-test('removed page format option is rejected before command work', () => {
-  assert.deepEqual(validateCommandInvocation('export', [
-    '--page-id',
-    '123',
-    '--page-format',
-    'html'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'unsupported-option',
-      optionToken: '--page-format'
-    }
-  })
-
-  assert.deepEqual(validateCommandInvocation('export', [
-    '--page-id',
-    '123',
-    '--page-format'
-  ]), {
-    kind: 'rejected',
-    diagnostic: {
-      type: 'unsupported-option',
-      optionToken: '--page-format'
-    }
-  })
-})
-
 test('invalid link depth is rejected before command work', () => {
   assert.deepEqual(validateCommandInvocation('plan', [
     '--page-id',
