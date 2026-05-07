@@ -269,10 +269,12 @@ output-root reuse begins.
    explicit-output-root rejection under `FR-0016`, including resume-root
    compatibility evaluation under `FR-0103` when
    `export --resume --out <path>` applies; persistent log-path validation under
-   `FR-0134` when a persistent log-artifact path is selected under `FR-0029`;
-   root-page preflight under `FR-0017`; and automatic generated output-root
-   naming and candidate selection under `FR-0055` when no output-root selector
-   supplies a path.
+   `FR-0134` when both an output-root selector supplies a path and a persistent
+   log-artifact path is selected under `FR-0029`; root-page preflight under
+   `FR-0017`; automatic generated output-root naming and candidate selection
+   under `FR-0055` when no output-root selector supplies a path; and persistent
+   log-path validation under `FR-0134` when no output-root selector supplies a
+   path and a persistent log-artifact path is selected under `FR-0029`.
 4. For `doctor`, pre-acceptance work occurs in this order: command-surface
    validation; env-file source selection, env-file path validation, env-file
    parsing, and effective public configuration selection under `FR-0219`; and
