@@ -15,7 +15,7 @@ const readyEnv = {
   CONFLUEX_CONFLUENCE_TOKEN: 'token'
 }
 
-function options ({ logFile, pageId } = {}) {
+function options ({ logFile, pageId }: { logFile?: string, pageId?: string } = {}) {
   return {
     flags: [],
     values: {

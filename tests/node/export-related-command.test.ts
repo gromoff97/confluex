@@ -10,7 +10,14 @@ const { runExportRelatedCommand } = require('../../dist/confluex-node/commands/e
 const { normalizeMarkdownPayload } = require('../../dist/confluex-node/payload/markdown')
 const { quotePathString } = require('../../dist/confluex-node/path/format')
 
-function options ({ pageId = '123', out, flags = [], values = {} } = {}) {
+type CommandOptionsInput = {
+  pageId?: string
+  out?: string
+  flags?: string[]
+  values?: Record<string, string>
+}
+
+function options ({ pageId = '123', out, flags = [], values = {} }: CommandOptionsInput = {}) {
   return {
     flags,
     values: {
@@ -21,7 +28,7 @@ function options ({ pageId = '123', out, flags = [], values = {} } = {}) {
   }
 }
 
-function boundedValues (values = {}) {
+function boundedValues (values: Record<string, string> = {}) {
   return {
     '--max-pages': '200',
     '--max-download-mib': '256',

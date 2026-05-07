@@ -8,7 +8,7 @@ const path = require('node:path')
 
 const { selectOutputRoot } = require('../../dist/confluex-node/output/root')
 
-function options ({ out, flags = [] } = {}) {
+function options ({ out, flags = [] }: { out?: string, flags?: string[] } = {}) {
   return {
     flags,
     values: out === undefined ? {} : { '--out': out }

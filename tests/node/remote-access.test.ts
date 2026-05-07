@@ -123,8 +123,9 @@ test('root page access fails for unusable context and invalid responses', async 
     })
   })
 
-  const dnsFailure = new Error('getaddrinfo ENOTFOUND confluence.test')
-  dnsFailure.code = 'ENOTFOUND'
+  const dnsFailure = Object.assign(new Error('getaddrinfo ENOTFOUND confluence.test'), {
+    code: 'ENOTFOUND'
+  })
   assert.deepEqual(await checkRootPageAccess('123', envForBaseUrl('http://127.0.0.1:9'), {
     request: async () => { throw dnsFailure }
   }), {

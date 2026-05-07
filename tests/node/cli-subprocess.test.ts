@@ -12,6 +12,13 @@ const repoRoot = path.resolve(__dirname, '..', '..')
 const nodeMain = path.join(repoRoot, 'dist', 'main.js')
 const launcher = path.join(repoRoot, 'confluex')
 
+type AsyncProcessResult = {
+  status: number | null
+  signal: string | null
+  stdout: string
+  stderr: string
+}
+
 function runNodeMain (argv) {
   return spawnSync(process.execPath, [nodeMain, ...argv], {
     cwd: repoRoot,
@@ -49,7 +56,7 @@ function runLauncherWithEnv (argv, env, cwd = repoRoot) {
   })
 }
 
-function runLauncherWithEnvAsync (argv, env, cwd = repoRoot) {
+function runLauncherWithEnvAsync (argv, env, cwd = repoRoot): Promise<AsyncProcessResult> {
   return new Promise(resolve => {
     const child = spawn(launcher, argv, {
       cwd,
@@ -83,7 +90,7 @@ function writeExecutable (file, content) {
   fs.chmodSync(file, 0o755)
 }
 
-async function withServer (handler, run) {
+async function withServer (handler, run): Promise<any> {
   const server = http.createServer(handler)
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   try {

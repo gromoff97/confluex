@@ -21,9 +21,11 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "npm run typecheck:src && npm run typecheck:tests",
+    "typecheck:src": "tsc -p tsconfig.json --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "prepack": "npm run build",
-    "test:node": "npm run build && node --test",
+    "test:node": "npm run build && node --test tests/node/*.test.ts",
     "lint:js": "node scripts/lint-js.js",
     "lint:ts": "eslint \"src/**/*.ts\" eslint.config.mjs --max-warnings 0",
     "lint:shell": "node scripts/lint-shell.js",
