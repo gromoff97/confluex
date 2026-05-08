@@ -51,10 +51,8 @@ combinations before command work begins.
 2. If the rejected command is `export` or `plan`, rejection occurs before
    traversal, payload export, attachment download, report generation, output
    root reuse, or ZIP packaging begins.
-3. If the rejected command is `doctor`, rejection occurs before dependency
-   probing, page-access diagnostics, support-profile reporting,
-   supported-link-form reporting, next-action computation, or persistent log
-   creation begins.
+3. If the rejected command is `setup`, rejection occurs before prompting,
+   dependency probing, remote validation, or user configuration writing begins.
 
 **Dependencies**:
 - `FR-0222`
@@ -275,38 +273,26 @@ output-root reuse begins.
    output-root filesystem rejection under `FR-0076` when no output-root selector
    supplies a path; and persistent log-path validation under `FR-0134` when a
    persistent log-artifact path is selected under `FR-0029`.
-4. For `doctor`, pre-acceptance work occurs in this order: command-surface
-   validation; env-file source selection, env-file path validation, env-file
-   parsing, and effective public configuration selection under `FR-0219`; and
-   persistent log-path validation under `FR-0134` when a persistent
-   log-artifact path is selected under `FR-0029`.
+4. For `setup`, pre-acceptance work is command-surface validation.
 5. Creating or reusing an output root, creating or replacing a persistent log
    artifact, traversing Confluence data, generating reports, materializing page
-   payloads, downloading attachments, creating a ZIP archive, dependency
-   probing, or emitting page-access diagnostics occurs only after criterion 1.
+   payloads, downloading attachments, creating a ZIP archive, prompting for
+   setup input, setup dependency probing, setup remote validation, or user
+   configuration writing occurs only after criterion 1.
 6. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
-7. For `doctor`, the accepted-work threshold from criterion 1 is the first
-   applicable step in this order: persistent log-artifact creation,
-   replacement, or first write under `FR-0134` when a persistent log-artifact
-   path is selected under `FR-0029`; otherwise dependency probing under
-   `FR-0038`, page-access diagnostics under `FR-0039` when `--page-id` is
-   supplied, support-profile reporting under `FR-0041`, supported-link-form
-   reporting under `FR-0044`, or next-action computation under `FR-0042`.
-8. A `doctor` failure from persistent log-artifact creation, replacement, or
-   first write in criterion 7 is observed after invocation acceptance and is
-   classified by `FR-0134` and `FR-0142`.
+7. For `setup`, the accepted-work threshold from criterion 1 is the first
+   setup prompt governed by `FR-0041`.
+8. A setup validation failure observed after criterion 7 is classified by
+   `FR-0043`.
 
 **Dependencies**:
 - `FR-0016`
 - `FR-0017`
 - `FR-0021`
-- `FR-0029`
 - `FR-0038`
-- `FR-0039`
 - `FR-0041`
-- `FR-0042`
-- `FR-0044`
+- `FR-0043`
 - `FR-0055`
 - `FR-0076`
 - `FR-0134`
@@ -371,9 +357,9 @@ output-root reuse begins.
    create or reuse an output root.
 9. If the operator supplied `--log-file` on a rejected invocation, the CLI does
    not create, append, or overwrite that persistent log artifact.
-10. If the rejected invocation targets `doctor`, the CLI does not probe local
-    dependencies, perform page-access diagnostics, emit diagnostic stdout, or
-    create, append, or overwrite a persistent log artifact.
+10. If the rejected invocation targets `setup`, the CLI does not prompt for
+    setup input, probe local dependencies, perform remote validation, or create,
+    append, or overwrite user configuration.
 11. If the rejected invocation targets an unsupported command token, the CLI
     does not dispatch to any public workflow governed by `FR-0242`.
 
@@ -537,33 +523,34 @@ closed option set before command work begins.
 - Observable evidence: unsupported-option rejection before command work
 
 ### FR-0244
-**Requirement**: Remote-access diagnostics and run preflight shall require a
-usable token-only Confluence access context.
+**Requirement**: Setup validation and run preflight shall require a usable
+token-only Confluence access context.
 
 **Applicability**:
 - non-help `export` invocations
 - non-help `plan` invocations
-- non-help `doctor --page-id <id>` invocations
+- non-help `setup` invocations
 
 **Rationale**:
 - Operators need access failures caused by missing or invalid public
-  configuration inputs to occur before traversal or page diagnostics proceed.
+  configuration inputs to occur before traversal or configuration persistence.
 
 **Acceptance Criteria**:
 1. `export` and `plan` require a usable remote-access context under `FR-0216`
    before root-page preflight can succeed.
-2. `doctor --page-id <id>` requires a usable remote-access context under
-   `FR-0216` before page-access diagnostics can report `page_access=ok`.
+2. `setup` requires a usable remote-access context under `FR-0216` before user
+   configuration can be written.
 3. Missing, empty, or invalid `CONFLUEX_CONFLUENCE_BASE_URL` or
    `CONFLUEX_CONFLUENCE_TOKEN` values are classified through the governing
-   root-page preflight or page-access diagnostic branch rather than by a
-   command-line target option.
+   root-page preflight or setup validation branch rather than by a command-line
+   target option.
 
 **Dependencies**:
 - `FR-0017`
-- `FR-0039`
+- `FR-0043`
 - `FR-0216`
+- `FR-0234`
 
 **Traceability**:
 - Area: invocation validation
-- Observable evidence: root-page preflight and doctor page-access diagnostics
+- Observable evidence: root-page preflight and setup validation

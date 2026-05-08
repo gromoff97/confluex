@@ -17,12 +17,12 @@ CLI package.
    `>=20.11.0`, a `bin.confluex` mapping exactly equal to
    `./bin/confluex.js`, and a `files` allowlist.
 2. The `files` allowlist is exactly this ordered JSON string array:
-   `["bin/", "dist/", "README.md", "LICENSE", "package.json"]`.
+   `["bin/", "dist/", "man/", "README.md", "LICENSE", "package.json"]`.
 3. The publishable package path inventory is closed to these path classes:
    `package.json`, `README.md`, `LICENSE`, `bin/confluex.js`, and regular
-   files whose package-relative path begins with `dist/`.
-4. The package-public docs inventory beyond `README.md` and `LICENSE` is empty
-   for this lifecycle target.
+   files whose package-relative path begins with `dist/` or `man/`.
+4. The package-public docs inventory is exactly `README.md`, `LICENSE`, and
+   `man/man1/confluex.1`.
 5. Package metadata does not mark the package `private` when publication is the
    active lifecycle target.
 
@@ -110,8 +110,8 @@ CLI package.
 - Observable evidence: uninstall docs and package-manager result
 
 ### FR-0051
-**Requirement**: Installed-package smoke checks shall validate real command
-dispatch.
+**Requirement**: Installed-package smoke checks shall validate installed command
+and manual resolution.
 
 **Applicability**:
 - local package install checks
@@ -124,27 +124,22 @@ dispatch.
 
 **Acceptance Criteria**:
 1. Installed-package smoke checks run these commands in order:
-   `confluex --help`, `confluex doctor --help`, `confluex doctor`.
+   `confluex --help`, `confluex setup --help`,
+   `confluex export --help`, `confluex plan --help`, and
+   `man -w confluex`.
 2. The `confluex --help` command follows the top-level help contract governed
    by `FR-0007`.
-3. The `confluex doctor --help` command follows the command-help contract
-   governed by `FR-0008`.
-4. The `confluex doctor` command is invoked without `--page-id` and without
-   requiring `CONFLUEX_CONFLUENCE_TOKEN`; it follows the accepted `doctor`
-   stdout, stderr, and exit-code contract governed by `FR-0043`.
-5. The `confluex doctor` smoke command validates the package path that loads the
-   Markdown payload module through the `markdown_converter` diagnostic governed
-   by `FR-0038`.
-6. Any smoke command output containing a JavaScript module-resolution stack
+3. Each command-help invocation follows the command-help contract governed by
+   `FR-0008`.
+4. The `man -w confluex` command resolves the installed manual page governed by
+   `FR-0215`.
+5. Any smoke command output containing a JavaScript module-resolution stack
    trace, an unhandled exception stack trace, or a missing packaged-runtime
    path fails installed-package validation.
 
 **Dependencies**:
 - `FR-0007`
 - `FR-0008`
-- `FR-0038`
-- `FR-0043`
-- `FR-0074`
 - `FR-0118`
 
 **Traceability**:
@@ -207,8 +202,8 @@ runtime.
 - Observable evidence: package `bin`, installed command dispatch
 
 ### FR-0168
-**Requirement**: Installation documentation shall cover the supported lifecycle
-and prerequisites.
+**Requirement**: Installation documentation shall provide a quick start and
+delegate full usage details to the installed manual.
 
 **Applicability**:
 - README and operator installation docs
@@ -218,21 +213,19 @@ and prerequisites.
   the installed tool.
 
 **Acceptance Criteria**:
-1. Installation docs include fresh install, update, uninstall, local development
-   install, the Node.js `>=20.11.0` runtime prerequisite, the `uvx` Markdown
-   converter prerequisite, env-file configuration, token setup, and installed
-   command validation.
-2. Installation docs identify npm as the package manager for install, update,
-   and uninstall.
-3. Installation docs identify the public CLI commands from `FR-0222` as the
-   installed command surface operators can validate after package setup.
+1. README quick-start documentation includes fresh install, update, uninstall,
+   `confluex setup`, one `confluex plan --page-id <id>` example, one
+   `confluex export --page-id <id> --zip` example, and `man confluex`.
+2. README quick-start documentation identifies npm as the package manager for
+   install, update, and uninstall.
+3. README quick-start documentation identifies the installed manual as the full
+   operator reference.
 
 **Dependencies**:
 - `FR-0048`
 - `FR-0049`
 - `FR-0050`
 - `FR-0222`
-- `FR-0219`
 
 **Traceability**:
 - Area: installation lifecycle

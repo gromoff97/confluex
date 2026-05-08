@@ -225,10 +225,10 @@ fields.
 1. Rejected invocations exit `1`.
 2. Accepted `export` and `plan` runs that terminate with
    `final_status=success` or `final_status=success_with_findings` exit `0`.
-3. Accepted `doctor` invocations that complete according to the requirements
-   corpus exit `0`.
-4. Accepted `doctor` invocations that fail after accepted command work begins
-   exit `4`.
+3. Accepted `setup` invocations that complete according to the setup success
+   contract governed by `FR-0043` exit `0`.
+4. Accepted `setup` invocations that fail setup validation under `FR-0043` exit
+   `1`.
 5. Configured stop conditions exit `3`.
 6. Runtime failure after accepted run execution has begun exits `4`.
 7. Signal interruption exits `130`.
@@ -239,6 +239,7 @@ fields.
 - `FR-0007`
 - `FR-0008`
 - `FR-0019`
+- `FR-0043`
 - `FR-0113`
 - `FR-0100`
 - `FR-0101`
@@ -251,20 +252,23 @@ fields.
 - Observable evidence: process exit code
 
 ### FR-0142
-**Requirement**: Runtime failures of accepted non-run utility commands shall use
-one bounded observable contract.
+**Requirement**: Runtime failures of accepted setup invocations shall use one
+bounded observable contract.
 
 **Applicability**:
-- accepted `doctor` invocations whose failure is observed after invocation
-  acceptance under `FR-0212` and after command-specific work begins
+- accepted `setup` invocations whose failure is observed after invocation
+  acceptance under `FR-0212` and is not a setup validation failure governed by
+  `FR-0043`
 
 **Rationale**:
-- Operators need utility-command runtime failures to be visible without
-  confusing them with successful result lines or rejected invocations.
+- Operators need setup runtime failures to be visible without confusing them
+  with setup validation failures, successful setup lines, or rejected
+  invocations.
 
 **Acceptance Criteria**:
 1. The invocation exits `4` under `FR-0118`.
-2. The invocation emits no stdout.
+2. The invocation does not emit `setup_result=passed` or `config_path=` stdout
+   lines after the failure is observed.
 3. Runtime-failure output is written to `stderr`.
 4. Runtime-failure stderr is UTF-8 text with LF line endings and at least one
    line.
@@ -273,15 +277,16 @@ one bounded observable contract.
    CR.
 6. Additional stderr lines, if any, are non-governed diagnostic text and do not
    define additional runtime-failure status values.
-7. A `doctor` runtime failure leaves any selected persistent log artifact in the
-   state governed by `FR-0134`.
-8. A `doctor` runtime failure does not emit any successful diagnostic stdout
-   line after the failure is observed.
+7. User configuration state after a setup runtime failure is governed by
+   `FR-0042`.
+8. A setup runtime failure does not emit any setup success stdout line after the
+   failure is observed.
 
 **Dependencies**:
 - `FR-0118`
 - `FR-0212`
-- `FR-0134`
+- `FR-0042`
+- `FR-0043`
 
 **Traceability**:
 - Area: observability and outcomes

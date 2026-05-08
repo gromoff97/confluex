@@ -2,29 +2,25 @@
 
 
 ### FR-0020
-**Requirement**: `--page-id <id>` shall select the target root page or page to
-diagnose.
+**Requirement**: `--page-id <id>` shall select the target root page.
 
 **Applicability**:
 - `export --page-id <id>`
 - `plan --page-id <id>`
-- `doctor --page-id <id>`
 
 **Rationale**:
-- Operators need one explicit page selector for run scope or access diagnosis.
+- Operators need one explicit page selector for run scope.
 
 **Acceptance Criteria**:
 1. In `export` and `plan`, `--page-id <id>` selects the root page for the run.
-2. In `doctor`, `--page-id <id>` requests page-access verification for that page.
-3. Any command other than `export`, `plan`, or `doctor` used with `--page-id` is
-   rejected.
+2. Any command other than `export` or `plan` used with `--page-id` is rejected.
 
 **Dependencies**:
 - None
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: workflow behavior, page-access diagnostics, rejection
+- Observable evidence: workflow behavior and rejection
 
 ### FR-0021
 **Requirement**: The output-root selector shall control the logical plain
@@ -66,7 +62,6 @@ configuration source.
 **Applicability**:
 - `export --env-file <file>`
 - `plan --env-file <file>`
-- `doctor --env-file <file>`
 
 **Rationale**:
 - Operators need a deterministic way to load invocation-local configuration from
@@ -76,9 +71,8 @@ configuration source.
 1. `--env-file <file>` selects the env-file source for the current invocation.
 2. Env-file path normalization, readability validation, parsing, and precedence
    are governed by `FR-0219`.
-3. `--env-file <file>` is supported only by `export`, `plan`, and `doctor`.
-4. Any command other than `export`, `plan`, or `doctor` used with `--env-file`
-   is rejected.
+3. `--env-file <file>` is supported only by `export` and `plan`.
+4. Any command other than `export` or `plan` used with `--env-file` is rejected.
 
 **Dependencies**:
 - `FR-0036`
@@ -335,8 +329,7 @@ value validation as command-line option values.
    `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` are validated by
    the corresponding numeric syntax rules in `FR-0014`.
 4. Effective Confluence access values selected under `FR-0219` are interpreted
-   by the remote-access context rules in `FR-0216`, and `doctor` configuration
-   readiness serialization is governed by `FR-0234`.
+   by the remote-access context rules in `FR-0216`.
 5. If a configured option-equivalent value fails the validation required by
    criteria 1 through 3,
    the invocation is rejected before command work begins.
@@ -345,46 +338,12 @@ value validation as command-line option values.
 - `FR-0014`
 - `FR-0021`
 - `FR-0029`
-- `FR-0234`
 - `FR-0216`
 - `FR-0219`
 
 **Traceability**:
 - Area: option semantics
 - Observable evidence: invalid configured value rejection
-
-### FR-0230
-**Requirement**: `doctor` public options shall select diagnostic checks and
-diagnostic artifacts only.
-
-**Applicability**:
-- accepted non-help `doctor` invocations
-
-**Rationale**:
-- Operators need diagnostics to report readiness without starting export or
-  planning work.
-
-**Acceptance Criteria**:
-1. `--page-id <id>` requests the page-access diagnostic governed by `FR-0039`.
-2. `--env-file <file>` selects configuration for the current diagnostic
-   invocation under `FR-0219`.
-3. `--log-file <file>` selects a persistent diagnostic log artifact governed by
-   `FR-0134`.
-4. A `doctor` invocation does not select an output root, run-stop limit,
-   inter-page delay, candidate limit, link depth, resume mode, metadata
-   retention mode, or ZIP archive mode.
-
-**Dependencies**:
-- `FR-0020`
-- `FR-0225`
-- `FR-0029`
-- `FR-0039`
-- `FR-0134`
-- `FR-0219`
-
-**Traceability**:
-- Area: option semantics
-- Observable evidence: diagnostic stdout and persistent log behavior
 
 ### FR-0231
 **Requirement**: Public flag options shall consume no following argv token as a
@@ -639,14 +598,14 @@ candidate inspection.
    `--keep-metadata`, `--env-file`, `--log-file`, `--max-pages`,
    `--max-download-mib`, `--sleep-ms`, `--max-find-candidates`, and
    `--link-depth`.
-3. `doctor` supports only `--page-id`, `--env-file`, and `--log-file`.
+3. `setup` supports no options.
 4. The supported options that take values use exactly these value placeholders in
    help output: `--page-id` uses `<id>`, `--out` uses `<path>`,
    `--env-file` uses `<file>`, `--log-file` uses `<file>`,
    `--max-pages` uses `<n>`, `--max-download-mib` uses `<n>`,
    `--sleep-ms` uses `<n>`, `--max-find-candidates` uses `<n>`, and
    `--link-depth` uses `<n>`.
-5. Every supported option in criteria 1 through 3 that is not listed in
+5. Every supported option in criteria 1 through 2 that is not listed in
    criterion 4 is a flag option and has no value placeholder in help output.
 6. No command accepts positional operands after the command token other than
    values consumed by the valued options in criterion 4.
@@ -668,22 +627,19 @@ invocation-local inputs only.
 **Applicability**:
 - accepted non-help `export` invocations
 - accepted non-help `plan` invocations
-- accepted non-help `doctor` invocations
 
 **Rationale**:
-- Operators need one reproducible precedence model that does not depend on
-  machine-local saved state from earlier invocations.
+- Operators need one reproducible precedence model for each invocation.
 
 **Acceptance Criteria**:
-1. The only public input sources for effective option values are the current
-   argv vector, the selected env file governed by `FR-0219`, and the current
-   process environment.
-2. Command-line option values take precedence over configured values according
-   to `FR-0219`.
-3. Env-file values take precedence over process-environment values according to
+1. Effective values selected from public command-line options take precedence
+   according to `FR-0219`.
+2. Effective values selected from env files take precedence according to
    `FR-0219`.
-4. Effective option selection for one invocation does not persist values for a
-   later invocation.
+3. Effective values selected from user configuration take precedence according
+   to `FR-0219`.
+4. Effective values selected from the process environment take precedence
+   according to `FR-0219`.
 
 **Dependencies**:
 - `FR-0036`

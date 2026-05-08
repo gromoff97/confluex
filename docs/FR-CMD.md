@@ -2,6 +2,33 @@
 
 
 ### FR-0001
+**Requirement**: The product shall expose `setup` as a top-level command.
+
+**Applicability**:
+- `confluex --help`
+- `confluex setup`
+- `confluex setup --help`
+
+**Rationale**:
+- Operators need one first-run workflow for validated persistent user
+  configuration.
+
+**Acceptance Criteria**:
+1. Top-level help lists `setup` as a supported command in the command order
+   governed by `FR-0222`.
+2. `confluex setup --help` identifies `setup` as the interactive user
+   configuration workflow.
+3. An accepted `confluex setup` invocation starts the setup workflow rather
+   than any other workflow.
+
+**Dependencies**:
+- `FR-0222`
+
+**Traceability**:
+- Area: command surface
+- Observable evidence: top-level help output, command help output, workflow entry
+
+### FR-0002
 **Requirement**: The product shall expose `export` as a top-level command.
 
 **Applicability**:
@@ -27,7 +54,7 @@
 - Area: command surface
 - Observable evidence: top-level help output, command help output, workflow entry
 
-### FR-0002
+### FR-0003
 **Requirement**: The product shall expose `plan` as a top-level command.
 
 **Applicability**:
@@ -52,34 +79,9 @@
 - Area: command surface
 - Observable evidence: top-level help output, command help output, workflow entry
 
-### FR-0003
-**Requirement**: The product shall expose `doctor` as a top-level command.
-
-**Applicability**:
-- `confluex --help`
-- `confluex doctor`
-- `confluex doctor --help`
-
-**Rationale**:
-- Operators need a distinct diagnostic workflow.
-
-**Acceptance Criteria**:
-1. Top-level help lists `doctor` as a supported command in the command order
-   governed by `FR-0222`.
-2. `confluex doctor --help` identifies `doctor` as the diagnostic workflow.
-3. An accepted `confluex doctor ...` invocation starts diagnostics rather than
-   any other workflow.
-
-**Dependencies**:
-- `FR-0222`
-
-**Traceability**:
-- Area: command surface
-- Observable evidence: top-level help output, command help output, workflow entry
-
 ### FR-0222
 **Requirement**: The public top-level command inventory shall be exactly
-`export`, `plan`, and `doctor` in that order.
+`setup`, `export`, and `plan` in that order.
 
 **Applicability**:
 - `confluex --help`
@@ -91,12 +93,12 @@
   deterministic ordering.
 
 **Acceptance Criteria**:
-1. The public top-level command tokens are exactly `export`, `plan`, and
-   `doctor`.
+1. The public top-level command tokens are exactly `setup`, `export`, and
+   `plan`.
 2. Everywhere the public command inventory is serialized as an ordered list, the
-   order is exactly `export`, then `plan`, then `doctor`.
-3. A first argv token after the program path equal to `export`, `plan`, or
-   `doctor` is classified as a supported command before option validation.
+   order is exactly `setup`, then `export`, then `plan`.
+3. A first argv token after the program path equal to `setup`, `export`, or
+   `plan` is classified as a supported command before option validation.
 4. Any other first argv token after the program path is classified as an
    unsupported command under `FR-0011`, except for top-level help shapes
    governed by `FR-0007`.
@@ -143,9 +145,9 @@ each public top-level command.
 top-level command.
 
 **Applicability**:
+- `confluex setup --help`
 - `confluex export --help`
 - `confluex plan --help`
-- `confluex doctor --help`
 
 **Rationale**:
 - Operators need command-specific option guidance for every public workflow.
@@ -173,20 +175,20 @@ top-level command.
 to exactly one public workflow.
 
 **Applicability**:
+- accepted non-help `confluex setup` invocations
 - accepted non-help `confluex export ...` invocations
 - accepted non-help `confluex plan ...` invocations
-- accepted non-help `confluex doctor ...` invocations
 
 **Rationale**:
 - Operators need accepted command tokens to select one deterministic workflow.
 
 **Acceptance Criteria**:
-1. Accepted non-help `export` invocations route to the materialized Markdown
+1. Accepted non-help `setup` invocations route to the setup workflow governed by
+   `FR-0043`.
+2. Accepted non-help `export` invocations route to the materialized Markdown
    export workflow governed by `FR-0053`.
-2. Accepted non-help `plan` invocations route to the dry-run planning workflow
+3. Accepted non-help `plan` invocations route to the dry-run planning workflow
    governed by `FR-0054`.
-3. Accepted non-help `doctor` invocations route to the diagnostic workflow
-   governed by `FR-0043`.
 4. One accepted invocation routes to exactly one workflow from criteria 1
    through 3.
 

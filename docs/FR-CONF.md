@@ -8,7 +8,8 @@ variable inventory.
 **Applicability**:
 - env-file parsing
 - process-environment configuration reads
-- configuration diagnostics and validation
+- user configuration mapping
+- configuration validation
 
 **Rationale**:
 - Operators need one authoritative list of supported public configuration
@@ -41,24 +42,26 @@ variable inventory.
 
 **Traceability**:
 - Area: configuration
-- Observable evidence: env-file keys, process-environment reads, effective
-  option values
+- Observable evidence: env-file keys, process-environment reads, user config
+  mapping, effective option values
 
 ### FR-0236
 **Requirement**: Public Confluence credentials shall use token-only Bearer
 authentication.
 
 **Applicability**:
+- non-help `setup` invocations
 - non-help `export` invocations
 - non-help `plan` invocations
-- non-help `doctor --page-id <id>` invocations
 
 **Rationale**:
 - Operators need one credential model that is compatible across public
   workflows and safe to reason about in diagnostics.
 
 **Acceptance Criteria**:
-1. The only public credential input is `CONFLUEX_CONFLUENCE_TOKEN`.
+1. Public Confluence authentication uses only the token value selected as
+   effective `CONFLUEX_CONFLUENCE_TOKEN` under `FR-0219` or entered during
+   setup under `FR-0216`.
 2. The product uses the selected token only as the Bearer token value governed
    by `FR-0216`.
 3. The selected token value is not case-normalized, percent-decoded,
@@ -69,6 +72,7 @@ authentication.
 **Dependencies**:
 - `FR-0237`
 - `FR-0216`
+- `FR-0219`
 
 **Traceability**:
 - Area: configuration
@@ -80,8 +84,8 @@ authentication.
 invocation-local access context.
 
 **Applicability**:
+- non-help `setup` invocations during connection validation
 - non-help `export` and `plan` invocations
-- non-help `doctor` invocations with `--page-id <id>`
 
 **Rationale**:
 - Operators and tests need one authoritative source for the base URL and token
@@ -89,12 +93,14 @@ invocation-local access context.
 
 **Acceptance Criteria**:
 1. For this card, the remote-access context is the pair `(base_url, token)` used
-   to resolve root pages and acquire Confluence page or attachment data for the
-   current invocation.
+   to validate setup authentication, resolve root pages, and acquire Confluence
+   page or attachment data for the current invocation.
 2. The remote-access context uses the effective
    `CONFLUEX_CONFLUENCE_BASE_URL` value as `base_url` and the effective
    `CONFLUEX_CONFLUENCE_TOKEN` value as `token`.
-3. Effective values are selected under `FR-0219`.
+3. Effective values are selected under `FR-0219`; during setup validation, the
+   entered base URL and entered token are treated as the highest-precedence
+   effective values for the setup invocation only.
 4. `base_url` and `token` are each non-empty and contain no TAB, LF, or CR.
 5. The product sends exactly one HTTP Authorization field for authenticated
    Confluence requests, with the exact field value `Bearer <token>`, where
@@ -109,8 +115,8 @@ invocation-local access context.
    any other usable `base_url` preserves its exact path prefix and does not add
    or remove a trailing slash.
 7. For this card, a governed Confluence request target is the absolute-path and
-   optional-query reference required by one governed root-page preflight,
-   `doctor --page-id`, page acquisition, or attachment acquisition step before
+   optional-query reference required by one setup current-user validation,
+   root-page preflight, page acquisition, or attachment acquisition step before
    any `base_url` path prefix from criterion 6 is applied. Its path component
    `<target_path>` begins with `/`; it contains no scheme, authority, or
    fragment; and its optional query component `<target_query>` is either absent
@@ -127,13 +133,14 @@ invocation-local access context.
    present. The product does not strip, duplicate, normalize, or insert any
    additional path segment or slash between `<prefix>` and `<target_path>`, and
    does not rewrite `<target_query>`.
-10. Every governed root-page preflight, `doctor --page-id`, page acquisition,
-    and attachment acquisition step uses the effective request URL from
-    criteria 7 through 9 together with the exact Bearer token Authorization
-    field from criterion 5 and no alternative base URL or credential source.
+10. Every governed setup current-user validation, root-page preflight, page
+    acquisition, and attachment acquisition step uses the effective request URL
+    from criteria 7 through 9 together with the exact Bearer token
+    Authorization field from criterion 5 and no alternative base URL or
+    credential source.
 11. The product uses one remote-access context consistently for root-page
-    preflight, `doctor --page-id`, and every later page or attachment
-    acquisition step attempted by that same invocation.
+    preflight and every later page or attachment acquisition step attempted by
+    that same invocation.
 12. A remote-access context is usable for the current invocation only when the
     active values satisfy every applicable requirement from criteria 4 through
     10 for that invocation.
@@ -145,16 +152,17 @@ invocation-local access context.
 
 **Traceability**:
 - Area: configuration
-- Observable evidence: consistent page-access behavior and Bearer
+- Observable evidence: consistent setup, page-access behavior, and Bearer
   Authorization under one invocation
 
 ### FR-0219
-**Requirement**: Confluex shall select and parse one env-file source before
-reading effective public configuration.
+**Requirement**: Confluex shall select effective public configuration from
+command-line values, env files, user config, and process environment in one
+deterministic precedence order.
 
 **Applicability**:
-- non-help `export`, `plan`, and `doctor` invocations before invocation
-  acceptance under `FR-0212`
+- non-help `export` and `plan` invocations before invocation acceptance under
+  `FR-0212`
 - effective public configuration selection
 
 **Rationale**:
@@ -185,34 +193,35 @@ reading effective public configuration.
 8. If `--env-file <file>` is absent and criterion 6 reports path absence,
    symbolic link, directory, FIFO, socket, device, any filesystem object kind
    other than regular file, or metadata-evaluation failure, no env file is
-   selected and the invocation continues to effective public configuration
-   selection.
+   selected and the invocation continues to user-config and process-environment
+   configuration selection.
 9. When no env file is selected, the env-file source contributes no key-value
    pairs to effective public configuration selection.
-10. If a selected env file cannot be read as a UTF-8 text file, the
-   invocation is rejected under `FR-0019` before command work begins.
+10. If a selected env file cannot be read as a UTF-8 text file, the invocation
+    is rejected under `FR-0019` before command work begins.
 11. A selected env file is split into logical lines at LF. If the file does not
-   end with LF, the final byte sequence after the last LF is one logical line.
-   For each logical line, one trailing CR is removed when present before line
-   classification or key-value parsing.
+    end with LF, the final byte sequence after the last LF is one logical line.
+    For each logical line, one trailing CR is removed when present before line
+    classification or key-value parsing.
 12. An env-file line is ignored when the line is empty after removing leading and
-   trailing ASCII space and TAB, or when the first code point after removing
-   leading ASCII space and TAB is `#`.
+    trailing ASCII space and TAB, or when the first code point after removing
+    leading ASCII space and TAB is `#`.
 13. A non-ignored env-file line is malformed unless it contains `KEY=value`.
-   `KEY` is the text before the first `=` after removing leading and trailing
-   ASCII space and TAB; it must be non-empty and contain no ASCII space, TAB,
-   `=`, NUL, LF, or CR. The value is the text after the first `=`, except that
-   one surrounding double-quote pair is removed when both the first and final
-   value code points are `"`.
+    `KEY` is the text before the first `=` after removing leading and trailing
+    ASCII space and TAB; it must be non-empty and contain no ASCII space, TAB,
+    `=`, NUL, LF, or CR. The value is the text after the first `=`, except that
+    one surrounding double-quote pair is removed when both the first and final
+    value code points are `"`.
 14. If any non-ignored env-file line is malformed under criterion 13, the
-   invocation is rejected under `FR-0019` before command work begins.
+    invocation is rejected under `FR-0019` before command work begins.
 15. If the same key appears on more than one non-ignored env-file line, the
     selected env-file value for that key is the value from the last parsed line
     with that key.
 16. Only keys from the public configuration key inventory governed by `FR-0235`
     participate in effective public configuration selection.
 17. Effective configuration precedence is exactly command-line option value,
-    then selected env-file value, then process environment value, then no value.
+    then selected env-file value, then user config value, then process
+    environment value, then no value.
 18. Command-line option precedence applies to these selector pairs:
    `--out <path>` over `CONFLUEX_OUTPUT_ROOT`, `--log-file <file>` over
    `CONFLUEX_LOG_FILE`, `--max-pages <n>` over `CONFLUEX_MAX_PAGES`,
@@ -222,10 +231,11 @@ reading effective public configuration.
    `--link-depth <n>` over `CONFLUEX_LINK_DEPTH`.
 19. `CONFLUEX_CONFLUENCE_BASE_URL` and `CONFLUEX_CONFLUENCE_TOKEN` have no
     command-line option aliases in the public CLI.
-20. Env-file values never supply hidden fallbacks for unsupported options or
-    unsupported commands.
+20. Env-file and user config values never supply hidden fallbacks for
+    unsupported options or unsupported commands.
 21. Public output redaction for secret effective values selected through this
     card is governed by `FR-0237`.
+22. User config path and JSON parsing are governed by `FR-0246`.
 
 **Dependencies**:
 - `FR-0019`
@@ -236,11 +246,12 @@ reading effective public configuration.
 - `FR-0159`
 - `FR-0212`
 - `FR-0237`
+- `FR-0246`
 
 **Traceability**:
 - Area: configuration
-- Observable evidence: selected env-file reads, effective option selection,
-  rejection timing
+- Observable evidence: selected env-file reads, user config reads, effective
+  option selection, rejection timing
 
 ### FR-0237
 **Requirement**: Public output channels shall redact secret configuration
@@ -251,28 +262,77 @@ values.
 - stderr
 - persistent log artifacts
 - retained report artifacts
-- diagnostic fields
+- setup diagnostics
 
 **Rationale**:
-- Operators need tokens loaded from env files or process environments to remain
-  out of public CLI output.
+- Operators need tokens loaded from env files, user config, setup, or process
+  environments to remain out of public CLI output.
 
 **Acceptance Criteria**:
-1. `CONFLUEX_CONFLUENCE_TOKEN` values are classified as secret values.
+1. `CONFLUEX_CONFLUENCE_TOKEN` values and user config `confluenceToken` values
+   are classified as secret values.
 2. Secret values are never emitted verbatim to stdout.
 3. Secret values are never emitted verbatim to stderr.
 4. Secret values are never emitted verbatim to persistent log artifacts.
 5. Secret values are never emitted verbatim to retained report artifacts.
-6. Secret values are never emitted verbatim to diagnostic fields.
+6. Secret values are never emitted verbatim to setup diagnostics.
 7. When a diagnostic must identify a token-related failure, it uses a stable
    reason token governed by the diagnostic or preflight card that owns that
    failure branch.
 
 **Dependencies**:
 - `FR-0039`
+- `FR-0043`
 - `FR-0134`
 - `FR-0216`
 
 **Traceability**:
 - Area: configuration
 - Observable evidence: CLI output, logs, and reports without token disclosure
+
+### FR-0246
+**Requirement**: User configuration shall persist setup-selected Confluence
+connection values in one JSON file.
+
+**Applicability**:
+- `confluex setup`
+- non-help `export` and `plan` invocations
+
+**Rationale**:
+- Operators need setup-selected base URL and token values to be reused without
+  relying on shell profile state.
+
+**Acceptance Criteria**:
+1. On Linux and other XDG environments, the user config path is
+   `$XDG_CONFIG_HOME/confluex/config.json` when `XDG_CONFIG_HOME` is non-empty;
+   otherwise it is `$HOME/.config/confluex/config.json`.
+2. On Windows, the user config path is `%APPDATA%\confluex\config.json`.
+3. The user config file is UTF-8 JSON.
+4. The only supported user config keys are `confluenceBaseUrl` and
+   `confluenceToken`.
+5. `confluenceBaseUrl` maps to the effective
+   `CONFLUEX_CONFLUENCE_BASE_URL` value when no higher-precedence source
+   supplies that key.
+6. `confluenceToken` maps to the effective `CONFLUEX_CONFLUENCE_TOKEN` value
+   when no higher-precedence source supplies that key.
+7. If the user config file is absent, user config contributes no values to
+   effective configuration selection.
+8. If the user config file exists but is not valid UTF-8 JSON object text,
+   non-help `export` and `plan` invocations are rejected under `FR-0019` before
+   command work begins.
+9. Each present user config value for a criterion-4 key must be a JSON string;
+   otherwise non-help `export` and `plan` invocations are rejected under
+   `FR-0019` before command work begins.
+10. If the user config object contains a key other than the criterion-4 keys,
+    non-help `export` and `plan` invocations are rejected under `FR-0019`
+    before command work begins.
+11. Token redaction is governed by `FR-0237`.
+
+**Dependencies**:
+- `FR-0019`
+- `FR-0216`
+- `FR-0237`
+
+**Traceability**:
+- Area: configuration
+- Observable evidence: setup-written config and effective configuration

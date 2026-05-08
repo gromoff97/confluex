@@ -556,26 +556,21 @@ replacement behavior.
     selected under `FR-0029`, that log setup may itself be the first
     accepted-run lifecycle work specific to the invocation under `FR-0180` and
     may begin before output-root creation or reuse, resume-reuse evaluation,
-    scope-discovery work, page processing, or report generation. For `doctor`,
-    that log setup begins before any governed `doctor` stdout line is emitted.
+    scope-discovery work, page processing, or report generation.
 16. If creating missing parent directories, opening the log artifact, replacing
    the log artifact, or writing current invocation log text fails after
    criterion 15 begins, the invocation does not continue without the selected
    persistent log artifact.
 17. For `export` and `plan`, a failure from criterion 16 is an accepted-run
    runtime failure governed by `FR-0102`.
-18. For `doctor`, a failure from criterion 16 is a utility-command runtime
-   failure governed by `FR-0142`.
 
 **Dependencies**:
 - `FR-0019`
 - `FR-0021`
 - `FR-0029`
-- `FR-0043`
 - `FR-0076`
 - `FR-0238`
 - `FR-0102`
-- `FR-0142`
 - `FR-0180`
 - `FR-0154`
 - `FR-0159`
