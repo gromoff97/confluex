@@ -1,0 +1,94 @@
+.TH CONFLUEX 1 "May 2026" "confluex 0.1.0" "User Commands"
+.SH NAME
+confluex \- export Confluence pages to Markdown
+.SH SYNOPSIS
+.B confluex setup
+.br
+.B confluex export --page-id
+.I id
+.RI [ options ]
+.br
+.B confluex plan --page-id
+.I id
+.RI [ options ]
+.SH DESCRIPTION
+.B confluex
+is a token-authenticated CLI for exporting Confluence page trees to Markdown.
+.SH COMMANDS
+.TP
+.B setup
+Interactively save Confluence base URL and token in the user configuration file.
+The token prompt does not echo input.
+.TP
+.B export
+Materialize Markdown payload, attachments, and reports for a Confluence page scope.
+.TP
+.B plan
+Build the same page scope and reports without page payload or attachment downloads.
+.SH COMMON OPTIONS
+.TP
+.BI --page-id " id"
+Root Confluence page id for export or plan.
+.TP
+.BI --out " path"
+Output directory. If omitted, Confluex generates one.
+.TP
+.B --zip
+For export, create a ZIP archive beside the output root.
+.TP
+.B --resume
+For export, reuse a compatible incomplete output root selected by
+.BR --out .
+.TP
+.BI --env-file " file"
+Load public configuration from an env file.
+.TP
+.BI --log-file " file"
+Write a persistent log artifact.
+.TP
+.BI --max-pages " n"
+Stop after n processed pages.
+.TP
+.BI --max-download-mib " n"
+Stop after downloading n MiB.
+.TP
+.BI --sleep-ms " n"
+Sleep n ms between processed pages.
+.TP
+.BI --max-find-candidates " n"
+Inspect at most n title-resolution candidates per link.
+.TP
+.BI --link-depth " n"
+Follow supported internal links up to n hops from the root child tree.
+.SH CONFIGURATION
+Configuration precedence is command-line options, explicit env file, default
+current-directory .confluex.env, user config written by setup, process
+environment, then no value.
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/confluex/config.json
+User config on Linux and XDG environments when XDG_CONFIG_HOME is set.
+.TP
+.I $HOME/.config/confluex/config.json
+User config on Linux and XDG environments when XDG_CONFIG_HOME is not set.
+.TP
+.I %APPDATA%\\confluex\\config.json
+User config on Windows.
+.SH EXIT STATUS
+.TP
+.B 0
+Success, success with findings, or help.
+.TP
+.B 1
+Rejected invocation or setup validation failure.
+.TP
+.B 3
+Configured stop condition.
+.TP
+.B 4
+Runtime failure.
+.TP
+.B 130
+Interrupted by signal.
+.SH SEE ALSO
+.BR npm (1)

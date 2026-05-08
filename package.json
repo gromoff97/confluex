@@ -13,20 +13,20 @@
   "bin": {
     "confluex": "./bin/confluex.js"
   },
+  "man": [
+    "./man/man1/confluex.1"
+  ],
   "files": [
     "bin/",
     "dist/",
+    "man/",
     "README.md",
     "LICENSE",
     "package.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "typecheck:tools": "tsc -p tsconfig.tools.json --noEmit",
-    "prepack": "npm run build",
-    "lint": "eslint \"src/**/*.ts\" \"tools/**/*.ts\" eslint.config.mjs --max-warnings 0",
-    "verify:public-cleanup": "TMPDIR=/tmp tsx tools/verify-public-cleanup.ts"
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^8.57.1",
