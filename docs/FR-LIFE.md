@@ -17,12 +17,13 @@ CLI package.
    `>=20.11.0`, a `bin.confluex` mapping exactly equal to
    `./bin/confluex.js`, and a `files` allowlist.
 2. The `files` allowlist is exactly this ordered JSON string array:
-   `["bin/", "dist/", "man/", "README.md", "LICENSE", "package.json"]`.
+   `["bin/", "dist/", "docs/man/", "README.md", "LICENSE", "package.json"]`.
 3. The publishable package path inventory is closed to these path classes:
-   `package.json`, `README.md`, `LICENSE`, `bin/confluex.js`, and regular
-   files whose package-relative path begins with `dist/` or `man/`.
+   `package.json`, `README.md`, `LICENSE`, `bin/confluex.js`, regular files
+   whose package-relative path begins with `dist/`, and regular files whose
+   package-relative path begins with `docs/man/`.
 4. The package-public docs inventory is exactly `README.md`, `LICENSE`, and
-   `man/man1/confluex.1`.
+   `docs/man/man1/confluex.1`.
 5. Package metadata does not mark the package `private` when publication is the
    active lifecycle target.
 
@@ -131,8 +132,8 @@ and manual resolution.
    by `FR-0007`.
 3. Each command-help invocation follows the command-help contract governed by
    `FR-0008`.
-4. The `man -w confluex` command resolves the installed manual page governed by
-   `FR-0215`.
+4. The `man -w confluex` command resolves the installed manual page whose
+   package source path is governed by `FR-0215`.
 5. Any smoke command output containing a JavaScript module-resolution stack
    trace, an unhandled exception stack trace, or a missing packaged-runtime
    path fails installed-package validation.
