@@ -3,14 +3,6 @@ dist/
 tmp/
 .idea/
 .agents/
-designs/
-plans/
-docker/
-lib/
-scripts/
-tests/
-live-bats/
-selftest/
 .ralph/
 .playwright-mcp/
 ralph.yml
