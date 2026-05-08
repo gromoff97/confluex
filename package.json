@@ -29,13 +29,8 @@
     "prepack": "npm run build"
   },
   "devDependencies": {
-    "@eslint/js": "^8.57.1",
     "@types/node": "^25.6.0",
-    "eslint": "^8.57.1",
-    "globals": "^17.6.0",
-    "tsx": "^4.19.4",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.2"
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "mdast-util-from-markdown": "^2.0.3",
