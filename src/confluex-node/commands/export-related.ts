@@ -827,7 +827,7 @@ function isBasicExport (command: Command, options: ExportOptions, access: RootAc
 function isBasicExportOptions (command: Command, options: ExportOptions): boolean {
   const allowedValues = ['--page-id', '--out', '--env-file', '--log-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
   return command === 'export' &&
-    hasOnlyFlags(options, ['--keep-metadata', '--no-fail-fast', '--resume', '--zip']) &&
+    hasOnlyFlags(options, ['--keep-metadata', '--no-fail-fast', '--resume', '--zip', '--include-children']) &&
     Object.keys(options.values).every(token => allowedValues.includes(token) || BOUNDED_VALUE_OPTIONS.includes(token))
 }
 
@@ -838,7 +838,7 @@ function isBasicPlan (command: Command, options: ExportOptions, access: RootAcce
 function isBasicPlanOptions (command: Command, options: ExportOptions): boolean {
   const allowedValues = ['--page-id', '--out', '--env-file', '--log-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
   return command === 'plan' &&
-    hasOnlyFlags(options, ['--keep-metadata', '--no-fail-fast']) &&
+    hasOnlyFlags(options, ['--keep-metadata', '--no-fail-fast', '--include-children']) &&
     Object.keys(options.values).every(token => allowedValues.includes(token) || BOUNDED_VALUE_OPTIONS.includes(token))
 }
 
@@ -1096,6 +1096,7 @@ async function basicPlanScope (
   const maxPages = maxPagesLimit(options)
   const maxDownloadBytes = maxDownloadBytesLimit(options)
   const linkDepth = effectiveLinkDepth(options)
+  const includeChildren = isChildTraversalSelected(options)
   const sleepState = pageSleepState(options, dependencies)
   const downloadedBytes = downloadedByteState(initialDownloadedBytes)
   let downloadLimitReached = hasReachedDownloadLimit(downloadedBytes, maxDownloadBytes)
@@ -1114,51 +1115,53 @@ async function basicPlanScope (
   const byteOperationPages: PageQueueEntry[] = hasAnyDownloadedBytes(downloadedBytes) ? pages.slice(0, 1) : []
   const listChildPages = dependencies.listChildPages
 
-  if (typeof listChildPages !== 'function') {
-    scopeFindingRows.push(childListingIncompleteRow(rootMetadata.page_id))
-  } else {
-    for (let index = 0; index < pages.length; index += 1) {
-      if (downloadLimitReached || (maxPages !== null && index >= maxPages)) {
-        break
-      }
-      const page = pages[index]
-      if (page === undefined) {
-        break
-      }
-      const source = page.metadata
-      const listing = await safeListChildPages(listChildPages, source)
-      if (listing.state !== 'ok') {
-        scopeFindingRows.push(childListingIncompleteRow(source.page_id))
-        continue
-      }
-      const listingMetadataBytes = listing.metadataBytes
-      if (Number.isSafeInteger(listingMetadataBytes) && listingMetadataBytes !== undefined && listingMetadataBytes >= 0) {
-        byteOperationPages.push(page)
-        addMetadataDownloadBytes(downloadedBytes, listingMetadataBytes, '')
-        if (hasReachedDownloadLimit(downloadedBytes, maxDownloadBytes)) {
-          downloadLimitReached = true
+  if (includeChildren) {
+    if (typeof listChildPages !== 'function') {
+      scopeFindingRows.push(childListingIncompleteRow(rootMetadata.page_id))
+    } else {
+      for (let index = 0; index < pages.length; index += 1) {
+        if (downloadLimitReached || (maxPages !== null && index >= maxPages)) {
+          break
         }
-      }
-      if (!listing.complete) {
-        scopeFindingRows.push(childListingPartialRow(source.page_id))
-      }
-      for (const child of listing.children) {
-        if (!isUsablePageMetadata(child)) {
+        const page = pages[index]
+        if (page === undefined) {
+          break
+        }
+        const source = page.metadata
+        const listing = await safeListChildPages(listChildPages, source)
+        if (listing.state !== 'ok') {
           scopeFindingRows.push(childListingIncompleteRow(source.page_id))
           continue
         }
-        resolvedLinkRows.push(childResultLinkRow(source, child))
-        if (!seenPageIds.has(child.page_id)) {
-          seenPageIds.add(child.page_id)
-          pages.push({
-            metadata: child,
-            discoverySource: 'tree',
-            linkDepth: 0
-          })
+        const listingMetadataBytes = listing.metadataBytes
+        if (Number.isSafeInteger(listingMetadataBytes) && listingMetadataBytes !== undefined && listingMetadataBytes >= 0) {
+          byteOperationPages.push(page)
+          addMetadataDownloadBytes(downloadedBytes, listingMetadataBytes, '')
+          if (hasReachedDownloadLimit(downloadedBytes, maxDownloadBytes)) {
+            downloadLimitReached = true
+          }
         }
-      }
-      if (downloadLimitReached) {
-        break
+        if (!listing.complete) {
+          scopeFindingRows.push(childListingPartialRow(source.page_id))
+        }
+        for (const child of listing.children) {
+          if (!isUsablePageMetadata(child)) {
+            scopeFindingRows.push(childListingIncompleteRow(source.page_id))
+            continue
+          }
+          resolvedLinkRows.push(childResultLinkRow(source, child))
+          if (!seenPageIds.has(child.page_id)) {
+            seenPageIds.add(child.page_id)
+            pages.push({
+              metadata: child,
+              discoverySource: 'tree',
+              linkDepth: 0
+            })
+          }
+        }
+        if (downloadLimitReached) {
+          break
+        }
       }
     }
   }
@@ -1359,6 +1362,10 @@ function effectiveLinkDepth (options: ExportOptions): number {
     return Number.isSafeInteger(parsed) ? parsed : 1
   }
   return 1
+}
+
+function isChildTraversalSelected (options: ExportOptions): boolean {
+  return options.flags.includes('--include-children')
 }
 
 function processedPageSlice (pages: PageQueueEntry[], maxPages: number | null): PageQueueEntry[] {

@@ -12,7 +12,7 @@ import {
 } from './markdown'
 
 const execFilePromise = promisify(nodeExecFile)
-const EXPORTER_PACKAGE = 'confluence-markdown-exporter==4.1.1'
+const EXPORTER_PACKAGE = 'confluence-markdown-exporter==5.0.0'
 
 type PageRef = {
   page_id: string
