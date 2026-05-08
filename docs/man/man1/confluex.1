@@ -61,10 +61,14 @@ reuse a compatible incomplete output root selected by
 .BR --out .
 .SS Scope control
 .TP
+.B --include-children
+Include the recursive Confluence child tree of the root page in the selected
+scope. If omitted, Confluex does not traverse child pages.
+.TP
 .BI --link-depth " n"
 Follow supported internal links up to
 .I n
-hops from the root child tree.
+hops from pages already in scope.
 .TP
 .BI --max-find-candidates " n"
 Inspect at most

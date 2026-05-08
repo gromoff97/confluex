@@ -34,31 +34,40 @@ in scope.
 - Observable evidence: manifest and summary interpretation
 
 ### FR-0060
-**Requirement**: The run's required child-traversal scope shall be the full
-recursive child tree of the root page.
+**Requirement**: The run shall add recursive child-tree pages to scope only when
+recursive child traversal is selected.
 
 **Applicability**:
 - accepted `export` and `plan` runs
 
 **Rationale**:
-- The customer expects root-driven export, not just a single page export.
+- Operators need default runs to remain focused on the selected root page and
+  supported internal links, while still being able to request the full child
+  hierarchy explicitly.
 
 **Acceptance Criteria**:
-1. Any page that the run determines is a descendant of the root page through
-   recursive child traversal is added to scope.
-2. If recursive child knowledge is incomplete, the run records the applicable
-   `child_listing` scope-finding row defined by `FR-0071` rather than
-   silently treating the child tree as complete.
-3. If recursive child knowledge is incomplete, the run has not proved the full
-   descendant set for `FR-0060`; undiscovered descendants are therefore not
-   silently treated as out of scope or as proven absent.
+1. If recursive child traversal is selected under `FR-0234`, any page that the
+   run determines is a descendant of the root page through recursive child
+   traversal is added to scope.
+2. If recursive child traversal is not selected under `FR-0234`, no page is
+   added to scope because it is a descendant of the root page.
+3. If recursive child traversal is not selected under `FR-0234`, the run does
+   not perform child-listing acquisition for recursive child traversal.
+4. If recursive child traversal is selected and recursive child knowledge is
+   incomplete, the run records the applicable `child_listing` scope-finding row
+   defined by `FR-0071` rather than silently treating the child tree as complete.
+5. If recursive child traversal is selected and recursive child knowledge is
+   incomplete, the run has not proved the full descendant set for `FR-0060`;
+   undiscovered descendants are therefore not silently treated as out of scope
+   or as proven absent.
 
 **Dependencies**:
 - `FR-0071`
+- `FR-0234`
 
 **Traceability**:
 - Area: scope discovery
-- Observable evidence: manifest, scope-findings report
+- Observable evidence: manifest, resolved-links report, scope-findings report
 
 ### FR-0061
 **Requirement**: The run scope shall include linked pages discovered from
@@ -70,10 +79,11 @@ link-depth.
 
 **Rationale**:
 - Operators need the export scope to include supported internal page references
-  from root-tree content and explicitly bounded linked-page content.
+  from pages already in scope and explicitly bounded linked-page content.
 
 **Acceptance Criteria**:
-1. A root-tree page has source link-depth `0`.
+1. A page that is in scope through `FR-0059` or `FR-0060` has source
+   link-depth `0`.
 2. If a supported internal link in a page whose source link-depth is less than
    the effective link-depth resolves to one unique target page, that target page
    is added to scope.
@@ -83,6 +93,7 @@ link-depth.
    still appears only once in scope.
 
 **Dependencies**:
+- `FR-0059`
 - `FR-0063`
 - `FR-0071`
 - `FR-0064`
@@ -516,15 +527,16 @@ queue.
 1. The discovery queue starts with the root page as its first entry.
 2. The discovery queue is append-only: after a page id is appended, later
    discoveries never insert another page id before it.
-3. While processing a page, recursive child-listing discoveries for that page
-   append newly discovered page ids to the tail of the queue in the preserved
-   child-sequence order returned for that source page under `FR-0071`.
-4. If one child-listing result for the root page already contains descendants,
-   every returned page id is treated as discovered while processing the root page
-   and is appended under criterion 3.
-5. When recursive child traversal requires child-listing results for multiple
-   pages, those child-listing results are requested when their source page is
-   processed in FIFO order.
+3. While processing a page and recursive child traversal is selected,
+   recursive child-listing discoveries for that page append newly discovered
+   page ids to the tail of the queue in the preserved child-sequence order
+   returned for that source page under `FR-0071`.
+4. If recursive child traversal is selected and one child-listing result for the
+   root page already contains descendants, every returned page id is treated as
+   discovered while processing the root page and is appended under criterion 3.
+5. When recursive child traversal is selected and requires child-listing results
+   for multiple pages, those child-listing results are requested when their
+   source page is processed in FIFO order.
 6. Supported links discovered while processing a page whose source link-depth is
    less than the effective link-depth append resolved target page ids to the
    tail of the queue in the first-occurrence order found in that page's storage
@@ -545,8 +557,9 @@ queue.
    position, they are evaluated in ascending bytewise lexicographic order of the
    normalized target-input serialization defined for `raw_link_value` by
    `FR-0087`.
-12. For the same source page, child-listing discoveries are appended before
-   supported-link discoveries.
+12. For the same source page, recursive child-listing discoveries are appended
+    before supported-link discoveries when recursive child traversal is
+    selected.
 13. If a page id is already queued or processed, a later discovery path does not
    enqueue it again.
 14. Page processing consumes the queue in FIFO order.
@@ -555,10 +568,12 @@ queue.
 - `FR-0060`
 - `FR-0061`
 - `FR-0062`
+- `FR-0234`
 - `FR-0218`
 - `FR-0071`
 - `FR-0087`
 - `FR-0127`
+- `FR-0234`
 
 **Traceability**:
 - Area: scope discovery
@@ -578,9 +593,9 @@ queue.
 
 **Acceptance Criteria**:
 1. The root page row in `manifest.tsv` uses `discovery_source=root`.
-2. A non-root page that is part of the recursive child tree uses
-   `discovery_source=tree` even if the same page is also discovered through a
-   supported internal link.
+2. A non-root page that is part of the recursive child tree discovered while
+   recursive child traversal is selected uses `discovery_source=tree` even if
+   the same page is also discovered through a supported internal link.
 3. A non-root page that is outside the recursive child tree and enters scope
    only through supported internal-link expansion uses
    `discovery_source=linked`.

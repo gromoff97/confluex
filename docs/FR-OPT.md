@@ -591,13 +591,13 @@ candidate inspection.
 
 **Acceptance Criteria**:
 1. `export` supports only `--page-id`, `--out`, `--resume`,
-   `--no-fail-fast`, `--keep-metadata`, `--zip`, `--env-file`, `--log-file`,
+   `--no-fail-fast`, `--keep-metadata`, `--zip`, `--include-children`,
+   `--env-file`, `--log-file`, `--max-pages`, `--max-download-mib`,
+   `--sleep-ms`, `--max-find-candidates`, and `--link-depth`.
+2. `plan` supports only `--page-id`, `--out`, `--no-fail-fast`,
+   `--keep-metadata`, `--include-children`, `--env-file`, `--log-file`,
    `--max-pages`, `--max-download-mib`, `--sleep-ms`,
    `--max-find-candidates`, and `--link-depth`.
-2. `plan` supports only `--page-id`, `--out`, `--no-fail-fast`,
-   `--keep-metadata`, `--env-file`, `--log-file`, `--max-pages`,
-   `--max-download-mib`, `--sleep-ms`, `--max-find-candidates`, and
-   `--link-depth`.
 3. `setup` supports no options.
 4. The supported options that take values use exactly these value placeholders in
    help output: `--page-id` uses `<id>`, `--out` uses `<path>`,
@@ -711,6 +711,41 @@ for `export`.
 - Observable evidence: ZIP-packaging request selection and unsupported command
   rejection
 
+### FR-0234
+**Requirement**: `--include-children` shall select recursive child traversal for
+one run.
+
+**Applicability**:
+- `export --include-children`
+- `plan --include-children`
+
+**Rationale**:
+- Operators need child-tree traversal to be explicit because default runs should
+  not expand scope through Confluence child hierarchy.
+
+**Acceptance Criteria**:
+1. `--include-children` is a flag option with no value.
+2. If `--include-children` is supplied on `export` or `plan`, recursive child
+   traversal is selected for that run.
+3. If `--include-children` is omitted from `export` or `plan`, recursive child
+   traversal is not selected for that run.
+4. Any command other than `export` or `plan` used with `--include-children` is
+   rejected.
+5. The selector chooses only recursive child traversal. Link-driven scope
+   expansion is governed by `FR-0061`, `FR-0062`, and `FR-0218`.
+
+**Dependencies**:
+- `FR-0036`
+- `FR-0060`
+- `FR-0061`
+- `FR-0062`
+- `FR-0218`
+
+**Traceability**:
+- Area: option semantics
+- Observable evidence: accepted child-traversal selection, default child
+  traversal absence, unsupported command rejection
+
 ### FR-0218
 **Requirement**: `--link-depth <n>` shall select the effective link-depth for
 link-driven scope expansion.
@@ -726,7 +761,7 @@ link-driven scope expansion.
 
 **Acceptance Criteria**:
 1. The effective link-depth is a canonical non-negative integer count of
-   supported internal-link hops away from the root page child tree for one run.
+   supported internal-link hops away from pages already in scope for one run.
 2. If `--link-depth <n>` is supplied on `export` or `plan`, the effective
    link-depth for that run is `n`.
 3. If `--link-depth <n>` is omitted and `CONFLUEX_LINK_DEPTH` has an effective
@@ -735,10 +770,10 @@ link-driven scope expansion.
    link-depth value, the effective link-depth is `1`.
 5. Any command other than `export` or `plan` used with `--link-depth` is
    rejected.
-6. The selector chooses only the effective link-depth value; root child traversal
-   is governed by `FR-0060`, link-driven scope expansion is governed by
-   `FR-0061` and `FR-0062`, and deterministic queue ordering is governed by
-   `FR-0141`.
+6. The selector chooses only the effective link-depth value; recursive child
+   traversal selection is governed by `FR-0234`, link-driven scope expansion is
+   governed by `FR-0061` and `FR-0062`, and deterministic queue ordering is
+   governed by `FR-0141`.
 
 **Dependencies**:
 - `FR-0014`
@@ -748,6 +783,7 @@ link-driven scope expansion.
 - `FR-0062`
 - `FR-0141`
 - `FR-0219`
+- `FR-0234`
 
 **Traceability**:
 - Area: option semantics

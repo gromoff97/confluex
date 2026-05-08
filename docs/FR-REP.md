@@ -219,10 +219,10 @@ link-report schemas.
     criteria 13 through 17 for that discovery, and `target_page_id` is the
     resolved target page's canonical page identifier.
 27. Each recursive child-listing edge returned for a processed source page under
-    `FR-0063` contributes one link-report tuple before the
-    deduplication from criteria 24 and 25. If the returned child page identity
-    includes a
-    canonical page identifier, it contributes one resolved-link tuple:
+    `FR-0063` while recursive child traversal is selected contributes one
+    link-report tuple before the deduplication from criteria 24 and 25. If the
+    returned child page identity includes a canonical page identifier, it
+    contributes one resolved-link tuple:
    `source_page_id` is the source page's canonical page identifier,
    `link_kind` is `child_result`, `raw_link_value` is exactly
    `page_id:<target_page_id>`, and `target_page_id` is the returned child's
@@ -242,6 +242,7 @@ link-report schemas.
 - `FR-0014`
 - `FR-0091`
 - `FR-0125`
+- `FR-0234`
 
 **Traceability**:
 - Area: reports
