@@ -1,0 +1,207 @@
+.TH CONFLUEX 1 "May 2026" "confluex 0.1.0" "User Commands"
+.SH NAME
+confluex \- export Confluence pages to Markdown
+.SH SYNOPSIS
+.B confluex setup
+.br
+.B confluex plan --page-id
+.I id
+.RI [ options ]
+.br
+.B confluex export --page-id
+.I id
+.RI [ options ]
+.SH DESCRIPTION
+.B confluex
+is a token-authenticated command line tool for planning and exporting
+Confluence page scopes to Markdown.
+.PP
+.B setup
+saves reusable user configuration.
+.B plan
+checks the selected page scope and writes reports without downloading page
+payloads or attachments.
+.B export
+writes Markdown pages, attachments, and reports.
+.SH COMMANDS
+.TP
+.B setup
+Interactively save the Confluence base URL and token in the user configuration
+file. The token prompt does not echo input.
+.TP
+.B plan
+Build the selected page scope, validate page access, and write reports without
+materializing Markdown payloads or attachment files.
+.TP
+.B export
+Build the selected page scope, write Markdown payloads, retain downloaded
+attachments, and write reports.
+.SH OPTIONS
+.SS Required selection
+.TP
+.BI --page-id " id"
+Root Confluence page id for
+.B plan
+or
+.BR export .
+.SS Output control
+.TP
+.BI --out " path"
+Output directory. If omitted, Confluex generates an output directory.
+.TP
+.B --zip
+For
+.BR export ,
+create a ZIP archive beside the Markdown output root.
+.TP
+.B --resume
+For
+.BR export ,
+reuse a compatible incomplete output root selected by
+.BR --out .
+.SS Scope control
+.TP
+.BI --link-depth " n"
+Follow supported internal links up to
+.I n
+hops from the root child tree.
+.TP
+.BI --max-find-candidates " n"
+Inspect at most
+.I n
+title-resolution candidates per link.
+.SS Safety limits
+.TP
+.BI --max-pages " n"
+Stop after
+.I n
+processed pages.
+.TP
+.BI --max-download-mib " n"
+Stop after downloading
+.I n
+MiB in total.
+.SS Runtime behavior
+.TP
+.B --no-fail-fast
+Continue after page-local runtime failures.
+.TP
+.B --keep-metadata
+Persist page metadata files such as
+.I _info.txt
+and
+.IR _storage.xml .
+.TP
+.BI --sleep-ms " n"
+Sleep
+.I n
+milliseconds between processed pages.
+.SS Logging and configuration
+.TP
+.BI --env-file " file"
+Load public configuration from an explicit env file.
+.TP
+.BI --log-file " file"
+Write a persistent log artifact.
+.SH CONFIGURATION
+Configuration precedence is command-line options, explicit env file, default
+current-directory
+.IR .confluex.env ,
+user config written by
+.BR setup ,
+process environment, then no value.
+.PP
+Supported public configuration names include
+.BR CONFLUEX_CONFLUENCE_BASE_URL ,
+.BR CONFLUEX_CONFLUENCE_TOKEN ,
+.BR CONFLUEX_OUTPUT_ROOT ,
+.BR CONFLUEX_LOG_FILE ,
+.BR CONFLUEX_MAX_PAGES ,
+.BR CONFLUEX_MAX_DOWNLOAD_MIB ,
+.BR CONFLUEX_SLEEP_MS ,
+.BR CONFLUEX_MAX_FIND_CANDIDATES ,
+and
+.BR CONFLUEX_LINK_DEPTH .
+.PP
+Tokens are used as Bearer token values for Confluence requests. Confluex does
+not print token values in setup prompts, command output, logs, or reports.
+.SH OUTPUTS
+.TP
+.I summary.txt
+Run outcome summary.
+.TP
+.I manifest.tsv
+Selected page inventory.
+.TP
+.I resolved-links.tsv
+Supported links resolved into the selected scope.
+.TP
+.I unresolved-links.tsv
+Supported links that could not be resolved into the selected scope.
+.TP
+.I failed-pages.tsv
+Page-local failures.
+.TP
+.I scope-findings.tsv
+Scope and discovery findings.
+.PP
+.B export
+also writes Markdown page payloads and retained attachments under the output
+root. With
+.BR --zip ,
+it creates a ZIP archive beside the output root.
+.SH REPORTS
+Reports are tab-separated or line-oriented text files intended for operator
+review and automation. A successful
+.B plan
+or
+.B export
+run writes the report set under the selected output root.
+.SH EXIT STATUS
+.TP
+.B 0
+Success, success with findings, or help.
+.TP
+.B 1
+Rejected invocation or setup validation failure.
+.TP
+.B 3
+Configured stop condition.
+.TP
+.B 4
+Runtime failure.
+.TP
+.B 130
+Interrupted by signal.
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/confluex/config.json
+User config on Linux and XDG environments when
+.B XDG_CONFIG_HOME
+is set.
+.TP
+.I $HOME/.config/confluex/config.json
+User config on Linux and XDG environments when
+.B XDG_CONFIG_HOME
+is not set.
+.TP
+.I %APPDATA%\econfluex\econfig.json
+User config on Windows.
+.TP
+.I ./.confluex.env
+Default current-directory env file.
+.SH EXAMPLES
+.TP
+Configure reusable access:
+.B confluex setup
+.TP
+Validate access and inspect the planned scope:
+.B confluex plan --page-id 12345 --out ./plan
+.TP
+Export Markdown and create a ZIP archive:
+.B confluex export --page-id 12345 --out ./dump --zip
+.TP
+Resume an incomplete export:
+.B confluex export --page-id 12345 --out ./dump --resume
+.SH SEE ALSO
+.BR npm (1)

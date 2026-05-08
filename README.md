@@ -38,7 +38,7 @@ confluex export --page-id 12345 --out ./dump --zip
 
 ## Manual
 
-Read the full installed manual:
+Read the full installed command reference:
 
 ```bash
 man confluex

@@ -14,12 +14,12 @@
     "confluex": "./bin/confluex.js"
   },
   "man": [
-    "./man/man1/confluex.1"
+    "./docs/man/man1/confluex.1"
   ],
   "files": [
     "bin/",
     "dist/",
-    "man/",
+    "docs/man/",
     "README.md",
     "LICENSE",
     "package.json"
