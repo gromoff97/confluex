@@ -7,6 +7,16 @@ export type RemoteAccessFailureReason =
   | 'invalid_base_url'
   | 'missing_token'
 
+export type RemoteOperationFailureReason =
+  | RemoteAccessFailureReason
+  | 'auth_rejected'
+  | 'page_inaccessible'
+  | 'transport_dns'
+  | 'transport_timeout'
+  | 'transport_connection_reset'
+  | 'transport_tls'
+  | 'transport_proxy'
+
 export type RemoteAccessContext =
   | {
     usable: true
@@ -126,6 +136,30 @@ export async function checkRootPageAccess (
         }
   } catch (error) {
     return { state: 'failed', reason: classifyTransportFailure(error) }
+  }
+}
+
+export async function checkCurrentUserAccess (
+  env: NodeJS.ProcessEnv = process.env,
+  dependencies: AccessCheckDependencies = {}
+): Promise<
+  | { state: 'ok', baseUrl: string }
+  | { state: 'failed', reason: RemoteOperationFailureReason }
+> {
+  const context = resolveRemoteAccessContext(env)
+  if (!context.usable) {
+    return { state: 'failed', reason: context.reason }
+  }
+
+  const request = dependencies.request ?? get
+  const identity = await checkTokenIdentity(context, request)
+  if (identity.state === 'failed') {
+    return { state: 'failed', reason: identity.reason }
+  }
+
+  return {
+    state: 'ok',
+    baseUrl: context.baseUrl
   }
 }
 

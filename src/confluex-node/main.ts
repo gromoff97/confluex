@@ -6,8 +6,9 @@ import { parseInvocation } from './cli/parse'
 import { isCommand } from './cli/registry'
 import { loadSelectedEnvFile } from './config/env-file'
 import { buildEffectiveOptions } from './config/effective-options'
-import { runDoctorCommand } from './commands/doctor'
+import { loadUserConfig, userConfigEnvironmentValues } from './config/user-config'
 import { runExportRelatedCommand } from './commands/export-related'
+import { runSetupCommand } from './commands/setup'
 import { checkNodeVersion, runtimePrerequisiteFailure } from './prereq/checks'
 
 type Streams = {
@@ -17,15 +18,18 @@ type Streams = {
 
 type EnvContext = {
   values: Map<string, string>
+  userConfigValues: Map<string, string>
   defaultValues: Record<string, string>
   diagnostic: Diagnostic | null
 }
 
 export async function run (argv: string[], streams: Streams = process): Promise<number> {
-  const nodeVersion = checkNodeVersion()
-  if (nodeVersion.state !== 'passed') {
-    streams.stderr.write(runtimePrerequisiteFailure('node_version', `required=${nodeVersion.required} actual=${nodeVersion.actual}`))
-    return 4
+  if (!isSetupInvocation(argv)) {
+    const nodeVersion = checkNodeVersion()
+    if (nodeVersion.state !== 'passed') {
+      streams.stderr.write(runtimePrerequisiteFailure('node_version', `required=${nodeVersion.required} actual=${nodeVersion.actual}`))
+      return 4
+    }
   }
 
   const envContext = loadEnvContext(argv, process.cwd(), process.env)
@@ -51,17 +55,19 @@ export async function run (argv: string[], streams: Streams = process): Promise<
     return 1
   }
 
-  const options = buildEffectiveOptions(parsed.command, parsed.options, process.env, envContext.values)
+  const options = buildEffectiveOptions(parsed.command, parsed.options, process.env, envContext.values, envContext.userConfigValues)
 
-  if (parsed.command === 'export' || parsed.command === 'plan') {
-    const result = await runExportRelatedCommand(parsed.command, options)
+  if (parsed.command === 'setup') {
+    const result = await runSetupCommand({
+      stdout: streams.stdout as NodeJS.WritableStream
+    })
     streams.stdout.write(result.stdout)
     streams.stderr.write(result.stderr)
     return result.exitCode
   }
 
-  if (parsed.command === 'doctor') {
-    const result = await runDoctorCommand(options)
+  if (parsed.command === 'export' || parsed.command === 'plan') {
+    const result = await runExportRelatedCommand(parsed.command, options)
     streams.stdout.write(result.stdout)
     streams.stderr.write(result.stderr)
     return result.exitCode
@@ -74,12 +80,13 @@ export async function run (argv: string[], streams: Streams = process): Promise<
   return 4
 }
 
-const envFileCommands = new Set(['export', 'plan', 'doctor'])
+const envFileCommands = new Set(['export', 'plan'])
 const missingEnvFileValue = Symbol('missing env-file value')
 
 function loadEnvContext (argv: string[], cwd: string, env: NodeJS.ProcessEnv): EnvContext {
   const empty: EnvContext = {
     values: new Map(),
+    userConfigValues: new Map(),
     defaultValues: {},
     diagnostic: null
   }
@@ -96,18 +103,33 @@ function loadEnvContext (argv: string[], cwd: string, env: NodeJS.ProcessEnv): E
 
   try {
     const selected = loadSelectedEnvFile(cwd, explicitPath)
+    const loadedUserConfig = loadUserConfig(env)
+    if (loadedUserConfig.state === 'invalid') {
+      return {
+        values: selected.values,
+        userConfigValues: new Map(),
+        defaultValues: {},
+        diagnostic: {
+          type: 'validation-failed',
+          requirementId: 'FR-0246'
+        }
+      }
+    }
+    const userConfigValues = userConfigEnvironmentValues(loadedUserConfig.config)
     const defaults = buildEffectiveOptions(command, {
       flags: [],
       values: {}
-    }, env, selected.values)
+    }, env, selected.values, userConfigValues)
     return {
       values: selected.values,
+      userConfigValues,
       defaultValues: defaults.values,
       diagnostic: null
     }
   } catch {
     return {
       values: new Map(),
+      userConfigValues: new Map(),
       defaultValues: {},
       diagnostic: {
         type: 'invalid-option-value',
@@ -132,4 +154,8 @@ function explicitEnvFilePath (argv: string[]): string | typeof missingEnvFileVal
 
 function isCommandHelp (argv: string[]): boolean {
   return argv.length === 2 && argv[1] === '--help'
+}
+
+function isSetupInvocation (argv: string[]): boolean {
+  return argv[0] === 'setup' && !isCommandHelp(argv)
 }

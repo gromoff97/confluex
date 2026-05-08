@@ -6,7 +6,7 @@ export type OptionDefinition = {
 }
 
 export type CommandDefinition = {
-  name: 'export' | 'plan' | 'doctor'
+  name: 'setup' | 'export' | 'plan'
   purpose: string
   helpPurpose?: string
   usage: string
@@ -16,6 +16,16 @@ export type CommandDefinition = {
 }
 
 const commands: CommandDefinition[] = [
+  {
+    name: 'setup',
+    purpose: 'interactive user configuration workflow',
+    usage: 'confluex setup',
+    examples: [
+      'confluex setup'
+    ],
+    options: [],
+    notes: []
+  },
   {
     name: 'export',
     purpose: 'materialized Markdown export workflow',
@@ -61,21 +71,6 @@ const commands: CommandDefinition[] = [
       { token: '--sleep-ms', value: '<n>', description: 'Sleep n ms between processed pages.' },
       { token: '--max-find-candidates', value: '<n>', description: 'Inspect at most n title-resolution candidates per link.' },
       { token: '--link-depth', value: '<n>', description: 'Follow supported internal links up to n hops from the root child tree; default: 1.' }
-    ],
-    notes: []
-  },
-  {
-    name: 'doctor',
-    purpose: 'diagnostic workflow',
-    helpPurpose: 'diagnostic workflow for local prerequisites, token-only Confluence configuration, optional page access, and supported link forms',
-    usage: 'confluex doctor [options]',
-    examples: [
-      'confluex doctor --page-id <id>'
-    ],
-    options: [
-      { token: '--page-id', value: '<id>', description: 'test access to a Confluence page' },
-      { token: '--env-file', value: '<file>', description: 'load public configuration from an env file' },
-      { token: '--log-file', value: '<file>', description: 'write a persistent diagnostic log' }
     ],
     notes: []
   }

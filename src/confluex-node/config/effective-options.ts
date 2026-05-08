@@ -13,8 +13,7 @@ export type EffectiveCommandOptions = EffectiveOptions & {
 export type EnvMap = NodeJS.ProcessEnv | Record<string, string | undefined>
 
 const optionEnvironmentNames = new Map<string, string>([
-  ['--page-id', 'CONFLUEX_PAGE_ID'],
-  ['--out', 'CONFLUEX_OUT'],
+  ['--out', 'CONFLUEX_OUTPUT_ROOT'],
   ['--log-file', 'CONFLUEX_LOG_FILE'],
   ['--max-pages', 'CONFLUEX_MAX_PAGES'],
   ['--max-download-mib', 'CONFLUEX_MAX_DOWNLOAD_MIB'],
@@ -27,7 +26,8 @@ export function buildEffectiveOptions (
   commandName: string,
   parsedOptions: EffectiveOptions,
   processEnv: EnvMap,
-  envFileValues: Map<string, string>
+  envFileValues: Map<string, string>,
+  userConfigValues: Map<string, string> = new Map()
 ): EffectiveCommandOptions {
   const values: Record<string, string> = { ...parsedOptions.values }
   const supportedOptions = supportedValueOptions(commandName)
@@ -40,15 +40,15 @@ export function buildEffectiveOptions (
       continue
     }
 
-    const value = selectedValue(environmentName, envFileValues, processEnv)
+    const value = selectedValue(environmentName, envFileValues, userConfigValues, processEnv)
     if (value !== undefined) {
       values[optionToken] = value
     }
   }
 
   const config: EffectiveConfluenceConfig = {}
-  const confluenceBaseUrl = selectedValue('CONFLUEX_CONFLUENCE_BASE_URL', envFileValues, processEnv)
-  const confluenceToken = selectedValue('CONFLUEX_CONFLUENCE_TOKEN', envFileValues, processEnv)
+  const confluenceBaseUrl = selectedValue('CONFLUEX_CONFLUENCE_BASE_URL', envFileValues, userConfigValues, processEnv)
+  const confluenceToken = selectedValue('CONFLUEX_CONFLUENCE_TOKEN', envFileValues, userConfigValues, processEnv)
   if (confluenceBaseUrl !== undefined) {
     config.confluenceBaseUrl = confluenceBaseUrl
   }
@@ -98,10 +98,14 @@ export function effectiveConfluenceEnv (
 function selectedValue (
   name: string,
   envFileValues: Map<string, string>,
+  userConfigValues: Map<string, string>,
   processEnv: EnvMap
 ): string | undefined {
   if (envFileValues.has(name)) {
     return envFileValues.get(name)
+  }
+  if (userConfigValues.has(name)) {
+    return userConfigValues.get(name)
   }
   if (Object.prototype.hasOwnProperty.call(processEnv, name)) {
     return processEnv[name]
