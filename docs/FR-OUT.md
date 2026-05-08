@@ -3,10 +3,10 @@
 
 ### FR-0076
 **Requirement**: The selected logical plain output root shall be validated and
-materialized for every accepted `export` or `plan` run.
+materialized for every accepted `export` run.
 
 **Applicability**:
-- non-help `export` and `plan` invocations
+- non-help `export` invocations
 
 **Rationale**:
 - Operators need one authoritative filesystem location for a run result.
@@ -83,20 +83,22 @@ artifact layout.
 1. The top level contains exactly the report-file entries from the closed
    report-file set defined by `FR-0085`.
 2. The top level contains `pages/`.
-3. If the plain export output root represents an interrupted or incomplete run,
+3. If `_debug/` artifacts are requested under `FR-0248`, the top level also
+   contains `_debug/`.
+4. If the plain export output root represents an interrupted or incomplete run,
    the top level also contains `INCOMPLETE`.
-4. The top level contains no entries other than the entries required by
-   criteria 1 through 3.
-5. The `pages/` subtree contains exactly the first-level space-segment
+5. The top level contains no entries other than the entries required by
+   criteria 1 through 4.
+6. The `pages/` subtree contains exactly the first-level space-segment
    directories needed by the canonical relative payload-folder paths from
    `FR-0079` for pages whose per-page artifacts are retained in the final export
    result.
-6. Each first-level space-segment directory under `pages/` contains exactly the
+7. Each first-level space-segment directory under `pages/` contains exactly the
    page folders needed by those same `FR-0079` paths for retained export pages
    in that space segment.
-7. Each retained export page folder's direct entries are governed by `FR-0080`;
+8. Each retained export page folder's direct entries are governed by `FR-0080`;
    no recursive entry exists under `pages/` except entries required by criteria
-   5 and 6, page-folder direct entries permitted by `FR-0080`, and retained
+   6 and 7, page-folder direct entries permitted by `FR-0080`, and retained
    attachment payload files permitted by `FR-0075`.
 
 **Dependencies**:
@@ -109,63 +111,54 @@ artifact layout.
 - `FR-0097`
 - `FR-0100`
 - `FR-0102`
+- `FR-0248`
 
 **Traceability**:
 - Area: output structure
 - Observable evidence: top-level export artifact set
 
 ### FR-0078
-**Requirement**: A plain `plan` output root shall have a stable top-level
-artifact layout.
+**Requirement**: A plain `export --plan-only` output root shall have a stable
+top-level artifact layout.
 
 **Applicability**:
-- authoritative retained plain `plan` output roots that remain on disk
+- authoritative retained plain `export --plan-only` output roots that remain on
+  disk
 
 **Rationale**:
-- Operators need a deterministic top-level layout for planning runs.
+- Operators need a deterministic top-level layout for plan-only export runs.
 
 **Acceptance Criteria**:
 1. The top level contains exactly the report-file entries from the closed
    report-file set defined by `FR-0085`.
-2. If `plan` persisted any per-page metadata artifacts, the top level also
-   contains `pages/`.
-3. If the plain plan output root remains on disk because the run ended in a
-   configured stop condition, interrupted-plan cleanup failure, or runtime-failed
-   plan cleanup failure, the top level also contains `INCOMPLETE`.
+2. If `_debug/` artifacts are requested under `FR-0248`, the top level also
+   contains `_debug/`.
+3. If the plain plan-only output root remains on disk because the run ended in a
+   configured stop condition, interrupted cleanup failure, or runtime-failed
+   cleanup failure, the top level also contains `INCOMPLETE`.
 4. The top level contains no entries other than the entries required by
    criteria 1 through 3.
-5. When `pages/` is present, the `pages/` subtree contains exactly the
-   first-level space-segment directories needed by the canonical relative
-   payload-folder paths from `FR-0079` for pages whose per-page metadata
-   artifacts are retained in the final plan result.
-6. Each first-level space-segment directory under `pages/` contains exactly the
-   page folders needed by those same `FR-0079` paths for retained plan pages in
-   that space segment.
-7. Each retained plan page folder's direct entries are governed by `FR-0081`; no
-   recursive entry exists under `pages/` except entries required by criteria 5
-   and 6 and page-folder direct entries permitted by `FR-0081`.
+5. The top level does not contain `pages/`.
 
 **Dependencies**:
 - `FR-0085`
 - `FR-0076`
 - `FR-0082`
-- `FR-0079`
-- `FR-0081`
 - `FR-0097`
 - `FR-0101`
 - `FR-0102`
+- `FR-0248`
 
 **Traceability**:
 - Area: output structure
-- Observable evidence: top-level plan artifact set
+- Observable evidence: top-level plan-only artifact set
 
 ### FR-0079
 **Requirement**: Each processed page shall map to exactly one payload folder when
 per-page artifacts are persisted.
 
 **Applicability**:
-- `export`
-- `plan` with persisted per-page metadata
+- `export` in `materialized` execution mode
 
 **Rationale**:
 - Operators need a deterministic, page-scoped payload layout.
@@ -194,8 +187,7 @@ per-page artifacts are persisted.
    `export`, that condition is a `page_payload` page-local failure governed by
    `FR-0074`, the final run result retains no per-page artifacts for that page,
    and `manifest.tsv` serializes `folder` as the shared absence token under
-   `FR-0086`. In `plan`, the final result retains no page folder for that page
-   even if `--keep-metadata` is in effect.
+   `FR-0086`.
 10. This card defines the canonical relative payload-folder path for each
    persisted page as a governed relative path under `FR-0150`.
 
@@ -224,22 +216,14 @@ per-page artifacts are persisted.
 1. A successfully materialized export page payload folder contains the
    materialized Markdown payload file `page.md`.
 2. If the page has persisted attachments, the folder contains `attachments/`.
-3. If `--keep-metadata` is in effect and page-metadata acquisition for that page
-   succeeded under `FR-0069`, the folder also contains `_info.txt`.
-4. If `--keep-metadata` is in effect and storage-content acquisition for that
-   page succeeded under `FR-0070`, the folder also contains `_storage.xml`.
-5. This card governs payload file names, folder placement, and metadata or
+3. This card governs payload file names, folder placement, and metadata or
    attachment side files; it does not define Markdown payload acquisition,
    Markdown normalization, Markdown internal-link localization, inline
    unresolved-marker rendering, or any other page-content semantics inside
    `page.md`; those semantics are governed by `FR-0074`.
-6. Any retained export page payload folder contains no direct entries other than
-   `page.md` when payload materialization succeeded, `attachments/` when
-   criterion 2 applies, `_info.txt` when criterion 3 applies, and
-   `_storage.xml` when criterion 4 applies.
-7. `_info.txt` and `_storage.xml` contents are non-governed metadata snapshots;
-   this card governs their presence, names, and placement, not their internal
-   serialization.
+4. Any retained export page payload folder contains no direct entries other than
+   `page.md` when payload materialization succeeded and `attachments/` when
+   criterion 2 applies.
 
 **Dependencies**:
 - `FR-0069`
@@ -248,7 +232,6 @@ per-page artifacts are persisted.
 - `FR-0074`
 - `FR-0075`
 - `FR-0128`
-- `FR-0028`
 - `FR-0121`
 
 **Traceability**:
@@ -256,50 +239,35 @@ per-page artifacts are persisted.
 - Observable evidence: file structure within export page payload folders
 
 ### FR-0081
-**Requirement**: Plan page payload folders shall have a stable file structure
-when metadata persistence is enabled.
+**Requirement**: Plan-only output shall retain no materialized page payload
+folders.
 
 **Applicability**:
-- accepted `plan` runs
+- accepted `export --plan-only` runs
 
 **Rationale**:
-- Operators need predictable metadata persistence in planning mode without
-  accidental content export.
+- Operators need plan-only runs to inspect scope without retaining materialized
+  page content or downloaded attachment payloads.
 
 **Acceptance Criteria**:
-1. Without `--keep-metadata`, `plan` does not persist `page.md`,
-   attachments, `_info.txt`, `_storage.xml`, or `_attachments_preview.txt`.
-2. With `--keep-metadata` and successful page-metadata acquisition under
-   `FR-0069`, a persisted plan page folder contains `_info.txt`.
-3. With `--keep-metadata` and successful storage-content acquisition under
-   `FR-0070`, a persisted plan page folder contains `_storage.xml`.
-4. A persisted plan page folder does not contain `page.md` or
-   downloaded attachment payload files.
-5. With `--keep-metadata` and acquired attachment-preview data, the persisted
-   plan page folder also contains `_attachments_preview.txt`.
-6. Without `--keep-metadata`, the final plan result retains no per-page payload
-   folder.
-7. With `--keep-metadata`, if page-metadata acquisition fails for a page, the
-   final plan result retains no page folder for that page, including no
-   `_storage.xml` or `_attachments_preview.txt` for that page even if those data
-   were acquired.
-8. With `--keep-metadata`, a persisted plan page folder contains no direct
-   entries other than `_info.txt` when criterion 2 applies, `_storage.xml` when
-   criterion 3 applies, and `_attachments_preview.txt` when criterion 5 applies.
-9. `_info.txt`, `_storage.xml`, and `_attachments_preview.txt` contents are
-   non-governed metadata snapshots; this card governs their presence, names, and
-   placement, not their internal serialization.
+1. `plan_only` execution mode does not retain `page.md`.
+2. `plan_only` execution mode does not retain downloaded attachment payload
+   files.
+3. `plan_only` execution mode does not retain `pages/`.
+4. Scope reports for `plan_only` execution mode remain governed by `FR-0085`.
+5. Debug artifacts for `plan_only` execution mode are governed by `FR-0249` and
+   do not make `pages/` a retained materialized output subtree.
 
 **Dependencies**:
 - `FR-0069`
 - `FR-0070`
 - `FR-0073`
-- `FR-0079`
-- `FR-0028`
+- `FR-0085`
+- `FR-0249`
 
 **Traceability**:
 - Area: output structure
-- Observable evidence: file structure within plan page payload folders
+- Observable evidence: plan-only output root without materialized page folders
 
 ### FR-0082
 **Requirement**: Run-artifact names in retained report-set containers and plain
@@ -324,6 +292,8 @@ output roots shall have one stable functional meaning.
 6. `summary.txt` means the authoritative machine-readable summary of run outcome.
 7. `INCOMPLETE` means that the plain output root does not represent a cleanly
    completed plain run result.
+8. `_debug/` means the sanitized diagnostic artifact tree governed by
+   `FR-0249`.
 
 **Dependencies**:
 - `FR-0085`
@@ -340,7 +310,6 @@ deterministically from the logical plain output-root path.
 **Applicability**:
 - `export --zip` invocations whose logical plain output-root path has been
   selected under `FR-0076`
-- pre-acceptance persistent log-path validation for those invocations
 
 **Rationale**:
 - Operators need the portable archive path to be predictable from the selected
@@ -350,8 +319,7 @@ deterministically from the logical plain output-root path.
 1. `<out>` is the logical plain output-root path string selected under
    `FR-0076`.
 2. The ZIP sibling path is the absolute path produced by appending `.zip` to
-   `<out>` before any path comparison governed by `FR-0134` or ZIP creation
-   governed by `FR-0221`.
+   `<out>` before ZIP creation governed by `FR-0221`.
 3. The ZIP sibling path has the same parent directory as `<out>`.
 4. The ZIP sibling path is serialized in `summary.txt` only through the
    `zip_path` value contract governed by `FR-0119`.
@@ -359,7 +327,6 @@ deterministically from the logical plain output-root path.
 **Dependencies**:
 - `FR-0076`
 - `FR-0119`
-- `FR-0134`
 - `FR-0221`
 
 **Traceability**:
@@ -371,7 +338,7 @@ deterministically from the logical plain output-root path.
 
 **Applicability**:
 - retained plain `export` output roots
-- retained plain `plan` output roots
+- retained plain `export --plan-only` output roots
 
 **Rationale**:
 - Operators need final outcome state to live inside the report set that
@@ -438,16 +405,16 @@ deterministic failed-page artifact state in the final run result.
 report synthesis.
 
 **Applicability**:
-- accepted `export` and `plan` runs that retain per-page artifacts
+- accepted `export` runs in `materialized` execution mode that retain per-page
+  artifacts
 
 **Rationale**:
 - Interrupted and runtime-failed runs need retained per-page files and
   synthesized reports to agree without exposing half-written artifacts.
 
 **Acceptance Criteria**:
-1. Per-page artifacts governed by this card are `page.md`,
-   attachment payload files under `attachments/`, `_info.txt`, `_storage.xml`,
-   and `_attachments_preview.txt`.
+1. Per-page artifacts governed by this card are `page.md` and attachment
+   payload files under `attachments/`.
 2. A per-page artifact becomes eligible for any final or partial retained result
    only after the complete intended byte sequence has been written and the
    governing acquisition, materialization, preview, or download operation has
@@ -480,7 +447,6 @@ report synthesis.
 - `FR-0075`
 - `FR-0079`
 - `FR-0080`
-- `FR-0081`
 - `FR-0086`
 - `FR-0088`
 - `FR-0097`
@@ -492,95 +458,80 @@ report synthesis.
 - Area: output structure
 - Observable evidence: retained per-page files and synthesized report rows
 
-### FR-0134
-**Requirement**: Selected persistent log artifacts shall use stable creation and
-replacement behavior.
+### FR-0249
+**Requirement**: Debug artifacts shall use one sanitized `_debug/` artifact
+tree inside the selected output root.
 
 **Applicability**:
-- non-help invocations with an effective persistent log-artifact path selected
-  under `FR-0029`
+- accepted `export --debug` runs
+- accepted `export --plan-only --debug` runs
 
 **Rationale**:
-- Operators need the selected persistent log path to be created, replaced, or
-  rejected predictably without being part of the run report set.
+- Operators need enough local evidence to diagnose scope discovery and export
+  materialization failures without enabling any other option.
 
 **Acceptance Criteria**:
-1. Existing path segments inspected by this card, including the final
-   log-artifact path, are evaluated using non-following filesystem metadata
-   under `FR-0154`.
-2. If metadata evaluation required by criterion 1 fails for any existing
-   ancestor path segment or for the effective persistent log-artifact path when
-   that final path already exists, the invocation is rejected before
-   invocation acceptance under `FR-0212`.
-3. If the parent directory of the effective persistent log-artifact path does not
-   exist, the product creates the missing parent directories before writing the
-   log.
-4. If the effective persistent log-artifact path already exists as a regular
-   file, the product replaces its previous contents with only the current
-   invocation's log text.
-5. If the effective persistent log-artifact path resolves to an existing
-   directory, the invocation is rejected.
-6. If the effective persistent log-artifact path resolves to an existing symlink,
-   FIFO, socket, device, or any other non-regular non-directory filesystem
-   object, the invocation is rejected.
-7. If any ancestor path segment needed to create the effective persistent
-   log-artifact parent path is not a directory, the invocation is rejected.
-8. If any existing ancestor path segment of the effective persistent log-artifact
-   path is a symlink, FIFO, socket, device, or any other non-directory
-   filesystem object, the invocation is rejected.
-9. For `export` and `plan`, after the logical plain output root has been
-   resolved under `FR-0076` and before accepted run execution begins, the
-   invocation is rejected if the effective persistent log-artifact path is equal
-   to the logical plain output-root path or is inside that root as a
-   path-segment descendant.
-10. For `export --zip`, after the logical plain output root has been resolved
-    under `FR-0076` and before accepted run execution begins, the invocation is
-    rejected if the effective persistent log-artifact path is equal to the ZIP
-    sibling path governed by `FR-0238`.
-11. Equality comparisons in criteria 9 and 10 use the normalized path equality
-    rule from `FR-0160` over the path-normalized absolute paths produced under
-    `FR-0159`; symlinks are not followed; and descendant comparison in
-    criterion 9 uses the path-segment descendant relation from `FR-0161`.
-12. Current invocation log text is UTF-8 text produced during that invocation,
-   contains no NUL byte, and, if it contains line breaks, uses LF for every line
-   break and contains no CR byte.
-13. This card does not govern log message vocabulary, prefixes, ordering, count,
-   or whether the final line ends with LF; after criterion 12, the remaining log
-   text is non-governed diagnostic text.
-14. After replacement, the persistent log artifact contains no byte from the
-   previous contents of that path.
-15. Rejection-capable path validation from criteria 2 through 10 occurs before
-    invocation acceptance under `FR-0212`. Persistent log artifact creation,
-    replacement, and first write begin only after invocation acceptance. For
-    `export` and `plan`, when an effective persistent log-artifact path is
-    selected under `FR-0029`, that log setup may itself be the first
-    accepted-run lifecycle work specific to the invocation under `FR-0180` and
-    may begin before output-root creation or reuse, resume-reuse evaluation,
-    scope-discovery work, page processing, or report generation.
-16. If creating missing parent directories, opening the log artifact, replacing
-   the log artifact, or writing current invocation log text fails after
-   criterion 15 begins, the invocation does not continue without the selected
-   persistent log artifact.
-17. For `export` and `plan`, a failure from criterion 16 is an accepted-run
-   runtime failure governed by `FR-0102`.
+1. The debug artifact root is exactly `_debug/` directly under the selected
+   logical plain output root.
+2. Run-level debug artifacts are exactly `_debug/run.json`,
+   `_debug/options.json`, and `_debug/events.ndjson`.
+3. Page-level debug artifacts are retained under `_debug/pages/<page_id>/`,
+   where `<page_id>` is the canonical page identifier governed by `FR-0014`.
+4. Page-level debug artifact names are selected only from `metadata.json`,
+   `storage.xml`, `attachments-preview.json`,
+   `markdown-exporter.args.txt`, `markdown-exporter.stdout.txt`,
+   `markdown-exporter.stderr.txt`, `markdown-exporter.exit.json`,
+   `markdown.raw.md`, and `markdown.normalized.md`.
+5. Debug artifacts are written only for operations the selected execution mode
+   already performed.
+6. `plan_only` execution mode never writes `markdown.raw.md`,
+   `markdown.normalized.md`, or Markdown exporter artifacts.
+7. `materialized` execution mode writes Markdown exporter artifacts only for
+   pages whose page-payload materialization was attempted.
+8. Debug artifact content is sanitized under `FR-0250` before it is written.
 
 **Dependencies**:
-- `FR-0019`
-- `FR-0021`
-- `FR-0029`
-- `FR-0076`
-- `FR-0238`
-- `FR-0102`
-- `FR-0180`
-- `FR-0154`
-- `FR-0159`
-- `FR-0160`
-- `FR-0161`
-- `FR-0212`
+- `FR-0014`
+- `FR-0248`
+- `FR-0250`
 
 **Traceability**:
 - Area: output structure
-- Observable evidence: persistent log-file creation, overwrite, or rejection
+- Observable evidence: `_debug/` tree, run-level debug files, page-level debug
+  files
+
+### FR-0250
+**Requirement**: Debug artifacts shall redact configured secret values before
+persistence.
+
+**Applicability**:
+- debug artifact writes governed by `FR-0249`
+
+**Rationale**:
+- Operators need diagnostic artifacts that can be inspected without exposing the
+  Confluence token or authorization headers.
+
+**Acceptance Criteria**:
+1. The effective Confluence token selected under `FR-0216` is never written
+   verbatim to a debug artifact.
+2. Authorization header values are never written verbatim to a debug artifact.
+3. Captured child-process stdout, stderr, command arguments, config snapshots,
+   thrown errors, and serialized objects pass through redaction before
+   persistence.
+4. Redaction replaces an exact selected token value with a stable placeholder
+   and replaces recognized authorization-header values with a stable
+   authorization placeholder.
+5. Debug artifacts may contain Confluence page content, page titles, space keys,
+   links, storage XML, Markdown payloads, and attachment metadata after secret
+   redaction.
+
+**Dependencies**:
+- `FR-0216`
+- `FR-0249`
+
+**Traceability**:
+- Area: output structure
+- Observable evidence: debug artifacts without token disclosure
 
 ### FR-0217
 **Requirement**: Directory roots left on disk as non-authoritative result debris

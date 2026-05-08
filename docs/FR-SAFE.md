@@ -5,14 +5,14 @@
 **Requirement**: The product shall warn about effectively unbounded runs.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need an explicit warning when a run can grow without practical
   bounds.
 
 **Acceptance Criteria**:
-1. If `export` or `plan` is invoked without an effective positive max-pages
+1. If `export` is invoked without an effective positive max-pages
    value and without an effective positive max-download-mib value, the product
    emits an explicit warning that the run is effectively unbounded.
 2. The unbounded-run warning text is governed by `FR-0009`.
@@ -33,7 +33,7 @@
 best-effort behavior.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need to choose whether page-local failures stop the run or remain
@@ -89,14 +89,14 @@ best-effort behavior.
   remain visible as completed-run findings.
 
 **Acceptance Criteria**:
-1. For completed accepted `export` and `plan` runs, unresolved links, scope
+1. For completed accepted `export` runs, unresolved links, scope
    findings, and failed operations are represented through the report files
    governed by `FR-0085` and the `blocking_reasons` value governed by
    `FR-0116`.
-2. A completed accepted `export` or `plan` run with `blocking_reasons=none`
+2. A completed accepted `export` run with `blocking_reasons=none`
    uses `final_status=success` under `FR-0113` and exit code `0` under
    `FR-0118`.
-3. A completed accepted `export` or `plan` run with `blocking_reasons` not equal
+3. A completed accepted `export` run with `blocking_reasons` not equal
    to `none` uses `final_status=success_with_findings` under `FR-0113` and exit
    code `0` under `FR-0118`.
 4. Configured-stop, runtime-failure, and signal-interruption branches use the
@@ -124,7 +124,7 @@ best-effort behavior.
 outcomes.
 
 **Applicability**:
-- accepted `export` and `plan` runs stopped by configured limits
+- accepted `export` runs stopped by configured limits
 
 **Rationale**:
 - Operators need limit-driven early stops to be clearly distinguishable from
@@ -139,14 +139,14 @@ outcomes.
 3. If both configured limits would stop the run at the same decision point, the
    configured-stop outcome uses the interrupt-reason precedence rule defined by
    `FR-0140`.
-4. If a configured stop condition occurs in `export`, the plain output root
-   remains on disk as a retained partial result that satisfies the export layout
-   from `FR-0077`, contains the closed report-file set from `FR-0085`, and
-   contains the `INCOMPLETE` marker from `FR-0076`.
-5. If a configured stop condition occurs in `plan`, the plain output root remains
-   on disk as a retained partial result that satisfies the plan layout from
-   `FR-0078`, contains the closed report-file set from `FR-0085`, and contains
-   the `INCOMPLETE` marker from `FR-0076`.
+4. If a configured stop condition occurs in `materialized` execution mode, the
+   plain output root remains on disk as a retained partial result that satisfies
+   the export layout from `FR-0077`, contains the closed report-file set from
+   `FR-0085`, and contains the `INCOMPLETE` marker from `FR-0076`.
+5. If a configured stop condition occurs in `plan_only` execution mode, the
+   plain output root remains on disk as a retained partial result that satisfies
+   the plan-only layout from `FR-0078`, contains the closed report-file set from
+   `FR-0085`, and contains the `INCOMPLETE` marker from `FR-0076`.
 6. Configured-stop retained partial results remain interpretable under
    `FR-0098`.
 
@@ -169,7 +169,7 @@ outcomes.
 **Requirement**: Partial results that remain on disk shall remain interpretable.
 
 **Applicability**:
-- accepted `export` and `plan` runs that leave configured-stop, interrupted, or
+- accepted `export` runs that leave configured-stop, interrupted, or
   runtime-failed partial results on disk
 
 **Rationale**:
@@ -205,27 +205,28 @@ outcomes.
 - Observable evidence: retained partial artifact set, summary status
 
 ### FR-0099
-**Requirement**: `plan` shall preserve configured-stop results but discard
-misleading abnormal partial results.
+**Requirement**: `plan_only` execution mode shall preserve configured-stop
+results but discard misleading abnormal partial results.
 
 **Applicability**:
-- accepted `plan` runs that leave configured-stop, interrupted, or runtime-failed
-  partial results on disk
+- accepted `export --plan-only` runs that leave configured-stop, interrupted, or
+  runtime-failed partial results on disk
 
 **Rationale**:
-- Operators need limited plan results to remain on disk with their reports,
-  but interrupted or failed plan roots should not masquerade as complete plans.
+- Operators need limited plan-only results to remain on disk with their reports,
+  but interrupted or failed plan-only roots should not masquerade as complete
+  runs.
 
 **Acceptance Criteria**:
-1. For `plan`, a partial plain output root from a configured-stop,
+1. For `plan_only` execution mode, a partial plain output root from a configured-stop,
    signal-interruption, or runtime-failure branch may remain on disk only when
    the applicable branch card classifies that root as an authoritative retained
    partial result under `FR-0097`, `FR-0101`, or `FR-0102`.
-2. A configured-stop, signal-interruption, or runtime-failure `plan` branch that
-   does not satisfy the authoritative retained-partial conditions from
+2. A configured-stop, signal-interruption, or runtime-failure `plan_only` branch
+   that does not satisfy the authoritative retained-partial conditions from
    `FR-0097`, `FR-0101`, or `FR-0102` leaves no authoritative partial plain
    output root on disk.
-3. Any authoritative retained `plan` partial root on disk remains
+3. Any authoritative retained `plan_only` partial root on disk remains
    distinguishable from clean success by the branch-specific markers or summary
    fields required by its governing card.
 
@@ -236,4 +237,4 @@ misleading abnormal partial results.
 
 **Traceability**:
 - Area: safety
-- Observable evidence: retained or removed plan output roots
+- Observable evidence: retained or removed plan-only output roots

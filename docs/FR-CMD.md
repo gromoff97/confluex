@@ -23,6 +23,8 @@
 
 **Dependencies**:
 - `FR-0222`
+- `FR-0053`
+- `FR-0054`
 
 **Traceability**:
 - Area: command surface
@@ -37,40 +39,18 @@
 - `confluex export --help`
 
 **Rationale**:
-- Operators need a distinct workflow for materialized Markdown export runs.
+- Operators need one export workflow that can either inspect scope or
+  materialize Markdown output.
 
 **Acceptance Criteria**:
 1. Top-level help lists `export` as a supported command in the command order
    governed by `FR-0222`.
-2. `confluex export --help` identifies `export` as the materialized Markdown
-   export workflow.
+2. `confluex export --help` identifies `export` as the Confluence export
+   workflow.
 3. An accepted `confluex export ...` invocation starts the export workflow
    rather than any other workflow.
-
-**Dependencies**:
-- `FR-0222`
-
-**Traceability**:
-- Area: command surface
-- Observable evidence: top-level help output, command help output, workflow entry
-
-### FR-0003
-**Requirement**: The product shall expose `plan` as a top-level command.
-
-**Applicability**:
-- `confluex --help`
-- `confluex plan`
-- `confluex plan --help`
-
-**Rationale**:
-- Operators need a distinct workflow for dry-run planning.
-
-**Acceptance Criteria**:
-1. Top-level help lists `plan` as a supported command in the command order
-   governed by `FR-0222`.
-2. `confluex plan --help` identifies `plan` as the dry-run planning workflow.
-3. An accepted `confluex plan ...` invocation starts the planning workflow
-   rather than any other workflow.
+4. The export workflow supports the materialized execution mode governed by
+   `FR-0053` and the plan-only execution mode governed by `FR-0054`.
 
 **Dependencies**:
 - `FR-0222`
@@ -81,7 +61,7 @@
 
 ### FR-0222
 **Requirement**: The public top-level command inventory shall be exactly
-`setup`, `export`, and `plan` in that order.
+`setup` and `export` in that order.
 
 **Applicability**:
 - `confluex --help`
@@ -93,12 +73,11 @@
   deterministic ordering.
 
 **Acceptance Criteria**:
-1. The public top-level command tokens are exactly `setup`, `export`, and
-   `plan`.
+1. The public top-level command tokens are exactly `setup` and `export`.
 2. Everywhere the public command inventory is serialized as an ordered list, the
-   order is exactly `setup`, then `export`, then `plan`.
-3. A first argv token after the program path equal to `setup`, `export`, or
-   `plan` is classified as a supported command before option validation.
+   order is exactly `setup`, then `export`.
+3. A first argv token after the program path equal to `setup` or `export` is
+   classified as a supported command before option validation.
 4. Any other first argv token after the program path is classified as an
    unsupported command under `FR-0011`, except for top-level help shapes
    governed by `FR-0007`.
@@ -147,7 +126,6 @@ top-level command.
 **Applicability**:
 - `confluex setup --help`
 - `confluex export --help`
-- `confluex plan --help`
 
 **Rationale**:
 - Operators need command-specific option guidance for every public workflow.
@@ -177,7 +155,6 @@ to exactly one public workflow.
 **Applicability**:
 - accepted non-help `confluex setup` invocations
 - accepted non-help `confluex export ...` invocations
-- accepted non-help `confluex plan ...` invocations
 
 **Rationale**:
 - Operators need accepted command tokens to select one deterministic workflow.
@@ -185,10 +162,10 @@ to exactly one public workflow.
 **Acceptance Criteria**:
 1. Accepted non-help `setup` invocations route to the setup workflow governed by
    `FR-0043`.
-2. Accepted non-help `export` invocations route to the materialized Markdown
-   export workflow governed by `FR-0053`.
-3. Accepted non-help `plan` invocations route to the dry-run planning workflow
-   governed by `FR-0054`.
+2. Accepted non-help `export` invocations without `--plan-only` route to the
+   materialized export execution mode governed by `FR-0053`.
+3. Accepted non-help `export` invocations with `--plan-only` route to the
+   plan-only export execution mode governed by `FR-0054`.
 4. One accepted invocation routes to exactly one workflow from criteria 1
    through 3.
 

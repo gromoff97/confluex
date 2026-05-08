@@ -6,7 +6,7 @@
 black-box reporting using the remote-access context defined by `FR-0216`.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need page identifiers, titles, and space context in reports.
@@ -55,7 +55,7 @@ black-box reporting using the remote-access context defined by `FR-0216`.
 supported link discovery using the remote-access context defined by `FR-0216`.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Supported internal-link discovery depends on page storage content.
@@ -79,9 +79,9 @@ supported link discovery using the remote-access context defined by `FR-0216`.
 5. For this card, required page work other than supported-link inspection means
    page metadata acquisition, child-listing acquisition when required by
    recursive traversal, title-resolution candidate acquisition for already
-   discovered title-based links, attachment-preview acquisition for `plan`, page
-   payload materialization for `export`, and attachment-download work for
-   `export`.
+   discovered title-based links, attachment-preview acquisition for `plan_only`
+   execution mode, page payload materialization for `materialized` execution
+   mode, and attachment-download work for `materialized` execution mode.
 6. If storage-content acquisition or interpretation for a page prevents any
    active-command required page work from criterion 5 and no more-specific
    acquisition card records the same condition under a different
@@ -124,7 +124,7 @@ recursive root-tree traversal using the remote-access context defined by
 `FR-0216`.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Recursive child traversal requires explicit child-listing data.
@@ -205,7 +205,7 @@ title-based link resolution is attempted using the remote-access context
 defined by `FR-0216`.
 
 **Applicability**:
-- accepted `export` and `plan` runs that attempt title-based resolution
+- accepted `export` runs that attempt title-based resolution
 
 **Rationale**:
 - Conservative title resolution depends on visible candidate data.
@@ -296,21 +296,21 @@ defined by `FR-0216`.
 - Observable evidence: unresolved-links report, scope-findings report
 
 ### FR-0073
-**Requirement**: `plan` shall acquire attachment-preview data without
-downloading attachment payload files using the remote-access context defined by
-`FR-0216`.
+**Requirement**: `plan_only` execution mode shall acquire attachment-preview
+data without downloading attachment payload files using the remote-access
+context defined by `FR-0216`.
 
 **Applicability**:
-- accepted `plan` runs
+- accepted `export --plan-only` runs
 
 **Rationale**:
 - Planning requires attachment visibility without materializing attachment
   payloads.
 
 **Acceptance Criteria**:
-1. If a processed page has attachments, `plan` acquires attachment-preview data
-   needed to determine `attachment_count` without downloading attachment payload
-   files.
+1. If a processed page has attachments, `plan_only` execution mode acquires
+   attachment-preview data needed to determine `attachment_count` without
+   downloading attachment payload files.
 2. If attachment-preview acquisition for a processed page fails, the run records
    exactly one `failed-pages.tsv` row with `operation=attachment_preview` for
    that condition; that row is a page-local failure under `FR-0088`.
@@ -321,7 +321,7 @@ downloading attachment payload files using the remote-access context defined by
    failure stops further page processing after the failure is recorded.
 5. If `--no-fail-fast` is in effect, an `attachment_preview` page-local failure
    does not by itself prevent processing of later pages.
-6. `plan` never persists attachment payload files.
+6. `plan_only` execution mode never persists attachment payload files.
 
 **Dependencies**:
 - `FR-0078`

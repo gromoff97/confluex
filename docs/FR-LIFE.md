@@ -126,8 +126,7 @@ and manual resolution.
 **Acceptance Criteria**:
 1. Installed-package smoke checks run these commands in order:
    `confluex --help`, `confluex setup --help`,
-   `confluex export --help`, `confluex plan --help`, and
-   `man -w confluex`.
+   `confluex export --help`, and `man -w confluex`.
 2. The `confluex --help` command follows the top-level help contract governed
    by `FR-0007`.
 3. Each command-help invocation follows the command-help contract governed by
@@ -215,8 +214,9 @@ delegate full usage details to the installed manual.
 
 **Acceptance Criteria**:
 1. README quick-start documentation includes fresh install, update, uninstall,
-   `confluex setup`, one `confluex plan --page-id <id>` example, one
-   `confluex export --page-id <id> --zip` example, and `man confluex`.
+   `confluex setup`, one `confluex export --page-id <id> --plan-only`
+   example, one `confluex export --page-id <id> --zip` example, and
+   `man confluex`.
 2. README quick-start documentation identifies npm as the package manager for
    install, update, and uninstall.
 3. README quick-start documentation identifies the installed manual as the full

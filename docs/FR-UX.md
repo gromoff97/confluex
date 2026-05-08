@@ -20,7 +20,7 @@
 3. The `Usage` section contains exactly one non-empty line:
    `  confluex <command> [options]`.
 4. Under `Commands`, supported top-level commands appear exactly once each in
-   the public command order governed by `FR-0222`: `setup`, `export`, `plan`.
+   the public command order governed by `FR-0222`: `setup`, `export`.
 5. Under `Commands`, each supported top-level command has exactly one purpose
    statement that fits on one line and identifies that command's canonical
    workflow.
@@ -29,8 +29,7 @@
    exact purpose statement from criterion 7.
 7. The exact command purpose statements are: `setup` ->
    `interactive user configuration workflow`; `export` ->
-   `materialized Markdown export workflow`; and `plan` ->
-   `dry-run planning workflow`.
+   `Confluence export workflow`.
 8. The `Commands` section contains no non-empty lines other than the command
    entry lines from criteria 4 and 6.
 9. Top-level help contains no non-empty lines outside the `Usage` and `Commands`
@@ -50,7 +49,6 @@
 **Dependencies**:
 - `FR-0001`
 - `FR-0002`
-- `FR-0003`
 - `FR-0222`
 - `FR-0242`
 - `FR-0118`
@@ -97,8 +95,8 @@ correctly.
    the option token or value placeholder, the line contains at least two ASCII
    spaces and then one non-empty single-line description.
 10. The `Usage` section contains exactly one non-empty line selected by target
-    command: `  confluex setup`, `  confluex export --page-id <id> [options]`,
-    or `  confluex plan --page-id <id> [options]`.
+    command: `  confluex setup` or
+    `  confluex export --page-id <id> [options]`.
 11. The `Purpose` section contains exactly one non-empty line. When another
     applicable help requirement for the target command explicitly refines the
     `Purpose` line content, that more specific requirement governs the content
@@ -109,8 +107,7 @@ correctly.
     applicable help requirement for the target command explicitly refines the
     `Examples` section, that more specific requirement governs its content.
     Otherwise the section contains exactly one non-empty line selected by target
-    command: `  confluex setup`, `  confluex export --page-id <id>`, or
-    `  confluex plan --page-id <id>`.
+    command: `  confluex setup` or `  confluex export --page-id <id>`.
 13. Command help contains no empty lines.
 14. Command help is UTF-8 text with LF line endings.
 15. Command help contains no non-empty lines outside the governed sections from
@@ -129,7 +126,6 @@ correctly.
 - `FR-0007`
 - `FR-0001`
 - `FR-0002`
-- `FR-0003`
 - `FR-0222`
 - `FR-0223`
 - `FR-0224`
@@ -151,7 +147,7 @@ condition that requires correction.
 
 **Applicability**:
 - rejected invocations
-- warnings emitted during accepted `export` or `plan` invocations
+- warnings emitted during accepted `export` invocations
 - setup validation failures
 
 **Rationale**:
@@ -203,23 +199,31 @@ warnings and errors.
 - Observable evidence: stdout and stderr stream selection
 
 ### FR-0123
-**Requirement**: `export --help` shall document Markdown-only materialized page
-export explicitly.
+**Requirement**: `export --help` shall document export and plan-only usage
+explicitly.
 
 **Applicability**:
 - `confluex export --help`
 
 **Rationale**:
-- Operators need command help that states the materialized export format.
+- Operators need command help that states the materialized export format and
+  the plan-only mode selector.
 
 **Acceptance Criteria**:
 1. The `Purpose` section contains exactly one non-empty line:
-   `  materialized Markdown export workflow`.
-2. The `Examples` section contains exactly one non-empty line:
-   `  confluex export --page-id <id> --zip`.
-3. The `Optional options` section contains a `--zip` entry whose description
+   `  Confluence export workflow`.
+2. The `Examples` section contains exactly these non-empty lines in this order:
+   `  confluex export --page-id <id>` and
+   `  confluex export --page-id <id> --plan-only`.
+3. The `Optional options` section contains a `--plan-only` entry whose
+   description line is exactly
+   `  --plan-only  Inspect export scope and reports without materializing page payloads.`
+4. The `Optional options` section contains a `--debug` entry whose description
    line is exactly
-   `  --zip  create a ZIP archive beside the Markdown output root`.
+   `  --debug  Write sanitized diagnostic artifacts inside the output root.`
+5. The `Optional options` section contains a `--zip` entry whose description
+   line is exactly
+   `  --zip  Create a ZIP archive beside the Markdown output root.`
 
 **Dependencies**:
 - `FR-0002`
@@ -227,6 +231,8 @@ export explicitly.
 - `FR-0036`
 - `FR-0121`
 - `FR-0220`
+- `FR-0247`
+- `FR-0248`
 
 **Traceability**:
 - Area: operator experience

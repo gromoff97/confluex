@@ -48,7 +48,7 @@ combinations before command work begins.
 **Acceptance Criteria**:
 1. Supplying an option to a command that does not support that option causes
    rejection.
-2. If the rejected command is `export` or `plan`, rejection occurs before
+2. If the rejected command is `export`, rejection occurs before
    traversal, payload export, attachment download, report generation, output
    root reuse, or ZIP packaging begins.
 3. If the rejected command is `setup`, rejection occurs before prompting,
@@ -75,9 +75,9 @@ option values before command work begins.
   undefined state.
 
 **Acceptance Criteria**:
-1. Omitting `--page-id` from `export` or `plan` causes rejection.
+1. Omitting `--page-id` from `export` causes rejection.
 2. Omitting a required value for an option that takes a value causes rejection.
-3. An empty string supplied to `--out`, `--log-file`, or `--env-file` causes
+3. An empty string supplied to `--out` or `--env-file` causes
    rejection.
 4. For every valued option defined by `FR-0036`, the option consumes the
    immediately following argv token as its value even when that token begins with
@@ -148,13 +148,16 @@ an option-specific prerequisite.
    command-option combination under `FR-0012`.
 3. `--zip` on any command other than `export` is rejected as an unsupported
    command-option combination under `FR-0012`.
-4. This card governs only command-surface prerequisite rejection; resume-root
+4. `export --plan-only --zip` is rejected as an invalid option combination.
+5. `export --plan-only --resume` is rejected as an invalid option combination.
+6. This card governs only command-surface prerequisite rejection; resume-root
    compatibility after the prerequisite is satisfied remains governed by
    `FR-0103`.
 
 **Dependencies**:
 - `FR-0012`
 - `FR-0026`
+- `FR-0247`
 - `FR-0103`
 
 **Traceability**:
@@ -166,19 +169,16 @@ an option-specific prerequisite.
 the invocation is a valid resume scenario.
 
 **Applicability**:
-- `export` and `plan` with `--out <path>`
+- `export` with `--out <path>`
 
 **Rationale**:
 - Operators need protection against accidental overwrite or silent reuse of prior
   result locations.
 
 **Acceptance Criteria**:
-1. `export` or `plan` with `--out <path>` pointing to an existing path is
-   rejected unless the invocation is a valid `export --resume --out <path>`
-   scenario.
-2. `plan` with an existing explicit output root is rejected because `plan` does
-   not support resume.
-3. `export --resume --out <path>` is accepted only when `<path>` is recovery
+1. `export` with `--out <path>` pointing to an existing path is rejected unless
+   the invocation is a valid `export --resume --out <path>` scenario.
+2. `export --resume --out <path>` is accepted only when `<path>` is recovery
    compatible under `FR-0103`.
 
 **Dependencies**:
@@ -197,7 +197,6 @@ output-root reuse begins.
 
 **Applicability**:
 - `export`
-- `plan`
 
 **Rationale**:
 - Operators need root-page failures to stop the run before traversal or payload
@@ -259,7 +258,7 @@ output-root reuse begins.
 2. Any failure or validation outcome observed before criterion 1 is
    pre-acceptance and is not an accepted-command or accepted-run runtime
    failure.
-3. For `export` and `plan`, pre-acceptance work occurs in this order:
+3. For `export`, pre-acceptance work occurs in this order:
    command-surface validation; env-file source selection, env-file path
    validation, env-file parsing, and effective public configuration selection
    under `FR-0219`; explicit or configured output-root selector normalization
@@ -271,15 +270,13 @@ output-root reuse begins.
    automatic generated output-root naming and candidate selection under
    `FR-0055` when no output-root selector supplies a path; generated
    output-root filesystem rejection under `FR-0076` when no output-root selector
-   supplies a path; and persistent log-path validation under `FR-0134` when a
-   persistent log-artifact path is selected under `FR-0029`.
+   supplies a path.
 4. For `setup`, pre-acceptance work is command-surface validation.
-5. Creating or reusing an output root, creating or replacing a persistent log
-   artifact, traversing Confluence data, generating reports, materializing page
-   payloads, downloading attachments, creating a ZIP archive, prompting for
-   setup input, setup dependency probing, setup remote validation, or user
-   configuration writing occurs only after criterion 1.
-6. For `export` and `plan`, the accepted-work threshold from criterion 1 is the
+5. Creating or reusing an output root, traversing Confluence data, generating
+   reports, materializing page payloads, downloading attachments, creating a ZIP
+   archive, prompting for setup input, setup dependency probing, setup remote
+   validation, or user configuration writing occurs only after criterion 1.
+6. For `export`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
 7. For `setup`, the accepted-work threshold from criterion 1 is the first
    setup prompt governed by `FR-0041`.
@@ -295,7 +292,6 @@ output-root reuse begins.
 - `FR-0043`
 - `FR-0055`
 - `FR-0076`
-- `FR-0134`
 - `FR-0142`
 - `FR-0103`
 - `FR-0180`
@@ -353,14 +349,12 @@ output-root reuse begins.
    CR.
 7. Additional stderr lines, if any, are non-governed diagnostic text and do not
    define additional rejection status values.
-8. If the rejected invocation targets `export` or `plan`, the CLI does not
+8. If the rejected invocation targets `export`, the CLI does not
    create or reuse an output root.
-9. If the operator supplied `--log-file` on a rejected invocation, the CLI does
-   not create, append, or overwrite that persistent log artifact.
-10. If the rejected invocation targets `setup`, the CLI does not prompt for
+9. If the rejected invocation targets `setup`, the CLI does not prompt for
     setup input, probe local dependencies, perform remote validation, or create,
     append, or overwrite user configuration.
-11. If the rejected invocation targets an unsupported command token, the CLI
+10. If the rejected invocation targets an unsupported command token, the CLI
     does not dispatch to any public workflow governed by `FR-0242`.
 
 **Dependencies**:
@@ -370,8 +364,7 @@ output-root reuse begins.
 
 **Traceability**:
 - Area: invocation validation
-- Observable evidence: stderr, exit code, absence of output-root and log-file
-  side effects
+- Observable evidence: stderr, exit code, absence of output-root side effects
 
 ### FR-0146
 **Requirement**: Validation rejection diagnostics shall use one deterministic
@@ -528,7 +521,6 @@ token-only Confluence access context.
 
 **Applicability**:
 - non-help `export` invocations
-- non-help `plan` invocations
 - non-help `setup` invocations
 
 **Rationale**:
@@ -536,8 +528,8 @@ token-only Confluence access context.
   configuration inputs to occur before traversal or configuration persistence.
 
 **Acceptance Criteria**:
-1. `export` and `plan` require a usable remote-access context under `FR-0216`
-   before root-page preflight can succeed.
+1. `export` requires a usable remote-access context under `FR-0216` before
+   root-page preflight can succeed.
 2. `setup` requires a usable remote-access context under `FR-0216` before user
    configuration can be written.
 3. Missing, empty, or invalid `CONFLUEX_CONFLUENCE_BASE_URL` or

@@ -18,7 +18,7 @@ variable inventory.
 **Acceptance Criteria**:
 1. The public configuration keys are exactly
    `CONFLUEX_CONFLUENCE_BASE_URL`, `CONFLUEX_CONFLUENCE_TOKEN`,
-   `CONFLUEX_OUTPUT_ROOT`, `CONFLUEX_LOG_FILE`, `CONFLUEX_MAX_PAGES`,
+   `CONFLUEX_OUTPUT_ROOT`, `CONFLUEX_MAX_PAGES`,
    `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
    `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH`.
 2. Everywhere the public configuration key inventory is serialized as an
@@ -29,15 +29,13 @@ variable inventory.
    remote-access context in `FR-0216`.
 5. `CONFLUEX_OUTPUT_ROOT` supplies the output-root selector consumed by
    `FR-0021`.
-6. `CONFLUEX_LOG_FILE` supplies the log-file selector consumed by `FR-0029`.
-7. `CONFLUEX_MAX_PAGES`, `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
+6. `CONFLUEX_MAX_PAGES`, `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
    `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` supply the numeric
    run-control selectors consumed by `FR-0228`.
 
 **Dependencies**:
 - `FR-0021`
 - `FR-0228`
-- `FR-0029`
 - `FR-0216`
 
 **Traceability**:
@@ -52,7 +50,6 @@ authentication.
 **Applicability**:
 - non-help `setup` invocations
 - non-help `export` invocations
-- non-help `plan` invocations
 
 **Rationale**:
 - Operators need one credential model that is compatible across public
@@ -85,7 +82,7 @@ invocation-local access context.
 
 **Applicability**:
 - non-help `setup` invocations during connection validation
-- non-help `export` and `plan` invocations
+- non-help `export` invocations
 
 **Rationale**:
 - Operators and tests need one authoritative source for the base URL and token
@@ -161,7 +158,7 @@ command-line values, env files, user config, and process environment in one
 deterministic precedence order.
 
 **Applicability**:
-- non-help `export` and `plan` invocations before invocation acceptance under
+- non-help `export` invocations before invocation acceptance under
   `FR-0212`
 - effective public configuration selection
 
@@ -223,8 +220,8 @@ deterministic precedence order.
     then selected env-file value, then user config value, then process
     environment value, then no value.
 18. Command-line option precedence applies to these selector pairs:
-   `--out <path>` over `CONFLUEX_OUTPUT_ROOT`, `--log-file <file>` over
-   `CONFLUEX_LOG_FILE`, `--max-pages <n>` over `CONFLUEX_MAX_PAGES`,
+   `--out <path>` over `CONFLUEX_OUTPUT_ROOT`,
+   `--max-pages <n>` over `CONFLUEX_MAX_PAGES`,
    `--max-download-mib <n>` over `CONFLUEX_MAX_DOWNLOAD_MIB`,
    `--sleep-ms <n>` over `CONFLUEX_SLEEP_MS`,
    `--max-find-candidates <n>` over `CONFLUEX_MAX_FIND_CANDIDATES`, and
@@ -260,7 +257,7 @@ values.
 **Applicability**:
 - stdout
 - stderr
-- persistent log artifacts
+- debug artifacts
 - retained report artifacts
 - setup diagnostics
 
@@ -273,7 +270,7 @@ values.
    are classified as secret values.
 2. Secret values are never emitted verbatim to stdout.
 3. Secret values are never emitted verbatim to stderr.
-4. Secret values are never emitted verbatim to persistent log artifacts.
+4. Secret values are never emitted verbatim to debug artifacts.
 5. Secret values are never emitted verbatim to retained report artifacts.
 6. Secret values are never emitted verbatim to setup diagnostics.
 7. When a diagnostic must identify a token-related failure, it uses a stable
@@ -283,8 +280,8 @@ values.
 **Dependencies**:
 - `FR-0039`
 - `FR-0043`
-- `FR-0134`
 - `FR-0216`
+- `FR-0250`
 
 **Traceability**:
 - Area: configuration
@@ -296,7 +293,7 @@ connection values in one JSON file.
 
 **Applicability**:
 - `confluex setup`
-- non-help `export` and `plan` invocations
+- non-help `export` invocations
 
 **Rationale**:
 - Operators need setup-selected base URL and token values to be reused without
@@ -318,14 +315,14 @@ connection values in one JSON file.
 7. If the user config file is absent, user config contributes no values to
    effective configuration selection.
 8. If the user config file exists but is not valid UTF-8 JSON object text,
-   non-help `export` and `plan` invocations are rejected under `FR-0019` before
+   non-help `export` invocations are rejected under `FR-0019` before
    command work begins.
 9. Each present user config value for a criterion-4 key must be a JSON string;
-   otherwise non-help `export` and `plan` invocations are rejected under
+   otherwise non-help `export` invocations are rejected under
    `FR-0019` before command work begins.
 10. If the user config object contains a key other than the criterion-4 keys,
-    non-help `export` and `plan` invocations are rejected under `FR-0019`
-    before command work begins.
+    non-help `export` invocations are rejected under `FR-0019` before command
+    work begins.
 11. Token redaction is governed by `FR-0237`.
 
 **Dependencies**:

@@ -2,19 +2,21 @@
 
 
 ### FR-0052
-**Requirement**: `export` and `plan` shall share one scope-discovery model.
+**Requirement**: Export execution modes shall share one scope-discovery model.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs in `materialized` execution mode
+- accepted `export` runs in `plan_only` execution mode
 
 **Rationale**:
-- Operators need planning and materialized export to reason about the same page
-  scope.
+- Operators need plan-only and materialized export runs to reason about the same
+  page scope.
 
 **Acceptance Criteria**:
-1. Both workflows require a root page id.
-2. Both workflows validate root-page accessibility before traversal begins.
-3. Both workflows apply the same scope-discovery requirements in `FR-0059`,
+1. Both execution modes require a root page id.
+2. Both execution modes validate root-page accessibility before traversal
+   begins.
+3. Both execution modes apply the same scope-discovery requirements in `FR-0059`,
    `FR-0060`, `FR-0061`, `FR-0062`, `FR-0063`, `FR-0064`, `FR-0065`,
    `FR-0066`, `FR-0067`, and `FR-0141` to the same root page.
 
@@ -36,29 +38,32 @@
 - Observable evidence: accepted run behavior, scope reports
 
 ### FR-0053
-**Requirement**: `export` shall materialize Markdown page content and attachment
-payloads.
+**Requirement**: `export` in `materialized` execution mode shall materialize
+Markdown page content and attachment payloads.
 
 **Applicability**:
-- accepted `export` runs
+- accepted `export` runs in `materialized` execution mode
 
 **Rationale**:
 - Operators need a workflow that produces materialized Markdown page payloads
   and attachment payload files.
 
 **Acceptance Criteria**:
-1. `export` performs page-payload materialization under `FR-0074` for each page
-   whose processing reaches that page's payload-materialization work, using the
-   Markdown payload format selected under `FR-0121`.
+1. `materialized` execution mode performs page-payload materialization under
+   `FR-0074` for each page whose processing reaches that page's
+   payload-materialization work, using the Markdown payload format selected
+   under `FR-0121`.
 2. When page-payload materialization succeeds for a page under `FR-0074`,
-   `export` retains the selected Markdown page representation in that page's
-   payload folder.
-3. `export` performs attachment-download work under `FR-0075` for each page
-   that reaches processed-page status under `FR-0127` and whose attachment data
-   is available for download.
+   `materialized` execution mode retains the selected Markdown page
+   representation in that page's payload folder.
+3. `materialized` execution mode performs attachment-download work under
+   `FR-0075` for each page that reaches processed-page status under `FR-0127`
+   and whose attachment data is available for download.
 4. When attachment-download work succeeds for a page from criterion 3 under
-   `FR-0075`, `export` retains that page's attachment payload files.
-5. `export` produces the run-level report set governed by `FR-0085`.
+   `FR-0075`, `materialized` execution mode retains that page's attachment
+   payload files.
+5. `materialized` execution mode produces the run-level report set governed by
+   `FR-0085`.
 
 **Dependencies**:
 - `FR-0074`
@@ -73,30 +78,31 @@ payloads.
 - Observable evidence: page payload folders, attachments, report set
 
 ### FR-0054
-**Requirement**: `plan` shall remain a dry-run planning workflow.
+**Requirement**: `export --plan-only` shall run the plan-only execution mode.
 
 **Applicability**:
-- accepted `plan` runs
+- accepted `export --plan-only` runs
 
 **Rationale**:
 - Operators need planning output without the cost and risk of payload
   materialization.
 
 **Acceptance Criteria**:
-1. `plan` acquires only the page-scope, link-discovery, page-metadata,
+1. `plan_only` execution mode acquires only the page-scope, link-discovery,
+   page-metadata,
    storage-content, child-listing, title-resolution-candidate, and
    attachment-preview data needed to satisfy `FR-0059`, `FR-0060`, `FR-0061`,
    `FR-0062`, `FR-0063`, `FR-0064`, `FR-0065`, `FR-0066`, `FR-0067`,
    `FR-0141`, `FR-0069`, `FR-0070`, `FR-0071`, `FR-0072`, `FR-0073`,
    `FR-0092`, and `FR-0093`.
-2. `plan` does not materialize page payload content or downloaded attachment
-   payload files in the final retained result.
-3. `plan` attachment-preview acquisition and the prohibition on downloaded
+2. `plan_only` execution mode does not materialize page payload content or
+   downloaded attachment payload files in the final retained result.
+3. `plan_only` attachment-preview acquisition and the prohibition on downloaded
    attachment payload files are governed by `FR-0073`.
-4. `plan` page-folder retention and the absence of `page.md` and downloaded
-   attachment payload files in retained plan page folders are governed by
-   `FR-0081`.
-5. `plan` produces the run-level report set governed by `FR-0085`.
+4. `plan_only` output layout and the absence of `page.md` and downloaded
+   attachment payload files are governed by `FR-0081`.
+5. `plan_only` execution mode produces the run-level report set governed by
+   `FR-0085`.
 
 **Dependencies**:
 - `FR-0059`
@@ -129,16 +135,17 @@ workflow and root page.
 
 **Applicability**:
 - `export` with no effective output-root selector
-- `plan` with no effective output-root selector
+- `export --plan-only` with no effective output-root selector
 
 **Rationale**:
 - Operators need generated output roots that are readable and collision-safe.
 
 **Acceptance Criteria**:
-1. `export` with no effective output-root selector generates the base directory
-   name `confluence_dump_<page_id>_<YYYYMMDDTHHMMSSZ>`.
-2. `plan` with no effective output-root selector generates the base directory
-   name `confluence_plan_<page_id>_<YYYYMMDDTHHMMSSZ>`.
+1. `export` in `materialized` execution mode with no effective output-root
+   selector generates the base directory name
+   `confluence_dump_<page_id>_<YYYYMMDDTHHMMSSZ>`.
+2. `export --plan-only` with no effective output-root selector generates the
+   base directory name `confluence_plan_<page_id>_<YYYYMMDDTHHMMSSZ>`.
 3. `<page_id>` is the canonical resolved root page identifier.
 4. Automatic generated output-root naming and candidate selection begins only
    after root-page preflight under `FR-0017` succeeds and establishes the
@@ -194,18 +201,18 @@ workflow and root page.
 `RUN_START` line.
 
 **Applicability**:
-- accepted non-help `export` and `plan` runs
+- accepted non-help `export` runs
 
 **Rationale**:
 - Operators need one machine-readable start signal with run identity.
 
 **Acceptance Criteria**:
 1. The run emits exactly one stdout line in the format
-   `RUN_START command=<command> page_id=<page_id> output_root=<quoted_path_string>`
+   `RUN_START command=export execution_mode=<execution_mode> page_id=<page_id> output_root=<quoted_path_string>`
    unless the run enters the `FR-0147` signal-interruption branch before
    `RUN_START` emission or the pre-output-root runtime-failure branch governed
    by `FR-0102` before `RUN_START` emission.
-2. `<command>` is `export` or `plan`.
+2. `<execution_mode>` is `materialized` or `plan_only`.
 3. `<page_id>` is the canonical resolved root page identifier.
 4. `<quoted_path_string>` is the absolute logical plain output-root path for the
    run, serialized with the quoted path-string rules defined by `FR-0124` whose
@@ -213,7 +220,7 @@ workflow and root page.
    report set, `summary.txt` reports the same path as `output_root`.
 5. `RUN_START` is emitted only after root-page preflight succeeds and the
    logical plain output-root path has been determined.
-6. For an accepted non-help `export` or `plan` run, stdout contains only the
+6. For an accepted non-help `export` run, stdout contains only the
    export-related run lifecycle lines governed by `FR-0056`, `FR-0057`, and
    `FR-0058`.
 7. If `RUN_START` is emitted, it is the first stdout line.
@@ -249,7 +256,7 @@ workflow and root page.
 `RUN_PHASE` lines.
 
 **Applicability**:
-- accepted non-help `export` and `plan` runs
+- accepted non-help `export` runs
 
 **Rationale**:
 - Operators need coarse-grained phase visibility during long-running runs.
@@ -279,9 +286,12 @@ workflow and root page.
    that phase.
 7. `RUN_PHASE phase=zip_packaging` is emitted only for accepted `export --zip`
    invocations whose ZIP packaging work begins.
-8. Lifecycle order is exactly `scope_discovery`, `page_processing`,
-   `report_generation`, then `zip_packaging`.
-9. Emitted `RUN_PHASE` lines appear in lifecycle order and each phase line
+8. Lifecycle order for `materialized` execution mode is exactly
+   `scope_discovery`, `page_processing`, `report_generation`, then
+   `zip_packaging`.
+9. Lifecycle order for `plan_only` execution mode is exactly
+   `scope_discovery`, `report_generation`.
+10. Emitted `RUN_PHASE` lines appear in lifecycle order and each phase line
    appears at most once.
 
 **Dependencies**:
@@ -304,7 +314,7 @@ workflow and root page.
 determination shall emit a deterministic `RUN_COMPLETE` line.
 
 **Applicability**:
-- accepted non-help `export` and `plan` runs except those terminated solely by
+- accepted non-help `export` runs except those terminated solely by
   signal interruption before the run determines `final_status`,
   `interrupt_reason`, and which retained artifact class, if any, remains on
   disk, and except accepted-run runtime failures that never complete
@@ -326,7 +336,7 @@ determination shall emit a deterministic `RUN_COMPLETE` line.
    string literal with no surrounding whitespace whose decoded value is that
    exact retained path.
 5. If no retained run artifact remains on disk, including interrupted or
-   runtime-failed `plan` branches that remove their plain output root before
+   runtime-failed `plan_only` branches that remove their plain output root before
    exit, `<artifact_value>` uses the shared absence token governed by
    `FR-0125`, serialized here as exactly the bare lowercase ASCII text `none`.
 6. This card governs only the `RUN_COMPLETE` line shape, authoritative artifact
@@ -353,7 +363,7 @@ determination shall emit a deterministic `RUN_COMPLETE` line.
 threshold.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators and automation need `processed page` counts, manifest rows, and
@@ -362,7 +372,8 @@ threshold.
 **Acceptance Criteria**:
 1. A page becomes a processed page only when the run has the page metadata
    required to populate that page's `page_id`, `space_key`, `page_title`,
-   `discovery_source`, and `run_mode` `manifest.tsv` fields under `FR-0086`.
+   `discovery_source`, and `execution_mode` `manifest.tsv` fields under
+   `FR-0086`.
    `folder` and `attachment_count` are not part of the processed-page threshold
    and may still serialize as `none` under `FR-0086` until later per-page
    artifact retention and attachment work determine them.

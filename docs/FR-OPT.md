@@ -6,14 +6,14 @@
 
 **Applicability**:
 - `export --page-id <id>`
-- `plan --page-id <id>`
+- `export --plan-only --page-id <id>`
 
 **Rationale**:
 - Operators need one explicit page selector for run scope.
 
 **Acceptance Criteria**:
-1. In `export` and `plan`, `--page-id <id>` selects the root page for the run.
-2. Any command other than `export` or `plan` used with `--page-id` is rejected.
+1. In `export`, `--page-id <id>` selects the root page for the run.
+2. Any command other than `export` used with `--page-id` is rejected.
 
 **Dependencies**:
 - None
@@ -28,7 +28,6 @@ output root for export-related runs.
 
 **Applicability**:
 - accepted non-help `export` invocations
-- accepted non-help `plan` invocations
 
 **Rationale**:
 - Operators need deterministic control of the output-root location.
@@ -61,7 +60,7 @@ configuration source.
 
 **Applicability**:
 - `export --env-file <file>`
-- `plan --env-file <file>`
+- `export --plan-only --env-file <file>`
 
 **Rationale**:
 - Operators need a deterministic way to load invocation-local configuration from
@@ -71,8 +70,8 @@ configuration source.
 1. `--env-file <file>` selects the env-file source for the current invocation.
 2. Env-file path normalization, readability validation, parsing, and precedence
    are governed by `FR-0219`.
-3. `--env-file <file>` is supported only by `export` and `plan`.
-4. Any command other than `export` or `plan` used with `--env-file` is rejected.
+3. `--env-file <file>` is supported only by `export`.
+4. Any command other than `export` used with `--env-file` is rejected.
 
 **Dependencies**:
 - `FR-0036`
@@ -83,12 +82,11 @@ configuration source.
 - Observable evidence: selected env-file reads and unsupported-command rejection
 
 ### FR-0226
-**Requirement**: `export` and `plan` shall use fail-fast page processing unless
+**Requirement**: `export` shall use fail-fast page processing unless
 best-effort page processing is requested.
 
 **Applicability**:
 - accepted non-help `export` invocations
-- accepted non-help `plan` invocations
 
 **Rationale**:
 - Operators need a deterministic default failure policy and an explicit
@@ -117,8 +115,6 @@ source model.
 
 **Applicability**:
 - `export --out <path>`
-- `plan --out <path>`
-- non-help invocations using `--log-file <file>`
 - env-file and process-environment values selected by `FR-0219`
 
 **Rationale**:
@@ -126,32 +122,29 @@ source model.
   command line, in an env file, or in the process environment.
 
 **Acceptance Criteria**:
-1. The public path-valued selectors are exactly `--out <path>`,
-   `CONFLUEX_OUTPUT_ROOT`, `--log-file <file>`, and `CONFLUEX_LOG_FILE`.
+1. The public path-valued selectors are exactly `--out <path>` and
+   `CONFLUEX_OUTPUT_ROOT`.
 2. `--out <path>` and `CONFLUEX_OUTPUT_ROOT` select the logical plain
    output-root path governed by `FR-0021`.
-3. `--log-file <file>` and `CONFLUEX_LOG_FILE` select the persistent
-   log-artifact path governed by `FR-0029`.
-4. Each selected path value is normalized under `FR-0158` and `FR-0159` before
+3. Each selected path value is normalized under `FR-0158` and `FR-0159` before
    the path is used for artifact naming, existence checks, or path comparison.
 
 **Dependencies**:
 - `FR-0021`
-- `FR-0029`
 - `FR-0158`
 - `FR-0159`
 - `FR-0219`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: effective output-root and log-file paths
+- Observable evidence: effective output-root path
 
 ### FR-0228
 **Requirement**: Public numeric run-control inputs shall use one
 invocation-local source model.
 
 **Applicability**:
-- `export` and `plan` numeric run-control options
+- `export` numeric run-control options
 - env-file and process-environment values selected by `FR-0219`
 
 **Rationale**:
@@ -215,7 +208,7 @@ root.
 
 **Applicability**:
 - `export --no-fail-fast`
-- `plan --no-fail-fast`
+- `export --plan-only --no-fail-fast`
 
 **Rationale**:
 - Operators need a mode that keeps processing eligible later pages despite
@@ -225,7 +218,7 @@ root.
 1. Under `--no-fail-fast`, a page-scoped failure condition that another
    requirement explicitly requires to be recorded in `failed-pages.tsv` does
    not stop the entire run immediately.
-2. Any command other than `export` or `plan` used with `--no-fail-fast` is
+2. Any command other than `export` used with `--no-fail-fast` is
    rejected.
 
 **Dependencies**:
@@ -235,76 +228,65 @@ root.
 - Area: option semantics
 - Observable evidence: continued processing after page-local failure
 
-### FR-0028
-**Requirement**: `--keep-metadata` shall control persistence of per-page metadata
-artifacts.
+### FR-0247
+**Requirement**: `--plan-only` shall select the export plan-only execution mode.
 
 **Applicability**:
-- `export --keep-metadata`
-- `plan --keep-metadata`
+- `export --plan-only`
 
 **Rationale**:
-- Operators need explicit control over whether metadata artifacts remain in final
-  output.
+- Operators need a way to inspect export scope and reports before page payload
+  materialization.
 
 **Acceptance Criteria**:
-1. `--keep-metadata` requests persistence of per-page metadata artifacts that
-   would otherwise be omitted from the final output.
-2. In `export`, the resulting metadata file retention and page-folder layout are
-   governed by `FR-0080`.
-3. In `plan`, the resulting metadata file retention and page-folder layout are
-   governed by `FR-0081`.
-4. `--keep-metadata` does not by itself request page payload persistence or
-   downloaded attachment payload persistence beyond what the authoritative
-   output-structure and data-acquisition cards already require.
-5. Any command other than `export` or `plan` used with `--keep-metadata` is
-   rejected.
+1. If `--plan-only` is supplied on `export`, the execution mode is `plan_only`.
+2. If `--plan-only` is omitted from `export`, the execution mode is
+   `materialized`.
+3. `--plan-only` does not select, imply, or mutate any other public option.
+4. `export --plan-only --zip` is rejected as an invalid option combination.
+5. `export --plan-only --resume` is rejected as an invalid option combination.
+6. Any command other than `export` used with `--plan-only` is rejected.
 
 **Dependencies**:
-- `FR-0080`
-- `FR-0081`
-
-**Traceability**:
-- Area: option semantics
-- Observable evidence: presence or absence of metadata artifacts
-
-### FR-0029
-**Requirement**: The log-file selector shall request a persistent log artifact.
-
-**Applicability**:
-- accepted non-help invocations that include `--log-file <file>`
-- accepted non-help invocations with effective `CONFLUEX_LOG_FILE`
-
-**Rationale**:
-- Operators need a persistent log separate from run reports.
-
-**Acceptance Criteria**:
-1. If `--log-file <file>` is supplied, it selects the requested persistent
-   log-artifact path.
-2. If `--log-file <file>` is omitted and `CONFLUEX_LOG_FILE` has an effective
-   value under `FR-0219`, that value selects the requested persistent
-   log-artifact path.
-3. The effective persistent log-artifact path is the path-normalized absolute
-   path produced from the selected path source under `FR-0158` and normalized
-   under `FR-0159` before the persistent log-artifact behavior governed by
-   `FR-0134` begins.
-4. The creation, overwrite, and path-conflict behavior for the selected
-   persistent log-artifact path is governed by `FR-0134`.
-5. Command support and rejection behavior for `--log-file <file>` are governed
-   by `FR-0036`.
-
-**Dependencies**:
-- `FR-0013`
-- `FR-0019`
+- `FR-0018`
 - `FR-0036`
-- `FR-0134`
-- `FR-0158`
-- `FR-0159`
-- `FR-0219`
+- `FR-0054`
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: persistent log-file creation, overwrite, or rejection
+- Observable evidence: summary execution mode, command dispatch, invalid
+  combination rejection
+
+### FR-0248
+**Requirement**: `--debug` shall request sanitized debug artifacts inside the
+selected output root.
+
+**Applicability**:
+- `export --debug`
+- `export --plan-only --debug`
+
+**Rationale**:
+- Operators need one diagnostic mode that captures enough local evidence to
+  troubleshoot export failures without changing the selected workflow.
+
+**Acceptance Criteria**:
+1. If `--debug` is supplied on `export`, the run writes debug artifacts governed
+   by `FR-0249`.
+2. If `--debug` is omitted, the run does not write the `_debug/` artifact tree
+   governed by `FR-0249`.
+3. `--debug` does not select, imply, or mutate any other public option.
+4. `--debug` never changes page scope, fail-fast behavior, generated output-root
+   selection, ZIP selection, resume selection, child traversal, link depth, or
+   configured run limits.
+5. Any command other than `export` used with `--debug` is rejected.
+
+**Dependencies**:
+- `FR-0036`
+- `FR-0249`
+
+**Traceability**:
+- Area: option semantics
+- Observable evidence: debug artifact tree presence, unchanged run behavior
 
 ### FR-0229
 **Requirement**: Configured public option-equivalent values shall use the same
@@ -322,22 +304,19 @@ value validation as command-line option values.
 **Acceptance Criteria**:
 1. A configured value selected for `CONFLUEX_OUTPUT_ROOT` is validated as the
    path value consumed by `FR-0021`.
-2. A configured value selected for `CONFLUEX_LOG_FILE` is validated as the path
-   value consumed by `FR-0029`.
-3. Configured values selected for `CONFLUEX_MAX_PAGES`,
+2. Configured values selected for `CONFLUEX_MAX_PAGES`,
    `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
    `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` are validated by
    the corresponding numeric syntax rules in `FR-0014`.
-4. Effective Confluence access values selected under `FR-0219` are interpreted
+3. Effective Confluence access values selected under `FR-0219` are interpreted
    by the remote-access context rules in `FR-0216`.
-5. If a configured option-equivalent value fails the validation required by
-   criteria 1 through 3,
+4. If a configured option-equivalent value fails the validation required by
+   criteria 1 through 2,
    the invocation is rejected before command work begins.
 
 **Dependencies**:
 - `FR-0014`
 - `FR-0021`
-- `FR-0029`
 - `FR-0216`
 - `FR-0219`
 
@@ -357,8 +336,8 @@ value.
   another option token or positional-looking token.
 
 **Acceptance Criteria**:
-1. Public flag options are exactly `--resume`, `--no-fail-fast`,
-   `--keep-metadata`, and `--zip`.
+1. Public flag options are exactly `--plan-only`, `--debug`, `--resume`,
+   `--no-fail-fast`, `--zip`, and `--include-children`.
 2. A public flag option consumes only its own argv token.
 3. The argv token immediately following a public flag option remains available
    for normal option parsing, valued-option value consumption, or positional
@@ -384,7 +363,7 @@ token as their value.
 
 **Acceptance Criteria**:
 1. Public valued options are exactly `--page-id`, `--out`, `--env-file`,
-   `--log-file`, `--max-pages`, `--max-download-mib`, `--sleep-ms`,
+   `--max-pages`, `--max-download-mib`, `--sleep-ms`,
    `--max-find-candidates`, and `--link-depth`.
 2. Each public valued option consumes exactly the immediately following argv
    token as its value.
@@ -400,16 +379,16 @@ token as their value.
 - Observable evidence: argv parsing and missing-value rejection
 
 ### FR-0034
-**Requirement**: The run-stop limit options shall bound accepted export or plan
+**Requirement**: The run-stop limit options shall bound accepted export
 runs.
 
 **Applicability**:
 - `export --max-pages <n>`
-- `plan --max-pages <n>`
-- `export` and `plan` with effective `CONFLUEX_MAX_PAGES`
+- `export --plan-only --max-pages <n>`
+- `export` with effective `CONFLUEX_MAX_PAGES`
 - `export --max-download-mib <n>`
-- `plan --max-download-mib <n>`
-- `export` and `plan` with effective `CONFLUEX_MAX_DOWNLOAD_MIB`
+- `export --plan-only --max-download-mib <n>`
+- `export` with effective `CONFLUEX_MAX_DOWNLOAD_MIB`
 
 **Rationale**:
 - Operators need explicit controls that can stop a run before it grows beyond the
@@ -436,11 +415,12 @@ runs.
    one page, one child-listing acquisition for one source page, one page-id
    lookup for one page-id-based link-resolution attempt under `FR-0064`, one
    title-resolution candidate acquisition for one title-based link-resolution
-   attempt, one attachment-preview acquisition for one page in `plan`, one
-   page-payload materialization for one page in `export`, one attachment-data
-   acquisition needed to determine `attachment_count` for one processed page in
-   `export`, and one attachment-payload download for one attachment in
-   `export`.
+   attempt, one attachment-preview acquisition for one page in `plan_only`
+   execution mode, one page-payload materialization for one page in
+   `materialized` execution mode, one attachment-data acquisition needed to
+   determine `attachment_count` for one processed page in `materialized`
+   execution mode, and one attachment-payload download for one attachment in
+   `materialized` execution mode.
 6. Byte-contributing operations from criterion 5 are evaluated for the
    download-limit threshold in the same order in which their bytes are added to
    the counters defined by `FR-0120`; operations that add zero bytes do not
@@ -454,9 +434,11 @@ runs.
    by `FR-0141`, where each such operation is either the page-id lookup from
    `FR-0064` or the title-resolution candidate acquisition from `FR-0072`
    required for that supported link, then attachment-preview acquisition for
-   `plan`, page-payload materialization for `export`, attachment-data
-   acquisition needed to determine `attachment_count` for `export`, and
-   attachment-payload downloads for `export`. Attachment-payload downloads for
+   `plan_only` execution mode, page-payload materialization for
+   `materialized` execution mode, attachment-data acquisition needed to
+   determine `attachment_count` for `materialized` execution mode, and
+   attachment-payload downloads for `materialized` execution mode.
+   Attachment-payload downloads for
    one page are ordered by ascending bytewise lexicographic order of source
    filename; invalid or duplicate source filenames fail under `FR-0075` before
    any tied or invalid attachment payload bytes are downloaded.
@@ -477,7 +459,7 @@ runs.
 12. If either configured stop limit stops the run, configured-stop status,
    retention, interrupt-reason serialization, and exit code are governed by
    `FR-0097`, `FR-0140`, and `FR-0118`.
-13. Any command other than `export` or `plan` used with either option is
+13. Any command other than `export` used with either option is
    rejected.
 
 **Dependencies**:
@@ -507,8 +489,8 @@ runs.
 
 **Applicability**:
 - `export --sleep-ms <n>`
-- `plan --sleep-ms <n>`
-- `export` and `plan` with effective `CONFLUEX_SLEEP_MS`
+- `export --plan-only --sleep-ms <n>`
+- `export` with effective `CONFLUEX_SLEEP_MS`
 
 **Rationale**:
 - Operators need explicit control over request pacing.
@@ -531,7 +513,7 @@ runs.
    prevents the next queued page from beginning processing.
 8. A page that fails before reaching processed-page status under `FR-0127` does
    not trigger the delay from criterion 4.
-9. Any command other than `export` or `plan` used with `--sleep-ms` is
+9. Any command other than `export` used with `--sleep-ms` is
    rejected.
 
 **Dependencies**:
@@ -549,8 +531,8 @@ candidate inspection.
 
 **Applicability**:
 - `export --max-find-candidates <n>`
-- `plan --max-find-candidates <n>`
-- `export` and `plan` with effective `CONFLUEX_MAX_FIND_CANDIDATES`
+- `export --plan-only --max-find-candidates <n>`
+- `export` with effective `CONFLUEX_MAX_FIND_CANDIDATES`
 
 **Rationale**:
 - Operators need explicit control over conservative title-resolution breadth.
@@ -568,8 +550,8 @@ candidate inspection.
    many title candidates for any single title-resolution attempt.
 5. If the effective candidate limit prevents unique resolution, the link remains
    unresolved.
-6. Any command other than `export` or `plan` used with
-   `--max-find-candidates` is rejected.
+6. Any command other than `export` used with `--max-find-candidates` is
+   rejected.
 
 **Dependencies**:
 - `FR-0219`
@@ -590,26 +572,21 @@ candidate inspection.
   than inferred indirectly.
 
 **Acceptance Criteria**:
-1. `export` supports only `--page-id`, `--out`, `--resume`,
-   `--no-fail-fast`, `--keep-metadata`, `--zip`, `--include-children`,
-   `--env-file`, `--log-file`, `--max-pages`, `--max-download-mib`,
-   `--sleep-ms`, `--max-find-candidates`, and `--link-depth`.
-2. `plan` supports only `--page-id`, `--out`, `--no-fail-fast`,
-   `--keep-metadata`, `--include-children`, `--env-file`, `--log-file`,
+1. `export` supports only `--page-id`, `--out`, `--plan-only`, `--debug`,
+   `--resume`, `--no-fail-fast`, `--zip`, `--include-children`, `--env-file`,
    `--max-pages`, `--max-download-mib`, `--sleep-ms`,
    `--max-find-candidates`, and `--link-depth`.
-3. `setup` supports no options.
-4. The supported options that take values use exactly these value placeholders in
+2. `setup` supports no options.
+3. The supported options that take values use exactly these value placeholders in
    help output: `--page-id` uses `<id>`, `--out` uses `<path>`,
-   `--env-file` uses `<file>`, `--log-file` uses `<file>`,
-   `--max-pages` uses `<n>`, `--max-download-mib` uses `<n>`,
-   `--sleep-ms` uses `<n>`, `--max-find-candidates` uses `<n>`, and
-   `--link-depth` uses `<n>`.
-5. Every supported option in criteria 1 through 2 that is not listed in
-   criterion 4 is a flag option and has no value placeholder in help output.
-6. No command accepts positional operands after the command token other than
-   values consumed by the valued options in criterion 4.
-7. Any non-option token that is not consumed as the value for one valued option
+   `--env-file` uses `<file>`, `--max-pages` uses `<n>`,
+   `--max-download-mib` uses `<n>`, `--sleep-ms` uses `<n>`,
+   `--max-find-candidates` uses `<n>`, and `--link-depth` uses `<n>`.
+4. Every supported option in criteria 1 through 2 that is not listed in
+   criterion 3 is a flag option and has no value placeholder in help output.
+5. No command accepts positional operands after the command token other than
+   values consumed by the valued options in criterion 3.
+6. Any non-option token that is not consumed as the value for one valued option
    is rejected under `FR-0019`.
 
 **Dependencies**:
@@ -626,7 +603,6 @@ invocation-local inputs only.
 
 **Applicability**:
 - accepted non-help `export` invocations
-- accepted non-help `plan` invocations
 
 **Rationale**:
 - Operators need one reproducible precedence model for each invocation.
@@ -654,14 +630,14 @@ invocation-local inputs only.
 for `export`.
 
 **Applicability**:
-- accepted `export` invocations
+- accepted `export` invocations in `materialized` execution mode
 
 **Rationale**:
 - Operators need one stable page payload contract for exported content.
 
 **Acceptance Criteria**:
-1. The effective page payload format for every accepted `export` invocation is
-   Markdown (`md`).
+1. The effective page payload format for every accepted `export` invocation in
+   `materialized` execution mode is Markdown (`md`).
 2. The persisted page payload file for successful page materialization is
    `page.md` as governed by `FR-0074` and `FR-0080`.
 3. Confluence storage content acquired under `FR-0070` is converter input, not a
@@ -717,7 +693,7 @@ one run.
 
 **Applicability**:
 - `export --include-children`
-- `plan --include-children`
+- `export --plan-only --include-children`
 
 **Rationale**:
 - Operators need child-tree traversal to be explicit because default runs should
@@ -725,11 +701,11 @@ one run.
 
 **Acceptance Criteria**:
 1. `--include-children` is a flag option with no value.
-2. If `--include-children` is supplied on `export` or `plan`, recursive child
+2. If `--include-children` is supplied on `export`, recursive child
    traversal is selected for that run.
-3. If `--include-children` is omitted from `export` or `plan`, recursive child
+3. If `--include-children` is omitted from `export`, recursive child
    traversal is not selected for that run.
-4. Any command other than `export` or `plan` used with `--include-children` is
+4. Any command other than `export` used with `--include-children` is
    rejected.
 5. The selector chooses only recursive child traversal. Link-driven scope
    expansion is governed by `FR-0061`, `FR-0062`, and `FR-0218`.
@@ -752,8 +728,8 @@ link-driven scope expansion.
 
 **Applicability**:
 - `export --link-depth <n>`
-- `plan --link-depth <n>`
-- `export` and `plan` with effective `CONFLUEX_LINK_DEPTH`
+- `export --plan-only --link-depth <n>`
+- `export` with effective `CONFLUEX_LINK_DEPTH`
 
 **Rationale**:
 - Operators need explicit control over how many supported internal-link hops can
@@ -762,13 +738,13 @@ link-driven scope expansion.
 **Acceptance Criteria**:
 1. The effective link-depth is a canonical non-negative integer count of
    supported internal-link hops away from pages already in scope for one run.
-2. If `--link-depth <n>` is supplied on `export` or `plan`, the effective
+2. If `--link-depth <n>` is supplied on `export`, the effective
    link-depth for that run is `n`.
 3. If `--link-depth <n>` is omitted and `CONFLUEX_LINK_DEPTH` has an effective
    value under `FR-0219`, the effective link-depth is that value.
 4. If neither `--link-depth <n>` nor `CONFLUEX_LINK_DEPTH` supplies a
    link-depth value, the effective link-depth is `1`.
-5. Any command other than `export` or `plan` used with `--link-depth` is
+5. Any command other than `export` used with `--link-depth` is
    rejected.
 6. The selector chooses only the effective link-depth value; recursive child
    traversal selection is governed by `FR-0234`, link-driven scope expansion is

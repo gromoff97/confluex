@@ -36,7 +36,7 @@ closed report-file set.
 classification vocabulary.
 
 **Applicability**:
-- all `export` and `plan` report sets
+- all `export` report sets
 
 **Rationale**:
 - Operators and automation need one authoritative page inventory with stable
@@ -45,7 +45,7 @@ classification vocabulary.
 **Acceptance Criteria**:
 1. `manifest.tsv` is UTF-8 text with LF line endings and one header row.
 2. The header row is exactly
-   `page_id<TAB>space_key<TAB>page_title<TAB>folder<TAB>discovery_source<TAB>run_mode<TAB>attachment_count`.
+   `page_id<TAB>space_key<TAB>page_title<TAB>folder<TAB>discovery_source<TAB>execution_mode<TAB>attachment_count`.
 3. `manifest.tsv` contains exactly one data row for each processed page as
    defined by `FR-0127`.
 4. Data rows are sorted first by `discovery_source` using the order `root`,
@@ -58,7 +58,7 @@ classification vocabulary.
    when per-page artifacts for that page are retained in the final run result;
    otherwise `folder` uses the shared absence token governed by `FR-0125`,
    serialized here as the exact bare field value `none`.
-6. `run_mode` uses only `export` or `plan`.
+6. `execution_mode` uses only `materialized` or `plan_only`.
 7. `discovery_source` uses only `root`, `tree`, or `linked`.
 8. `attachment_count` uses either a canonical non-negative integer governed by
    `FR-0014` or the shared absence token governed by `FR-0125`, serialized here
@@ -423,7 +423,8 @@ support-profile findings.
 **Acceptance Criteria**:
 1. `summary.txt` is UTF-8 text with LF line endings and `key=value` lines.
 2. `summary.txt` contains these keys exactly once each and in this exact order:
-   `command`, `page_id`, `output_root`, `zip_path`, `output_path_provenance`,
+   `command`, `execution_mode`, `page_id`, `output_root`, `zip_path`,
+   `output_path_provenance`,
    `support_profile`, `page_payload_format`, `final_status`, `scope_trust`,
    `processed_pages`, `root_pages`, `tree_pages`, `linked_pages`, `other_pages`,
    `resolved_links`, `unresolved_links`, `scope_findings`,
@@ -456,9 +457,9 @@ support-profile findings.
     `linked_pages`, `other_pages`, `resolved_links`, `unresolved_links`,
     `scope_findings`, and `failed_operations` are governed exclusively by
     `FR-0092`.
-12. Value contracts for `command`, `support_profile`, `page_payload_format`,
-    `output_root`, `zip_path`, and `page_id` are governed exclusively by
-    `FR-0119`.
+12. Value contracts for `command`, `execution_mode`, `support_profile`,
+    `page_payload_format`, `output_root`, `zip_path`, and `page_id` are
+    governed exclusively by `FR-0119`.
 13. Value contracts for `output_path_provenance`, `final_status`,
     `scope_trust`, `blocking_reasons`, `interrupt_reason`, `resume_mode`,
     `resume_schema_version`, `reused_pages`, and `fresh_pages` are governed

@@ -126,7 +126,6 @@ shared path cards.
 
 **Applicability**:
 - `--out <path>`
-- `--log-file <file>`
 - generated output-root candidate paths selected by owning run-lifecycle cards
 - current-working-directory sources used by relative-path normalization and
   generated root selection under this card
@@ -160,9 +159,8 @@ shared path cards.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: normalized paths in output-root, log-file, package
-  lifecycle documentation, and package smoke behavior
-- Downstream equality or descendant consumers: `FR-0134` log-path rejection
+- Observable evidence: normalized paths in output-root, package lifecycle
+  documentation, and package smoke behavior
 
 ### FR-0150
 **Requirement**: Governed relative path strings shall use one safe segment
@@ -266,12 +264,11 @@ shared self-location acquisition rule.
   workflow still needs its own authoritative rejection or runtime-failure route.
 
 **Acceptance Criteria**:
-1. For operator-supplied `--out` under `FR-0021` and operator-supplied
-   `--log-file` under `FR-0029`, any path-normalization failure under
-   `FR-0159` rejects the invocation under `FR-0019`.
-2. For configured `CONFLUEX_OUTPUT_ROOT` under `FR-0021` and configured
-   `CONFLUEX_LOG_FILE` under `FR-0029`, any path-normalization failure under
-   `FR-0159` rejects the invocation under `FR-0019`.
+1. For operator-supplied `--out` under `FR-0021`, any path-normalization failure
+   under `FR-0159` rejects the invocation under `FR-0019`.
+2. For configured `CONFLUEX_OUTPUT_ROOT` under `FR-0021`, any
+   path-normalization failure under `FR-0159` rejects the invocation under
+   `FR-0019`.
 3. Generated output-root selection under `FR-0055` uses the generated
    output-root candidate path and current-working-directory source as
    path-normalization inputs.
@@ -279,7 +276,6 @@ shared self-location acquisition rule.
 **Dependencies**:
 - `FR-0019`
 - `FR-0021`
-- `FR-0029`
 - `FR-0232`
 - `FR-0055`
 - `FR-0158`
@@ -334,9 +330,9 @@ input contract.
 **Applicability**:
 - operator-supplied path options
 - public configuration environment-value sources used by owning cards to select
-  output-root and log-file paths
+  output-root paths
 - public env-file value sources selected under `FR-0219` and used by owning
-  cards to select output-root and log-file paths
+  cards to select output-root paths
 - current-working-directory sources used by relative-path normalization and
   generated root selection
 
@@ -489,7 +485,7 @@ normalization and serialization form.
 
 **Traceability**:
 - Area: shared primitives
-- Observable evidence: normalized paths in output-root, log-file, and generated
+- Observable evidence: normalized paths in output-root and generated
   output-root behavior
 
 ### FR-0160

@@ -186,18 +186,17 @@ fields.
 
 **Acceptance Criteria**:
 1. `resume_mode` uses `0` or `1`.
-2. `resume_schema_version` uses only `2`.
+2. `resume_schema_version` uses only `3`.
 3. `resume_mode=1` only for accepted resumed export runs.
-4. `resume_mode=0` for any report set not covered by criterion 3, including any
-   `plan` run and any `export` run that is not an accepted resumed export run.
+4. `resume_mode=0` for any report set not covered by criterion 3.
 5. If `resume_mode=1`, `summary.txt` reports `reused_pages` and `fresh_pages`.
 6. If `resume_mode=0`, `reused_pages=0` and `fresh_pages=<processed_pages>`.
 7. If `resume_mode=1` and no payload was reused, `reused_pages=0`.
 8. `reused_pages` is the count of processed pages whose page payload was reused
    from a prior incomplete result under `FR-0105`.
 9. `fresh_pages` is the count of processed pages that were not counted in
-   `reused_pages`; this includes `plan` processed pages and `export` processed
-   pages whose payload was not acquired successfully.
+   `reused_pages`; this includes `plan_only` processed pages and
+   `materialized` processed pages whose payload was not acquired successfully.
 10. `reused_pages + fresh_pages` equals `processed_pages`.
 
 **Dependencies**:
@@ -223,7 +222,7 @@ fields.
 
 **Acceptance Criteria**:
 1. Rejected invocations exit `1`.
-2. Accepted `export` and `plan` runs that terminate with
+2. Accepted `export` runs that terminate with
    `final_status=success` or `final_status=success_with_findings` exit `0`.
 3. Accepted `setup` invocations that complete according to the setup success
    contract governed by `FR-0043` exit `0`.
@@ -290,11 +289,12 @@ bounded observable contract.
 
 **Traceability**:
 - Area: observability and outcomes
-- Observable evidence: stderr error output, bounded log-artifact state
+- Observable evidence: stderr error output
 
 ### FR-0119
 **Requirement**: `summary.txt` shall use stable value contracts for command,
-support-profile, payload-format, output-root, ZIP path, and page-id fields.
+execution mode, support-profile, payload-format, output-root, ZIP path, and
+page-id fields.
 
 **Applicability**:
 - report sets whose `summary.txt` schema is governed by `FR-0090`
@@ -304,20 +304,21 @@ support-profile, payload-format, output-root, ZIP path, and page-id fields.
   machine-readable.
 
 **Acceptance Criteria**:
-1. `command` uses only `export` or `plan`.
-2. `support_profile` uses only `default`.
-3. If `command=export`, `page_payload_format` is exactly `md`.
-4. If `command=plan`, `page_payload_format` uses the shared absence token
-   governed by `FR-0125`, serialized here as exactly `none`.
-5. `output_root` reports the absolute logical plain output-root path; its
+1. `command` uses only `export`.
+2. `execution_mode` uses only `materialized` or `plan_only`.
+3. `support_profile` uses only `default`.
+4. If `execution_mode=materialized`, `page_payload_format` is exactly `md`.
+5. If `execution_mode=plan_only`, `page_payload_format` uses the shared absence
+   token governed by `FR-0125`, serialized here as exactly `none`.
+6. `output_root` reports the absolute logical plain output-root path; its
    serialization uses the quoted path string governed by `FR-0124`, which for
    this field is one JSON string literal with no surrounding whitespace whose
    decoded value is that exact absolute path.
-6. If the run creates a ZIP archive under `FR-0221`, `zip_path` reports that
+7. If the run creates a ZIP archive under `FR-0221`, `zip_path` reports that
    absolute ZIP path using the quoted path string governed by `FR-0124`.
    Otherwise `zip_path` is the shared absence token governed by `FR-0125`,
    serialized here as exactly `none`.
-7. `page_id` reports the canonical resolved root page identifier.
+8. `page_id` reports the canonical resolved root page identifier.
 
 **Dependencies**:
 - `FR-0021`

@@ -5,7 +5,7 @@
 **Requirement**: Accepted run execution shall use one shared start threshold.
 
 **Applicability**:
-- accepted non-help `export` and `plan` invocations
+- accepted non-help `export` invocations
 
 **Rationale**:
 - Interruption, runtime-failure, exit-code, and retained-artifact branches need
@@ -14,9 +14,8 @@
 **Acceptance Criteria**:
 1. After invocation acceptance under `FR-0212`, accepted run execution begins
    at the earliest moment when the product starts any accepted-run lifecycle
-   work specific to that invocation: persistent log-artifact creation,
-   replacement, or first write under `FR-0134`, output-root creation or reuse,
-   payload reuse, scope-discovery work, page processing, or report generation.
+   work specific to that invocation: output-root creation or reuse, payload
+   reuse, scope-discovery work, page processing, or report generation.
 2. Validation-only and pre-acceptance setup work before criterion 1, including
    CLI parsing, option validation, root-page preflight, rejection decisions,
    and pre-acceptance generated output-root candidate selection under `FR-0055`,
@@ -26,7 +25,6 @@
 
 **Dependencies**:
 - `FR-0017`
-- `FR-0134`
 - `FR-0055`
 - `FR-0057`
 - `FR-0212`
@@ -41,7 +39,7 @@
 threshold.
 
 **Applicability**:
-- accepted `export` and `plan` runs whose plain output root exists
+- accepted `export` runs whose plain output root exists
 
 **Rationale**:
 - Interruption and runtime-failure branches need one shared threshold for when
@@ -147,15 +145,16 @@ plain output root on disk.
   sibling state
 
 ### FR-0101
-**Requirement**: An interrupted `plan` run shall use the interrupted-plan
-cleanup branch.
+**Requirement**: An interrupted `export --plan-only` run shall use the
+interrupted plan-only cleanup branch.
 
 **Applicability**:
-- accepted `plan` runs interrupted after a plain output root has been created
-  and before completion
+- accepted `export --plan-only` runs interrupted after a plain output root has
+  been created and before completion
 
 **Rationale**:
-- Operators should not mistake an interrupted plan root for a valid final plan.
+- Operators should not mistake an interrupted plan-only root for a valid final
+  plan.
 
 **Acceptance Criteria**:
 1. If interruption occurs after plain output-root creation and before
@@ -170,18 +169,19 @@ cleanup branch.
    that plain output root so that it reports the same signal-interruption
    summary values from criterion 2 before attempting to remove the plain output
    root.
-4. The product removes the plain output root created for the interrupted plan
-   run after the applicable branch from criterion 1 or 3.
+4. The product removes the plain output root created for the interrupted
+   plan-only run after the applicable branch from criterion 1 or 3.
 5. The removed path does not retain a partial report set.
-6. If removal of the interrupted plan output root fails after the applicable
-   report synthesis or summary-rewrite branch from criterion 1 or 3 succeeds,
-   the plain output root remains on disk as an interrupted partial result.
-7. The retained cleanup-failure root from criterion 6 satisfies the plan layout
-   from `FR-0078`, contains the report-file set from `FR-0085`, contains the
-   `INCOMPLETE` marker from `FR-0076`, and its `summary.txt` reports the same
-   signal-interruption summary values from criterion 2.
-8. Accepted `plan` runs interrupted before any plain output root has been
-   created are governed by `FR-0147`, not by this card.
+6. If removal of the interrupted plan-only output root fails after the
+   applicable report synthesis or summary-rewrite branch from criterion 1 or 3
+   succeeds, the plain output root remains on disk as an interrupted partial
+   result.
+7. The retained cleanup-failure root from criterion 6 satisfies the plan-only
+   layout from `FR-0078`, contains the report-file set from `FR-0085`,
+   contains the `INCOMPLETE` marker from `FR-0076`, and its `summary.txt`
+   reports the same signal-interruption summary values from criterion 2.
+8. Accepted `export --plan-only` runs interrupted before any plain output root
+   has been created are governed by `FR-0147`, not by this card.
 9. If report synthesis required by criterion 1 fails or rewriting the retained
    `summary.txt` required by criterion 3 fails, the product still attempts
    removal under criterion 4; `RUN_COMPLETE` is not emitted because final
@@ -208,15 +208,15 @@ cleanup branch.
 
 **Traceability**:
 - Area: interruption
-- Observable evidence: absence of the interrupted plan output root or retained
-  cleanup-failure partial root
+- Observable evidence: absence of the interrupted plan-only output root or
+  retained cleanup-failure partial root
 
 ### FR-0102
 **Requirement**: Runtime failure after accepted run execution begins under
 `FR-0180` shall be reported explicitly.
 
 **Applicability**:
-- accepted `export` and `plan` runs that fail after the accepted-run execution
+- accepted `export` runs that fail after the accepted-run execution
   threshold from `FR-0180` is reached
 
 **Rationale**:
@@ -224,7 +224,7 @@ cleanup branch.
   configured-stop or clean outcomes.
 
 **Acceptance Criteria**:
-1. If a runtime failure stops an `export` or `plan` run after accepted run
+1. If a runtime failure stops an `export` run after accepted run
    execution has begun under `FR-0180` and before any plain output root has
    been created or reused for that run, no plain output root or ZIP archive is
    selected as an authoritative retained artifact for that run.
@@ -236,15 +236,11 @@ cleanup branch.
    first line is exactly `ERROR: runtime_failure pre_output_root`.
 4. Additional stderr lines in the criterion 1 branch, if any, are
    non-governed diagnostic text.
-5. If criterion 1 leaves any filesystem path on disk other than a persistent
-   log artifact governed by `FR-0134`, that path is non-authoritative
-   runtime-failure debris. Any such directory root satisfies `FR-0217`. No such
-   path is a partial result, a report-set container, or a selected retained
-   artifact. A persistent log artifact governed by `FR-0134`, if
-   present, is retained or left as already written under `FR-0134`, is outside
-   the retained-artifact set consumed by `FR-0058`, and is not a partial
-   result.
-6. If a runtime failure stops an `export` or `plan` run after accepted run
+5. If criterion 1 leaves any filesystem path on disk, that path is
+   non-authoritative runtime-failure debris. Any such directory root satisfies
+   `FR-0217`. No such path is a partial result, a report-set container, or a
+   selected retained artifact.
+6. If a runtime failure stops an `export` run after accepted run
    execution has begun under `FR-0180`, after a plain output root has been
    created or reused for that run, and before the normal report-set retention
    threshold from `FR-0181` is reached, the product enters runtime-failure
@@ -260,16 +256,17 @@ cleanup branch.
    the report-file set from `FR-0085`, contains the `INCOMPLETE` marker from
    `FR-0076`, and its `summary.txt` reports the same runtime-failure summary
    values from criterion 7.
-9. If runtime-failure report synthesis succeeds for a `plan` run, the product
-   removes the plain output root created for that run and does not leave a
-   partial report set behind at that path.
-10. If removal of the runtime-failed plan output root from criterion 9 fails, the
-    plain output root remains on disk as a runtime-failed partial result.
-11. The retained cleanup-failure root from criterion 10 satisfies the plan layout
-    from `FR-0078`, contains the report-file set from `FR-0085`, contains the
-    `INCOMPLETE` marker from `FR-0076`, and its `summary.txt` reports the same
-    runtime-failure summary values from criterion 7.
-12. If a runtime failure stops an `export` or `plan` run after the normal
+9. If runtime-failure report synthesis succeeds for a plan-only execution mode
+   run, the product removes the plain output root created for that run and does
+   not leave a partial report set behind at that path.
+10. If removal of the runtime-failed plan-only output root from criterion 9
+    fails, the plain output root remains on disk as a runtime-failed partial
+    result.
+11. The retained cleanup-failure root from criterion 10 satisfies the plan-only
+    layout from `FR-0078`, contains the report-file set from `FR-0085`,
+    contains the `INCOMPLETE` marker from `FR-0076`, and its `summary.txt`
+    reports the same runtime-failure summary values from criterion 7.
+12. If a runtime failure stops an `export` run after the normal
    report-set retention threshold from `FR-0181` is reached, the product
    rewrites the retained `summary.txt` in the plain output root so that it
    reports the same runtime-failure summary values from criterion 7 before
@@ -303,12 +300,13 @@ cleanup branch.
     that ZIP archive is the only ZIP sibling eligible for `summary.txt`
     `zip_path` under `FR-0119` and for the ZIP-first artifact precedence under
     `FR-0058`.
-18. If criterion 12 succeeds for a `plan` run, the product removes the plain output
-   root created for that run and does not leave a partial report set behind at
-   that path.
-19. If removal of the runtime-failed plan output root from criterion 18 fails,
-    the plain output root remains on disk as a runtime-failed partial result.
-20. The retained cleanup-failure root from criterion 19 satisfies the plan
+18. If criterion 12 succeeds for a plan-only execution mode run, the product
+    removes the plain output root created for that run and does not leave a
+    partial report set behind at that path.
+19. If removal of the runtime-failed plan-only output root from criterion 18
+    fails, the plain output root remains on disk as a runtime-failed partial
+    result.
+20. The retained cleanup-failure root from criterion 19 satisfies the plan-only
     layout from `FR-0078`, contains the report-file set from `FR-0085`,
     contains the `INCOMPLETE` marker from `FR-0076`, and its `summary.txt`
     reports the same runtime-failure summary values from criterion 7.
@@ -354,7 +352,6 @@ cleanup branch.
 - `FR-0118`
 - `FR-0113`
 - `FR-0140`
-- `FR-0134`
 - `FR-0180`
 - `FR-0181`
 - `FR-0188`
@@ -364,8 +361,8 @@ cleanup branch.
 
 **Traceability**:
 - Area: interruption
-- Observable evidence: summary fields, ZIP sibling state, removed plan root,
-  exit code
+- Observable evidence: summary fields, ZIP sibling state, removed plan-only
+  root, exit code
 
 ### FR-0145
 **Requirement**: Interrupted and runtime-failed report synthesis shall use one
@@ -373,7 +370,8 @@ deterministic partial-report rule.
 
 **Applicability**:
 - interrupted `export` report synthesis under `FR-0100`
-- interrupted `plan` report synthesis before cleanup under `FR-0101`
+- interrupted `export --plan-only` report synthesis before cleanup under
+  `FR-0101`
 - accepted-run runtime-failure report synthesis under `FR-0102`
 
 **Rationale**:
@@ -425,7 +423,7 @@ deterministic partial-report rule.
 pre-output-root interruption branch.
 
 **Applicability**:
-- accepted `export` and `plan` runs interrupted after root-page preflight
+- accepted `export` runs interrupted after root-page preflight
   succeeds and before any plain output root has been created or reused for that
   run
 
@@ -435,8 +433,7 @@ pre-output-root interruption branch.
 
 **Acceptance Criteria**:
 1. The run leaves no plain output root or ZIP archive created by that run;
-   persistent log artifacts governed by `FR-0134` are outside the
-   retained-artifact set consumed by `FR-0058` for this criterion.
+   no retained artifact is selected for this criterion.
 2. The run emits no `RUN_COMPLETE` line because retained-artifact and final
    report-set determination did not complete.
 3. If `RUN_START` had already been emitted under `FR-0056` before the signal was
@@ -445,18 +442,10 @@ pre-output-root interruption branch.
 4. The run emits no `RUN_PHASE` line.
 5. The process exit code is the signal-interruption exit code governed by
    `FR-0118`.
-6. If persistent log-artifact creation, replacement, or first write under
-   `FR-0134` began before the signal was observed, the selected persistent log
-   artifact is retained or left as already written under `FR-0134`; if that
-   work did not begin before the signal was observed, this branch creates no
-   new persistent log artifact. In either case, the log path is not an
-   authoritative retained artifact for that run and is not named by
-   `RUN_COMPLETE`.
 
 **Dependencies**:
 - `FR-0017`
 - `FR-0056`
-- `FR-0134`
 - `FR-0057`
 - `FR-0058`
 - `FR-0118`

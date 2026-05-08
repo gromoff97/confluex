@@ -6,7 +6,7 @@
 in scope.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need the selected root page to remain part of the run scope even if
@@ -38,7 +38,7 @@ in scope.
 recursive child traversal is selected.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need default runs to remain focused on the selected root page and
@@ -75,7 +75,7 @@ eligible page content through supported internal-link forms up to the effective
 link-depth.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need the export scope to include supported internal page references
@@ -109,7 +109,7 @@ link-depth.
 link-depth.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need bounded linked-page expansion rather than uncontrolled graph
@@ -136,7 +136,7 @@ link-depth.
 for link-driven scope expansion.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need a bounded, explicit support profile rather than implicit claims
@@ -292,7 +292,7 @@ for link-driven scope expansion.
 outcomes over guessed outcomes.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need the product to avoid inventing page relationships it cannot
@@ -371,7 +371,7 @@ outcomes over guessed outcomes.
 discovery forms.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need scope expansion tied to real supported internal links, not to
@@ -401,7 +401,7 @@ discovery forms.
 recorded as scope findings.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need explicit visibility when a run can be semantically incomplete
@@ -478,7 +478,7 @@ recorded as scope findings.
 single-page processing.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need one stable page result per page even when the graph contains
@@ -517,7 +517,7 @@ single-page processing.
 queue.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Configured page limits, fail-fast stops, throttling, and download-limit stops
@@ -585,7 +585,7 @@ queue.
 `discovery_source` classification.
 
 **Applicability**:
-- accepted `export` and `plan` runs
+- accepted `export` runs
 
 **Rationale**:
 - Operators need one stable page-classification rule when the same page is

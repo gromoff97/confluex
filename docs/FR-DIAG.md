@@ -36,19 +36,18 @@ persisting user configuration.
 - Observable evidence: setup failure stderr and no user config write
 
 ### FR-0039
-**Requirement**: Export and plan shall validate root page access before creating
-an output root.
+**Requirement**: Export shall validate root page access before creating an
+output root.
 
 **Applicability**:
 - accepted non-help `export` invocations
-- accepted non-help `plan` invocations
 
 **Rationale**:
 - Operators need page-id mistakes and access failures to fail before filesystem
   side effects.
 
 **Acceptance Criteria**:
-1. Before creating an output root, `export` and `plan` use the remote-access
+1. Before creating an output root, `export` uses the remote-access
    context from `FR-0216` to resolve the supplied `--page-id <id>` value to one
    canonical page identity.
 2. Root page access succeeds only when the remote-access context is usable, the
@@ -231,7 +230,7 @@ contract.
 
 **Rationale**:
 - Setup validates reusable connection configuration; page-specific access is
-  owned by `export` and `plan`.
+  owned by `export`.
 
 **Acceptance Criteria**:
 1. Setup does not prompt for a Confluence page id.
