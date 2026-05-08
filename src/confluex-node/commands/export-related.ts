@@ -825,7 +825,7 @@ function isBasicExport (command: Command, options: ExportOptions, access: RootAc
 }
 
 function isBasicExportOptions (command: Command, options: ExportOptions): boolean {
-  const allowedValues = ['--page-id', '--out', '--log-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
+  const allowedValues = ['--page-id', '--out', '--env-file', '--log-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
   return command === 'export' &&
     hasOnlyFlags(options, ['--keep-metadata', '--no-fail-fast', '--resume', '--zip']) &&
     Object.keys(options.values).every(token => allowedValues.includes(token) || BOUNDED_VALUE_OPTIONS.includes(token))
@@ -836,7 +836,7 @@ function isBasicPlan (command: Command, options: ExportOptions, access: RootAcce
 }
 
 function isBasicPlanOptions (command: Command, options: ExportOptions): boolean {
-  const allowedValues = ['--page-id', '--out', '--log-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
+  const allowedValues = ['--page-id', '--out', '--env-file', '--log-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
   return command === 'plan' &&
     hasOnlyFlags(options, ['--keep-metadata', '--no-fail-fast']) &&
     Object.keys(options.values).every(token => allowedValues.includes(token) || BOUNDED_VALUE_OPTIONS.includes(token))
