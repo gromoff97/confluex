@@ -23,11 +23,22 @@ type MarkdownPayloadResult =
     state: 'ok'
     payload: string
     diagnostics: MarkdownRemnantDiagnostic[]
+    debug: MarkdownExporterDebugArtifacts
   }
   | {
     state: 'failed'
     error: 'page_payload_failed'
+    debug?: MarkdownExporterDebugArtifacts
   }
+
+export type MarkdownExporterDebugArtifacts = {
+  args: string[]
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  rawPayload?: string
+  normalizedPayload?: string
+}
 
 type ExecFileOptions = {
   env: NodeJS.ProcessEnv
@@ -99,26 +110,74 @@ export async function acquireMarkdownPagePayload (
 
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
     const execFile = dependencies.execFile ?? defaultExecFile
-    await execFile('uvx', markdownExporterArgs(context.baseUrl, page.page_id), {
-      env: confluenceChildProcessEnv(env, {
-        CME_CONFIG_PATH: configPath,
-        CI: 'true',
-        NO_COLOR: '1'
-      })
-    })
+    const args = markdownExporterArgs(context.baseUrl, page.page_id)
+    const execResult = await runExporter(execFile, args, env, configPath)
+    if (execResult.state === 'failed') {
+      return failedPayload(execResult.debug)
+    }
 
-    const rawPayload = await fs.readFile(path.join(outputDir, `${page.page_id}.md`), 'utf8')
+    const debugBase = execResult.debug
+    let rawPayload: string
+    try {
+      rawPayload = await fs.readFile(path.join(outputDir, `${page.page_id}.md`), 'utf8')
+    } catch {
+      return failedPayload(debugBase)
+    }
     const payload = normalizeMarkdownPayload(rawPayload)
     return {
       state: 'ok',
       payload,
-      diagnostics: markdownRemnantDiagnostics(payload)
+      diagnostics: markdownRemnantDiagnostics(payload),
+      debug: {
+        ...debugBase,
+        rawPayload,
+        normalizedPayload: payload
+      }
     }
   } catch {
     return failedPayload()
   } finally {
     if (tempDir !== null) {
       await removeTempDir(tempDir, dependencies)
+    }
+  }
+}
+
+async function runExporter (
+  execFile: ExecFileDependency,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  configPath: string
+): Promise<
+  | { state: 'ok', debug: MarkdownExporterDebugArtifacts }
+  | { state: 'failed', debug: MarkdownExporterDebugArtifacts }
+> {
+  try {
+    const result = await execFile('uvx', args, {
+      env: confluenceChildProcessEnv(env, {
+        CME_CONFIG_PATH: configPath,
+        CI: 'true',
+        NO_COLOR: '1'
+      })
+    })
+    return {
+      state: 'ok',
+      debug: {
+        args,
+        stdout: execTextField(result, 'stdout'),
+        stderr: execTextField(result, 'stderr'),
+        exitCode: 0
+      }
+    }
+  } catch (error) {
+    return {
+      state: 'failed',
+      debug: {
+        args,
+        stdout: execTextField(error, 'stdout'),
+        stderr: execTextField(error, 'stderr'),
+        exitCode: execExitCode(error)
+      }
     }
   }
 }
@@ -200,11 +259,17 @@ function pageViewUrl (baseUrl: string, pageId: string): string {
   return url.toString()
 }
 
-function failedPayload (): MarkdownPayloadResult {
-  return {
+function failedPayload (debug?: MarkdownExporterDebugArtifacts): MarkdownPayloadResult {
+  return debug === undefined
+    ? {
     state: 'failed',
     error: 'page_payload_failed'
   }
+    : {
+        state: 'failed',
+        error: 'page_payload_failed',
+        debug
+      }
 }
 
 function isCanonicalPageRef (value: unknown): value is PageRef {
@@ -220,8 +285,8 @@ async function defaultMakeTempDir (prefix: string): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix))
 }
 
-async function defaultExecFile (file: string, args: string[], options: ExecFileOptions): Promise<void> {
-  await execFilePromise(file, args, options)
+async function defaultExecFile (file: string, args: string[], options: ExecFileOptions): Promise<unknown> {
+  return await execFilePromise(file, args, options)
 }
 
 async function removeTempDir (tempDir: string, dependencies: MarkdownExporterDependencies): Promise<void> {
@@ -230,4 +295,29 @@ async function removeTempDir (tempDir: string, dependencies: MarkdownExporterDep
     await remove(tempDir)
   } catch {
   }
+}
+
+function execTextField (value: unknown, field: 'stdout' | 'stderr'): string {
+  if (isRecord(value)) {
+    const output = value[field]
+    if (typeof output === 'string') {
+      return output
+    }
+    if (Buffer.isBuffer(output)) {
+      return output.toString('utf8')
+    }
+  }
+  return ''
+}
+
+function execExitCode (value: unknown): number | null {
+  if (!isRecord(value)) {
+    return null
+  }
+  const code = value.code
+  return typeof code === 'number' && Number.isSafeInteger(code) ? code : null
+}
+
+function isRecord (value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

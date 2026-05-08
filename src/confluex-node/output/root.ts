@@ -7,6 +7,8 @@ export type OutputRootSelection =
   | { state: 'ok', outputRoot: string }
   | { state: 'rejected', requirementId: string }
 
+export type ExecutionMode = 'materialized' | 'plan_only'
+
 type OutputRootDependencies = {
   cwd?: string
   now?: Date
@@ -18,7 +20,7 @@ type LstatState =
   | { error: unknown }
 
 export function selectOutputRoot (
-  command: string,
+  executionMode: ExecutionMode,
   pageId: string,
   options: EffectiveOptions,
   dependencies: OutputRootDependencies = {}
@@ -30,21 +32,21 @@ export function selectOutputRoot (
     if (source === undefined) {
       return rejected('FR-0076')
     }
-    return selectExplicitOutputRoot(command, source, options, cwd)
+    return selectExplicitOutputRoot(executionMode, source, options, cwd)
   }
 
-  return selectGeneratedOutputRoot(command, pageId, cwd, dependencies.now ?? new Date())
+  return selectGeneratedOutputRoot(executionMode, pageId, cwd, dependencies.now ?? new Date())
 }
 
 function selectExplicitOutputRoot (
-  command: string,
+  executionMode: ExecutionMode,
   source: string,
   options: EffectiveOptions,
   cwd: string
 ): OutputRootSelection {
   const outputRoot = path.isAbsolute(source) ? path.resolve(source) : path.resolve(cwd, source)
   const state = lstatState(outputRoot)
-  const isResume = command === 'export' && options.flags.includes('--resume')
+  const isResume = executionMode === 'materialized' && options.flags.includes('--resume')
 
   if ('error' in state) {
     return rejected('FR-0076')
@@ -74,13 +76,13 @@ function selectExplicitOutputRoot (
 }
 
 function selectGeneratedOutputRoot (
-  command: string,
+  executionMode: ExecutionMode,
   pageId: string,
   cwd: string,
   now: Date
 ): OutputRootSelection {
   const normalizedCwd = path.resolve(cwd)
-  const prefix = command === 'export' ? 'confluence_dump' : 'confluence_plan'
+  const prefix = executionMode === 'materialized' ? 'confluence_dump' : 'confluence_plan'
   const baseName = `${prefix}_${pageId}_${formatUtcTimestamp(now)}`
 
   for (let suffix = 0; suffix < Number.MAX_SAFE_INTEGER; suffix += 1) {

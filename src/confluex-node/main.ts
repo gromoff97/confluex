@@ -66,8 +66,8 @@ export async function run (argv: string[], streams: Streams = process): Promise<
     return result.exitCode
   }
 
-  if (parsed.command === 'export' || parsed.command === 'plan') {
-    const result = await runExportRelatedCommand(parsed.command, options)
+  if (parsed.command === 'export') {
+    const result = await runExportRelatedCommand(options)
     streams.stdout.write(result.stdout)
     streams.stderr.write(result.stderr)
     return result.exitCode
@@ -80,7 +80,7 @@ export async function run (argv: string[], streams: Streams = process): Promise<
   return 4
 }
 
-const envFileCommands = new Set(['export', 'plan'])
+const envFileCommands = new Set(['export'])
 const missingEnvFileValue = Symbol('missing env-file value')
 
 function loadEnvContext (argv: string[], cwd: string, env: NodeJS.ProcessEnv): EnvContext {

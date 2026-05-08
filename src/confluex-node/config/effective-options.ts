@@ -14,7 +14,6 @@ export type EnvMap = NodeJS.ProcessEnv | Record<string, string | undefined>
 
 const optionEnvironmentNames = new Map<string, string>([
   ['--out', 'CONFLUEX_OUTPUT_ROOT'],
-  ['--log-file', 'CONFLUEX_LOG_FILE'],
   ['--max-pages', 'CONFLUEX_MAX_PAGES'],
   ['--max-download-mib', 'CONFLUEX_MAX_DOWNLOAD_MIB'],
   ['--sleep-ms', 'CONFLUEX_SLEEP_MS'],

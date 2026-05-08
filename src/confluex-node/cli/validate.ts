@@ -23,7 +23,7 @@ type ValidationFailures = {
   missingRequiredOptions: Set<string>
 }
 
-const emptyRejectedOptions = new Set(['--out', '--log-file', '--env-file'])
+const emptyRejectedOptions = new Set(['--out', '--env-file'])
 const positiveIntegerOptions = new Set(['--max-pages', '--max-download-mib', '--max-find-candidates'])
 
 export function validateCommandInvocation (
@@ -174,6 +174,12 @@ function validateCombinations (
 ): void {
   if (commandName === 'export' && flags.has('--resume') && !values.has('--out')) {
     failures.invalidOptionCombinations.push(['--out', '--resume'])
+  }
+  if (commandName === 'export' && flags.has('--plan-only') && flags.has('--zip')) {
+    failures.invalidOptionCombinations.push(['--plan-only', '--zip'])
+  }
+  if (commandName === 'export' && flags.has('--plan-only') && flags.has('--resume')) {
+    failures.invalidOptionCombinations.push(['--plan-only', '--resume'])
   }
 }
 

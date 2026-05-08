@@ -16,7 +16,7 @@ type ReportFileName = typeof REPORT_FILE_ORDER[number]
 type TsvReportFileName = Exclude<ReportFileName, 'summary.txt'>
 
 const HEADER_TEXT = {
-  'manifest.tsv': 'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\trun_mode\tattachment_count\n',
+  'manifest.tsv': 'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\texecution_mode\tattachment_count\n',
   'resolved-links.tsv': 'source_page_id\tsource_title\tlink_kind\traw_link_value\ttarget_page_id\ttarget_space_key\ttarget_title\n',
   'unresolved-links.tsv': 'source_page_id\tsource_title\tlink_kind\traw_link_value\tresolution_reason\n',
   'failed-pages.tsv': 'page_id\tpage_title\toperation\terror_summary\n',
@@ -25,6 +25,7 @@ const HEADER_TEXT = {
 
 const SUMMARY_KEYS = [
   'command',
+  'execution_mode',
   'page_id',
   'output_root',
   'zip_path',
@@ -57,6 +58,7 @@ type SummaryKey = typeof SUMMARY_KEYS[number]
 
 type RunReportInput = {
   command: unknown
+  executionMode: unknown
   pageId: unknown
   outputRoot: unknown
   zipPath?: unknown
@@ -95,7 +97,7 @@ type DownloadedMibValues = {
 
 export type RunReportTexts = Record<ReportFileName, string>
 
-type Command = 'export' | 'plan'
+type ExecutionMode = 'materialized' | 'plan_only'
 
 export function emptyRunReportTexts (input: RunReportInput): RunReportTexts {
   return runReportTexts(input)
@@ -142,12 +144,13 @@ function summaryText (input: RunReportInput, counts: ReportCounts): string {
 }
 
 function summaryValues (input: RunReportInput, counts: ReportCounts = zeroCounts()): Record<SummaryKey, string> {
-  const command = requireOneOf(input.command, ['export', 'plan'], 'command')
+  const command = requireOneOf(input.command, ['export'], 'command')
+  const executionMode = requireOneOf(input.executionMode, ['materialized', 'plan_only'], 'executionMode')
   const pageId = requireCanonicalNonNegativeInteger(input.pageId, 'pageId')
   const outputRoot = requireString(input.outputRoot, 'outputRoot')
   const zipPath = input.zipPath === undefined ? 'none' : quotePathString(requireString(input.zipPath, 'zipPath'))
   const outputPathProvenance = requireOneOf(input.outputPathProvenance, ['explicit', 'generated'], 'outputPathProvenance')
-  const pagePayloadFormat = requirePagePayloadFormat(command, input.pagePayloadFormat)
+  const pagePayloadFormat = requirePagePayloadFormat(executionMode, input.pagePayloadFormat)
   const finalStatus = requireOneOf(input.finalStatus, ['success', 'success_with_findings', 'incomplete', 'interrupted'], 'finalStatus')
   const scopeTrust = requireOneOf(input.scopeTrust, ['trusted', 'degraded'], 'scopeTrust')
   const interruptReason = requireOneOf(input.interruptReason, ['none', 'max_pages_limit_reached', 'max_download_limit_reached', 'runtime_error', 'signal_interrupt'], 'interruptReason')
@@ -155,6 +158,7 @@ function summaryValues (input: RunReportInput, counts: ReportCounts = zeroCounts
 
   return {
     command,
+    execution_mode: executionMode,
     page_id: pageId,
     output_root: quotePathString(outputRoot),
     zip_path: zipPath,
@@ -178,7 +182,7 @@ function summaryValues (input: RunReportInput, counts: ReportCounts = zeroCounts
     blocking_reasons: blockingReasons(counts),
     interrupt_reason: interruptReason,
     resume_mode: booleanValue(input.resumeMode === undefined ? false : input.resumeMode, 'resumeMode'),
-    resume_schema_version: '2',
+    resume_schema_version: '3',
     reused_pages: nonNegativeIntegerValue(input.reusedPages, 'reusedPages', 0),
     fresh_pages: nonNegativeIntegerValue(input.freshPages, 'freshPages', counts.processedPages)
   }
@@ -215,14 +219,14 @@ function sortedSerializedRows (rows: unknown[], serialize: (row: unknown) => str
 function serializeManifestRow (value: unknown): string {
   const row = requireRecord(value, 'manifest.row')
   const discoverySource = requireOneOf(row.discovery_source, ['root', 'tree', 'linked'], 'manifest.discovery_source')
-  const runMode = requireOneOf(row.run_mode, ['export', 'plan'], 'manifest.run_mode')
+  const executionMode = requireOneOf(row.execution_mode, ['materialized', 'plan_only'], 'manifest.execution_mode')
   const fields = [
     requireCanonicalNonNegativeInteger(row.page_id, 'manifest.page_id'),
     absenceOrDataField(row.space_key, 'manifest.space_key'),
     dataField(row.page_title, 'manifest.page_title'),
     normalizeManifestFolder(row.folder),
     discoverySource,
-    runMode,
+    executionMode,
     attachmentCountField(row.attachment_count)
   ]
   return `${fields.join('\t')}\n`
@@ -417,8 +421,8 @@ function validateReportTexts (reportTexts: unknown): asserts reportTexts is RunR
   }
 }
 
-function requirePagePayloadFormat (command: Command, value: unknown): 'md' | 'none' {
-  if (command === 'plan') {
+function requirePagePayloadFormat (executionMode: ExecutionMode, value: unknown): 'md' | 'none' {
+  if (executionMode === 'plan_only') {
     return requireOneOf(value, ['none'], 'pagePayloadFormat')
   }
 
