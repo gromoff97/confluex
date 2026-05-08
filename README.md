@@ -24,10 +24,10 @@ confluex setup
 
 `setup` asks for the Confluence base URL and token. Token input is hidden.
 
-## First Plan
+## Inspect Scope
 
 ```bash
-confluex plan --page-id 12345 --out ./plan
+confluex export --page-id 12345 --plan-only --out ./plan
 ```
 
 ## First Export

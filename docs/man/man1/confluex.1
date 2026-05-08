@@ -1,74 +1,85 @@
 .TH CONFLUEX 1 "May 2026" "confluex 0.1.0" "User Commands"
 .SH NAME
-confluex \- export Confluence pages to Markdown
+confluex \- export Confluence page scopes to Markdown
 .SH SYNOPSIS
 .B confluex setup
-.br
-.B confluex plan --page-id
-.I id
-.RI [ options ]
 .br
 .B confluex export --page-id
 .I id
 .RI [ options ]
 .SH DESCRIPTION
 .B confluex
-is a token-authenticated command line tool for planning and exporting
-Confluence page scopes to Markdown.
+is a token-authenticated command line tool for exporting Confluence page scopes
+to Markdown and operator reports.
 .PP
+Use
 .B setup
-saves reusable user configuration.
-.B plan
-checks the selected page scope and writes reports without downloading page
-payloads or attachments.
+to save reusable Confluence access settings. Use
 .B export
-writes Markdown pages, attachments, and reports.
+to inspect a page scope, materialize Markdown payloads, retain attachments, and
+write reports. Add
+.B --plan-only
+to inspect scope and reports without materializing page payloads.
 .SH COMMANDS
 .TP
 .B setup
 Interactively save the Confluence base URL and token in the user configuration
 file. The token prompt does not echo input.
 .TP
-.B plan
-Build the selected page scope, validate page access, and write reports without
-materializing Markdown payloads or attachment files.
-.TP
 .B export
-Build the selected page scope, write Markdown payloads, retain downloaded
-attachments, and write reports.
+Validate root-page access, discover the selected page scope, and write the
+governed report set. By default this command also writes Markdown page payloads
+and retained attachments.
+.SH EXPORT MODES
+.TP
+.B materialized
+Default mode. Writes reports, Markdown page payloads, and retained attachments
+under the selected output root. This mode supports
+.BR --zip
+and
+.BR --resume .
+.TP
+.B plan_only
+Selected by
+.BR --plan-only .
+Writes reports for the selected scope without materializing page payloads or
+attachments. This mode does not imply any other option.
 .SH OPTIONS
 .SS Required selection
 .TP
 .BI --page-id " id"
-Root Confluence page id for
-.B plan
-or
-.BR export .
-.SS Output control
+Root Confluence page id to export or inspect.
+.SS Output and mode
 .TP
 .BI --out " path"
-Output directory. If omitted, Confluex generates an output directory.
+Output directory. If omitted, Confluex generates one in the current directory.
+.TP
+.B --plan-only
+Inspect export scope and reports without materializing page payloads.
+.TP
+.B --debug
+Write sanitized diagnostic artifacts inside
+.I _debug/
+under the selected output root. Debug artifacts include run metadata, effective
+options, events, page metadata, storage XML, attachment-preview data, and
+markdown-exporter diagnostics for operations that were actually performed.
 .TP
 .B --zip
-For
-.BR export ,
-create a ZIP archive beside the Markdown output root.
+Create a ZIP archive beside the Markdown output root.
 .TP
 .B --resume
-For
-.BR export ,
-reuse a compatible incomplete output root selected by
+Reuse a compatible incomplete materialized export root selected by
 .BR --out .
 .SS Scope control
 .TP
 .B --include-children
-Include the recursive Confluence child tree of the root page in the selected
-scope. If omitted, Confluex does not traverse child pages.
+Include the recursive Confluence child tree of the root page. If omitted,
+Confluex does not traverse child pages.
 .TP
 .BI --link-depth " n"
 Follow supported internal links up to
 .I n
-hops from pages already in scope.
+hops from pages already in scope. The default is 1.
 .TP
 .BI --max-find-candidates " n"
 Inspect at most
@@ -90,23 +101,14 @@ MiB in total.
 .B --no-fail-fast
 Continue after page-local runtime failures.
 .TP
-.B --keep-metadata
-Persist page metadata files such as
-.I _info.txt
-and
-.IR _storage.xml .
-.TP
 .BI --sleep-ms " n"
 Sleep
 .I n
 milliseconds between processed pages.
-.SS Logging and configuration
+.SS Configuration input
 .TP
 .BI --env-file " file"
 Load public configuration from an explicit env file.
-.TP
-.BI --log-file " file"
-Write a persistent log artifact.
 .SH CONFIGURATION
 Configuration precedence is command-line options, explicit env file, default
 current-directory
@@ -115,11 +117,10 @@ user config written by
 .BR setup ,
 process environment, then no value.
 .PP
-Supported public configuration names include
+Supported public configuration names are
 .BR CONFLUEX_CONFLUENCE_BASE_URL ,
 .BR CONFLUEX_CONFLUENCE_TOKEN ,
 .BR CONFLUEX_OUTPUT_ROOT ,
-.BR CONFLUEX_LOG_FILE ,
 .BR CONFLUEX_MAX_PAGES ,
 .BR CONFLUEX_MAX_DOWNLOAD_MIB ,
 .BR CONFLUEX_SLEEP_MS ,
@@ -128,14 +129,20 @@ and
 .BR CONFLUEX_LINK_DEPTH .
 .PP
 Tokens are used as Bearer token values for Confluence requests. Confluex does
-not print token values in setup prompts, command output, logs, or reports.
+not print token values in setup prompts, command output, reports, or debug
+artifacts.
 .SH OUTPUTS
 .TP
 .I summary.txt
-Run outcome summary.
+Run outcome summary. It includes
+.B command=export
+and
+.B execution_mode
+for the selected export mode.
 .TP
 .I manifest.tsv
-Selected page inventory.
+Selected page inventory, including page id, space key, title, output folder,
+discovery source, execution mode, and attachment count.
 .TP
 .I resolved-links.tsv
 Supported links resolved into the selected scope.
@@ -148,19 +155,14 @@ Page-local failures.
 .TP
 .I scope-findings.tsv
 Scope and discovery findings.
-.PP
-.B export
-also writes Markdown page payloads and retained attachments under the output
-root. With
-.BR --zip ,
-it creates a ZIP archive beside the output root.
-.SH REPORTS
-Reports are tab-separated or line-oriented text files intended for operator
-review and automation. A successful
-.B plan
-or
-.B export
-run writes the report set under the selected output root.
+.TP
+.I pages/
+Materialized Markdown page payloads and retained attachments.
+.TP
+.I _debug/
+Sanitized diagnostic artifacts written only when
+.B --debug
+is supplied.
 .SH EXIT STATUS
 .TP
 .B 0
@@ -200,12 +202,15 @@ Configure reusable access:
 .B confluex setup
 .TP
 Validate access and inspect the planned scope:
-.B confluex plan --page-id 12345 --out ./plan
+.B confluex export --page-id 12345 --plan-only --out ./plan
 .TP
 Export Markdown and create a ZIP archive:
 .B confluex export --page-id 12345 --out ./dump --zip
 .TP
-Resume an incomplete export:
+Export with diagnostic artifacts:
+.B confluex export --page-id 12345 --out ./dump --debug
+.TP
+Resume an incomplete materialized export:
 .B confluex export --page-id 12345 --out ./dump --resume
 .SH SEE ALSO
 .BR npm (1)
