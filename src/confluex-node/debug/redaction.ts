@@ -50,7 +50,22 @@ function redactString (value: string, secrets: readonly string[]): string {
 }
 
 function normalizedSecrets (secrets: readonly string[]): string[] {
-  return Array.from(new Set(secrets.filter(secret => secret.length > 0)))
+  const derived = new Set<string>()
+  for (const secret of secrets) {
+    if (secret.length === 0) {
+      continue
+    }
+
+    derived.add(secret)
+    const jsonLiteral = JSON.stringify(secret)
+    derived.add(jsonLiteral)
+    derived.add(jsonLiteral.slice(1, -1))
+    derived.add(encodeURIComponent(secret))
+    derived.add(`Authorization: Bearer ${secret}`)
+    derived.add(`Bearer ${secret}`)
+  }
+
+  return Array.from(derived).sort((left, right) => right.length - left.length)
 }
 
 function isRecord (value: unknown): value is Record<string, unknown> {

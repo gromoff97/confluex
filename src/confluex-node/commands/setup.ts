@@ -59,7 +59,7 @@ export async function runSetupCommand (
       return setupFailure(setupReason(connection.reason))
     }
 
-    const configPath = writeUserConfig({
+    const configPath = await writeUserConfig({
       confluenceBaseUrl: connection.baseUrl,
       confluenceToken: token
     }, env)

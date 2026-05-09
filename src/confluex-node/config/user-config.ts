@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+import { writeFileNoFollowAtomic } from '../output/filesystem-safety'
 import { decodeStrictUtf8JsonObject, parseConfluexConfigObject, type ConfluexConfig } from './json-config'
 
 export type UserConfig = ConfluexConfig
@@ -71,24 +72,12 @@ export function loadUserConfig (env: NodeJS.ProcessEnv = process.env): LoadedUse
   }
 }
 
-export function writeUserConfig (
+export async function writeUserConfig (
   config: SetupUserConfig,
   env: NodeJS.ProcessEnv = process.env
-): string {
+): Promise<string> {
   const configPath = userConfigPath(env)
-  fs.mkdirSync(path.dirname(configPath), {
-    recursive: true,
-    mode: 0o700
-  })
-  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, {
-    encoding: 'utf8',
-    mode: 0o600
-  })
-  try {
-    fs.chmodSync(configPath, 0o600)
-  } catch {
-    // POSIX modes are best-effort on platforms that do not support chmod.
-  }
+  await writeFileNoFollowAtomic(configPath, `${JSON.stringify(config, null, 2)}\n`, 0o600)
   return configPath
 }
 

@@ -1,7 +1,6 @@
-import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { ensureDirectoryNoFollow, writeFileAtomic } from '../output/filesystem-safety'
+import { appendLineNoFollowAtomic, makePrivateDirectoryNoFollow, writeFileNoFollowAtomic } from '../output/filesystem-safety'
 import { redactForDebug, redactTextForDebug } from './redaction'
 
 export type MarkdownDebugArtifacts = {
@@ -30,8 +29,7 @@ export function createDebugCollector (outputRoot: string, secrets: readonly stri
   const root = path.join(outputRoot, '_debug')
   const writeText = async (relativePath: string, text: string): Promise<void> => {
     const target = path.join(root, ...relativePath.split('/'))
-    await ensureDirectoryNoFollow(path.dirname(target))
-    await writeFileAtomic(target, redactTextForDebug(cappedText(text), secrets))
+    await writeFileNoFollowAtomic(target, redactTextForDebug(cappedText(text), secrets), 0o600)
   }
   const writeJson = async (relativePath: string, value: unknown): Promise<void> => {
     await writeText(relativePath, `${JSON.stringify(redactForDebug(value, secrets), null, 2)}\n`)
@@ -58,8 +56,8 @@ export function createDebugCollector (outputRoot: string, secrets: readonly stri
         data: value
       }, secrets)
       const target = path.join(root, 'events.ndjson')
-      await ensureDirectoryNoFollow(path.dirname(target))
-      await fs.appendFile(target, `${JSON.stringify(payload)}\n`, 'utf8')
+      await makePrivateDirectoryNoFollow(path.dirname(target))
+      await appendLineNoFollowAtomic(target, redactTextForDebug(JSON.stringify(payload), secrets))
     },
     async writePageMetadata (pageId: string, value: unknown): Promise<void> {
       await writeJson(pagePath(pageId, 'metadata.json'), value)
