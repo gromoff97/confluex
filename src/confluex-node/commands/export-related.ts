@@ -2324,6 +2324,9 @@ function pageIdResolutionReason (result: unknown): ResolutionReason {
   if (isRecord(result) && (result.reason === 'not_found' || result.reason === 'not_unique')) {
     return result.reason
   }
+  if (isRecord(result) && result.reason === 'page_inaccessible') {
+    return 'not_found'
+  }
   return 'insufficient_data'
 }
 

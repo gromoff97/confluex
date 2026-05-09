@@ -45,6 +45,11 @@ export type AttachmentDataItem = {
   downloadUrl: string
 }
 
+export type GovernedRequestTarget = {
+  readonly pathAndQuery: string
+  readonly authorization: 'confluence' | 'none'
+}
+
 export type HttpResponse = {
   statusCode: number | undefined
   chunks: Buffer[]
@@ -363,7 +368,7 @@ export async function getAttachmentData (
 
     const items: AttachmentDataItem[] = []
     for (const result of body.results) {
-      const item = attachmentDataItem(context.baseUrl, result)
+      const item = attachmentDataItem(result)
       if (item === null) {
         return { state: 'failed' }
       }
@@ -680,7 +685,7 @@ function attachmentPreviewText (results: unknown[]): string {
   ].join('\n')
 }
 
-function attachmentDataItem (baseUrl: string, result: unknown): AttachmentDataItem | null {
+function attachmentDataItem (result: unknown): AttachmentDataItem | null {
   if (!isRecord(result) || typeof result.title !== 'string' || result.title === '' || !isRecord(result._links)) {
     return null
   }
@@ -690,7 +695,7 @@ function attachmentDataItem (baseUrl: string, result: unknown): AttachmentDataIt
     return null
   }
 
-  const downloadUrl = attachmentDownloadUrl(baseUrl, download)
+  const downloadUrl = attachmentDownloadPathAndQuery(download)
   if (downloadUrl === null) {
     return null
   }
@@ -701,7 +706,7 @@ function attachmentDataItem (baseUrl: string, result: unknown): AttachmentDataIt
   }
 }
 
-function attachmentDownloadUrl (baseUrl: string, download: string): string | null {
+function attachmentDownloadPathAndQuery (download: string): string | null {
   if (download === '' || !download.startsWith('/') || download.startsWith('//') || download.includes('#')) {
     return null
   }
@@ -713,11 +718,7 @@ function attachmentDownloadUrl (baseUrl: string, download: string): string | nul
     return null
   }
 
-  try {
-    return new URL(`${baseUrl}${download}`).toString()
-  } catch {
-    return null
-  }
+  return download
 }
 
 function governedAttachmentDownloadUrl (baseUrl: string, downloadUrl: string): URL | null {
@@ -725,7 +726,7 @@ function governedAttachmentDownloadUrl (baseUrl: string, downloadUrl: string): U
   let url: URL
   try {
     base = new URL(baseUrl)
-    url = new URL(downloadUrl)
+    url = new URL(`${baseUrl}${downloadUrl}`)
   } catch {
     return null
   }
