@@ -33,6 +33,7 @@ import {
   type TransportPolicy
 } from '../remote/access'
 import { runReportTexts, writeRunReportSet } from '../reports/run-report'
+import { structuredRawLinkValue } from '../reports/rows'
 import type { MarkdownRemnantDiagnostic } from '../payload/markdown'
 import type { EffectiveConfluenceConfig } from '../config/effective-options'
 
@@ -497,10 +498,6 @@ async function tryRunCleanPayloadExport (
 ): Promise<CommandResult> {
   const pageId = metadata.page_id
   const scope = await basicPlanScope(metadata, options, dependencies, 'materialized', initialDownloadedBytes)
-  if (scope.configuredStopReason === 'none' && scope.payloadArtifacts.length !== scope.manifestRows.length) {
-    scope.failedPageRows.push(pagePayloadFailedRow(metadata))
-  }
-
   const maxDownloadBytes = maxDownloadBytesLimit(options)
   let configuredStopReason = scope.configuredStopReason
   const resumeState = dependencies.resumeState?.state === 'ok'
@@ -512,12 +509,16 @@ async function tryRunCleanPayloadExport (
   const pageSpaceKeysByPageId = manifestSpaceKeysByPageId(scope.manifestRows)
   const attachmentCounts = new Map<string, number>()
   const attachmentFailures: FailedPageRow[] = []
+  const payloadArtifactPageIds = new Set(scope.payloadArtifacts.map(artifact => artifact.metadata.page_id))
+  const failedPayloadPageIds = new Set(scope.manifestRows
+    .filter(row => !payloadArtifactPageIds.has(row.page_id))
+    .map(row => row.page_id))
   let reusedPages = 0
   if (configuredStopReason !== 'max_download_limit_reached') {
     for (const artifact of scope.payloadArtifacts) {
       const payloadResult = await materializePagePayload(artifact, pagePayloadFormat, dependencies)
       if (payloadResult.state !== 'ok') {
-        scope.failedPageRows.push(pagePayloadFailedRow(artifact.metadata))
+        failedPayloadPageIds.add(artifact.metadata.page_id)
         if (!options.flags.includes('--no-fail-fast')) {
           break
         }
@@ -538,7 +539,7 @@ async function tryRunCleanPayloadExport (
         unresolvedLinkRows: scope.unresolvedLinkRows
       })
       if (localizedPayload.state !== 'ok') {
-        scope.failedPageRows.push(pagePayloadFailedRow(artifact.metadata))
+        failedPayloadPageIds.add(artifact.metadata.page_id)
         if (!options.flags.includes('--no-fail-fast')) {
           break
         }
@@ -576,12 +577,19 @@ async function tryRunCleanPayloadExport (
     }
   }
 
+  const failedPageRows = [
+    ...scope.failedPageRows,
+    ...failedPayloadRows(scope.manifestRows, failedPayloadPageIds),
+    ...attachmentFailures
+  ]
   const hasBlockingReasons = scope.scopeFindingRows.length > 0 ||
     scope.unresolvedLinkRows.length > 0 ||
-    scope.failedPageRows.length > 0 ||
-    attachmentFailures.length > 0
+    failedPageRows.length > 0
   const finalStatus = configuredStopReason === 'none' ? completedFinalStatus(options, hasBlockingReasons) : 'incomplete'
-  const manifestRows = manifestRowsWithAttachmentCounts(scope.manifestRows, attachmentCounts)
+  const manifestRows = manifestRowsWithAttachmentCounts(
+    manifestRowsWithNotRetainedPayloads(scope.manifestRows, failedPayloadPageIds),
+    attachmentCounts
+  )
   const reportTexts = runReportTexts({
     command: 'export',
     executionMode: 'materialized',
@@ -590,7 +598,7 @@ async function tryRunCleanPayloadExport (
     outputPathProvenance: outputPathProvenance(options),
     pagePayloadFormat,
     finalStatus,
-    scopeTrust: finalStatus === 'incomplete' || hasBlockingReasons ? 'degraded' : 'trusted',
+    scopeTrust: scopeTrustFor(finalStatus, scope.scopeFindingRows, scope.unresolvedLinkRows, failedPageRows),
     interruptReason: configuredStopReason,
     resumeMode: isResumeMode,
     reusedPages,
@@ -600,10 +608,7 @@ async function tryRunCleanPayloadExport (
     resolvedLinkRows: scope.resolvedLinkRows,
     unresolvedLinkRows: scope.unresolvedLinkRows,
     scopeFindingRows: scope.scopeFindingRows,
-    failedPageRows: [
-      ...scope.failedPageRows,
-      ...attachmentFailures
-    ]
+    failedPageRows
   })
   if (finalStatus === 'incomplete') {
     await writeIncompleteMarker(outputRoot)
@@ -634,7 +639,7 @@ async function runPlanOnlyExport (
       outputPathProvenance: outputPathProvenance(options),
       pagePayloadFormat: 'none',
       finalStatus,
-      scopeTrust: finalStatus === 'incomplete' || hasBlockingReasons ? 'degraded' : 'trusted',
+      scopeTrust: scopeTrustFor(finalStatus, scope.scopeFindingRows, scope.unresolvedLinkRows, scope.failedPageRows),
       interruptReason: scope.configuredStopReason,
       downloadedMib: downloadedMibFields(scope.downloadedBytes),
       manifestRows: scope.manifestRows,
@@ -1284,8 +1289,12 @@ function payloadArtifactForPage (
   if (storage === undefined) {
     return null
   }
+  const metadataArtifact = metadataArtifactForPage(page, storageByPageId, attachmentPreviews)
+  if (metadataArtifact === null) {
+    return null
+  }
   return {
-    ...metadataArtifactForPage(page, storageByPageId, attachmentPreviews),
+    ...metadataArtifact,
     storage
   }
 }
@@ -1294,12 +1303,16 @@ function metadataArtifactForPage (
   page: PageQueueEntry,
   storageByPageId: Map<string, string>,
   attachmentPreviews: AttachmentPreviewWork
-): PageArtifact {
+): PageArtifact | null {
   const storage = storageByPageId.get(page.metadata.page_id)
   const attachmentPreview = attachmentPreviews.previewByPageId.get(page.metadata.page_id)
+  const folder = tryPagePayloadFolderForPage(page.metadata.page_id, page.metadata.space_key)
+  if (folder === null) {
+    return null
+  }
   return {
     metadata: page.metadata,
-    folder: pagePayloadFolderForPage(page.metadata.page_id, page.metadata.space_key),
+    folder,
     ...(storage === undefined ? {} : { storage }),
     ...(attachmentPreview === undefined ? {} : { attachmentPreview })
   }
@@ -1432,6 +1445,50 @@ function manifestRowsWithAttachmentCounts (manifestRows: ManifestRow[], attachme
         attachment_count: String(attachmentCounts.get(row.page_id))
       }
     : row)
+}
+
+function manifestRowsWithNotRetainedPayloads (manifestRows: ManifestRow[], pageIds: Set<string>): ManifestRow[] {
+  if (pageIds.size === 0) {
+    return manifestRows
+  }
+  return manifestRows.map(row => pageIds.has(row.page_id)
+    ? {
+        ...row,
+        folder: 'none'
+      }
+    : row)
+}
+
+function failedPayloadRows (manifestRows: ManifestRow[], pageIds: Set<string>): FailedPageRow[] {
+  if (pageIds.size === 0) {
+    return []
+  }
+  return manifestRows
+    .filter(row => pageIds.has(row.page_id))
+    .map(row => pagePayloadFailedRowFromManifest(row))
+}
+
+function pagePayloadFailedRowFromManifest (row: ManifestRow): FailedPageRow {
+  return {
+    page_id: row.page_id,
+    page_title: row.page_title,
+    operation: 'page_payload',
+    error_summary: 'page_payload_failed'
+  }
+}
+
+function scopeTrustFor (
+  finalStatus: FinalStatus,
+  scopeFindingRows: ScopeFindingRow[],
+  unresolvedLinkRows: LinkRow[],
+  failedPageRows: FailedPageRow[]
+): 'trusted' | 'degraded' {
+  if (finalStatus === 'incomplete' || scopeFindingRows.length > 0 || unresolvedLinkRows.length > 0) {
+    return 'degraded'
+  }
+  return failedPageRows.some(row => row.operation === 'page_metadata' || row.operation === 'storage_content')
+    ? 'degraded'
+    : 'trusted'
 }
 
 async function materializePagePayload (
@@ -1602,6 +1659,14 @@ function titleTargetKeyWithSpaceKey (spaceKey: string, title: string): string {
 
 function pagePayloadFolderForPage (pageId: string, spaceKey: string | undefined): string {
   return pagePayloadFolder(spaceKey === undefined ? { pageId } : { pageId, spaceKey })
+}
+
+function tryPagePayloadFolderForPage (pageId: string, spaceKey: string | undefined): string | null {
+  try {
+    return pagePayloadFolderForPage(pageId, spaceKey)
+  } catch {
+    return null
+  }
 }
 
 async function payloadFolderEntriesAreReusable (folderPath: string, pagePayloadFormat: PagePayloadFormat): Promise<boolean> {
@@ -1915,13 +1980,14 @@ function planManifestRow (
   executionMode: ExecutionMode = 'plan_only',
   attachmentCount = 'none'
 ): ManifestRow {
+  const materializedFolder = executionMode === 'materialized'
+    ? tryPagePayloadFolderForPage(metadata.page_id, metadata.space_key) ?? 'none'
+    : 'none'
   return {
     page_id: metadata.page_id,
     space_key: metadata.space_key ?? 'none',
     page_title: metadata.page_title,
-    folder: executionMode === 'materialized'
-      ? pagePayloadFolderForPage(metadata.page_id, metadata.space_key)
-      : 'none',
+    folder: materializedFolder,
     discovery_source: discoverySource,
     execution_mode: executionMode,
     attachment_count: attachmentCount
@@ -1988,13 +2054,7 @@ function titleRawLinkValue (discovery: TitleDiscovery): string {
   const discoveredSpaceKey = discovery.spaceKey
   const spaceKeyPresent = typeof discoveredSpaceKey === 'string'
   const spaceKey = spaceKeyPresent ? discoveredSpaceKey : ''
-  return [
-    `space_key_present=${spaceKeyPresent ? '1' : '0'}`,
-    `space_key_bytes=${Buffer.byteLength(spaceKey, 'utf8')}`,
-    `space_key=${spaceKey}`,
-    `title_bytes=${Buffer.byteLength(discovery.title, 'utf8')}`,
-    `title=${discovery.title}`
-  ].join(';')
+  return structuredRawLinkValue('title', [spaceKeyPresent ? '1' : '0', spaceKey, discovery.title])
 }
 
 function isUsablePageMetadata (metadata: unknown): metadata is PageMetadata {
@@ -2423,7 +2483,7 @@ function titleResolutionIncompleteRow (pageId: string): ScopeFindingRow {
     page_id: pageId,
     finding_area: 'title_resolution',
     finding_type: 'candidate_visibility_incomplete',
-    detail: 'candidate_visibility_incomplete'
+    detail: 'title_candidates_incomplete'
   }
 }
 
@@ -2442,15 +2502,6 @@ function pagePayloadMarkdownRemnantRow (pageId: string, diagnostic: MarkdownRemn
     finding_area: 'page_payload',
     finding_type: 'markdown_remnant',
     detail: diagnostic.detail
-  }
-}
-
-function pagePayloadFailedRow (metadata: PageMetadata): FailedPageRow {
-  return {
-    page_id: metadata.page_id,
-    page_title: metadata.page_title,
-    operation: 'page_payload',
-    error_summary: 'page_payload_failed'
   }
 }
 

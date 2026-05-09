@@ -1,7 +1,6 @@
-import path from 'node:path'
-
-import { ensureDirectoryNoFollow, writeFileAtomic } from '../output/filesystem-safety'
+import { commitReportSet } from '../output/report-commit'
 import { quotePathString } from '../path/format'
+import { mergeFailedPageRows, mergeResolvedRows, mergeUnresolvedRows, normalizeTsvField } from './rows'
 
 export const REPORT_FILE_ORDER = [
   'manifest.tsv',
@@ -104,16 +103,17 @@ export function emptyRunReportTexts (input: RunReportInput): RunReportTexts {
 }
 
 export function runReportTexts (input: RunReportInput): RunReportTexts {
-  const manifestRows = sortedManifestRows(rowArray(input.manifestRows, 'manifestRows')).map(serializeManifestRow)
-  const resolvedLinkRows = sortedSerializedRows(rowArray(input.resolvedLinkRows, 'resolvedLinkRows'), serializeResolvedLinkRow)
-  const unresolvedLinkRows = sortedSerializedRows(rowArray(input.unresolvedLinkRows, 'unresolvedLinkRows'), serializeUnresolvedLinkRow)
-  const failedPageRows = sortedSerializedRows(rowArray(input.failedPageRows, 'failedPageRows'), serializeFailedPageRow)
+  const manifestRowValues = sortedManifestRows(rowArray(input.manifestRows, 'manifestRows'))
+  const manifestRows = manifestRowValues.map(serializeManifestRow)
+  const resolvedLinkRows = sortedSerializedRows(mergeResolvedRows(rowArray(input.resolvedLinkRows, 'resolvedLinkRows')), serializeResolvedLinkRow)
+  const unresolvedLinkRows = sortedSerializedRows(mergeUnresolvedRows(rowArray(input.unresolvedLinkRows, 'unresolvedLinkRows')), serializeUnresolvedLinkRow)
+  const failedPageRows = sortedSerializedRows(mergeFailedPageRows(rowArray(input.failedPageRows, 'failedPageRows')), serializeFailedPageRow)
   const scopeFindingRows = sortedSerializedRows(rowArray(input.scopeFindingRows, 'scopeFindingRows'), serializeScopeFindingRow)
   const counts: ReportCounts = {
     processedPages: manifestRows.length,
-    rootPages: manifestRows.filter(row => row.includes('\troot\t')).length,
-    treePages: manifestRows.filter(row => row.includes('\ttree\t')).length,
-    linkedPages: manifestRows.filter(row => row.includes('\tlinked\t')).length,
+    rootPages: countManifestDiscovery(manifestRowValues, 'root'),
+    treePages: countManifestDiscovery(manifestRowValues, 'tree'),
+    linkedPages: countManifestDiscovery(manifestRowValues, 'linked'),
     resolvedLinks: resolvedLinkRows.length,
     unresolvedLinks: unresolvedLinkRows.length,
     scopeFindings: scopeFindingRows.length,
@@ -132,10 +132,7 @@ export function runReportTexts (input: RunReportInput): RunReportTexts {
 
 export async function writeRunReportSet (outputRoot: string, reportTexts: unknown): Promise<void> {
   validateReportTexts(reportTexts)
-  await ensureDirectoryNoFollow(outputRoot)
-  for (const name of REPORT_FILE_ORDER) {
-    await writeFileAtomic(path.join(outputRoot, name), reportTexts[name])
-  }
+  await commitReportSet(outputRoot, reportTexts, REPORT_FILE_ORDER)
 }
 
 function summaryText (input: RunReportInput, counts: ReportCounts): string {
@@ -212,7 +209,7 @@ function sortedManifestRows (rows: unknown[]): unknown[] {
   })
 }
 
-function sortedSerializedRows (rows: unknown[], serialize: (row: unknown) => string): string[] {
+function sortedSerializedRows (rows: readonly unknown[], serialize: (row: unknown) => string): string[] {
   return Array.from(new Set(rows.map(serialize))).sort(bytewiseCompare)
 }
 
@@ -310,18 +307,7 @@ function absenceOrDataField (value: unknown, name: string): string {
 }
 
 function dataField (value: unknown, name: string): string {
-  const stringValue = normalizeControlCharacters(requireString(value, name))
-  const escapedBackslash = stringValue.startsWith('\\') ? `\\${stringValue}` : stringValue
-  return escapedBackslash === 'none' ? '\\none' : escapedBackslash
-}
-
-function normalizeControlCharacters (value: string): string {
-  let normalized = ''
-  for (const character of value) {
-    const code = character.codePointAt(0)
-    normalized += code !== undefined && code <= 0x1F ? ' ' : character
-  }
-  return normalized
+  return normalizeTsvField(requireString(value, name))
 }
 
 function governedRelativePath (value: unknown, name: string): string {
@@ -350,6 +336,14 @@ function discoveryRank (value: unknown): number {
     return 1
   }
   return 2
+}
+
+function countManifestDiscovery (rows: readonly unknown[], discoverySource: 'root' | 'tree' | 'linked'): number {
+  return rows.filter(row => requireOneOf(
+    requireRecord(row, 'manifest.row').discovery_source,
+    ['root', 'tree', 'linked'],
+    'manifest.discovery_source'
+  ) === discoverySource).length
 }
 
 function blockingReasons (counts: ReportCounts): string {
