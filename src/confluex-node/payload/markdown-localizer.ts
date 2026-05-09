@@ -74,7 +74,6 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
   })
   const resolvedTargets = resolvedTargetsByKey(input)
   const unresolvedTargets = unresolvedTargetsByKey(input)
-  const exportedTargets = exportedTargetsByKey(input)
 
   visit(tree, ['link', 'image'], (node, index, parent) => {
     if (!isLinkOrImage(node) || !isMutableParent(parent) || typeof index !== 'number') {
@@ -82,7 +81,9 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
     }
     const destination = node.url
     if (destination.startsWith('attachments/')) {
-      return
+      if (isSafeLocalAttachmentDestination(destination)) {
+        return
+      }
     }
 
     const normalized = normalizedTargetKeyFromMarkdownDestination(
@@ -90,18 +91,6 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
       typeof input.baseUrl === 'string' ? { baseUrl: input.baseUrl } : {}
     )
     if (normalized === null) {
-      return
-    }
-
-    const resolvedFolder = firstMatchingTargetValue(
-      resolvedTargets,
-      candidateTargetKeys(normalized.targetKey, input.sourceSpaceKey)
-    )
-    if (typeof resolvedFolder === 'string') {
-      node.url = appendFragment(
-        localPathFromFolderPair(input.sourceFolder, resolvedFolder),
-        normalized.fragment
-      )
       return
     }
 
@@ -125,13 +114,13 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
       return index
     }
 
-    const exportedFolder = firstMatchingTargetValue(
-      exportedTargets,
+    const resolvedFolder = firstMatchingTargetValue(
+      resolvedTargets,
       candidateTargetKeys(normalized.targetKey, input.sourceSpaceKey)
     )
-    if (typeof exportedFolder === 'string') {
+    if (typeof resolvedFolder === 'string') {
       node.url = appendFragment(
-        localPathFromFolderPair(input.sourceFolder, exportedFolder),
+        localPathFromFolderPair(input.sourceFolder, resolvedFolder),
         normalized.fragment
       )
     }
@@ -188,26 +177,16 @@ function unresolvedTargetsByKey (input: LocalizeMarkdownInput): Map<string, stri
   return reasonsByKey
 }
 
-function exportedTargetsByKey (input: LocalizeMarkdownInput): Map<string, string> {
-  if (isStringMap(input.exportedPageFoldersByTargetKey)) {
-    return input.exportedPageFoldersByTargetKey
-  }
-
-  const targets = new Map<string, string>()
-  const pageFoldersByPageId = isStringMap(input.pageFoldersByPageId)
-    ? input.pageFoldersByPageId
-    : new Map<string, string>()
-  for (const [pageId, folder] of pageFoldersByPageId.entries()) {
-    if (pageId !== '' && folder !== '') {
-      targets.set(`page_id:${pageId}`, folder)
-    }
-  }
-  return targets
-}
-
 function unresolvedInlineMarker (targetKey: string, reason: string): string {
   const description = describeTargetKey(targetKey)
   return `[unresolved: ${description.kind}; reason=${reason}; target_hint=${description.hint}; value="${escapeDoubleQuotes(description.value)}"]`
+}
+
+function isSafeLocalAttachmentDestination (destination: string): boolean {
+  return /^attachments\/[A-Za-z0-9._-]+(?:#[^\s]*)?$/.test(destination) &&
+    !destination.includes('..') &&
+    !/\/(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:[.#]|$)/i.test(destination) &&
+    !/\/[^/#]*\.(?:#|$)/.test(destination)
 }
 
 function firstMatchingTargetValue (map: Map<string, string>, candidateKeys: string[]): string | undefined {

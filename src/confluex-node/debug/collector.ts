@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { ensureDirectoryNoFollow, writeFileAtomic } from '../output/filesystem-safety'
 import { redactForDebug, redactTextForDebug } from './redaction'
 
 export type MarkdownDebugArtifacts = {
@@ -23,17 +24,24 @@ export type DebugCollector = {
   writeMarkdownExporter: (pageId: string, artifacts: MarkdownDebugArtifacts) => Promise<void>
 }
 
+const MAX_DEBUG_TEXT_BYTES = 2 * 1024 * 1024
+
 export function createDebugCollector (outputRoot: string, secrets: readonly string[]): DebugCollector {
   const root = path.join(outputRoot, '_debug')
   const writeText = async (relativePath: string, text: string): Promise<void> => {
     const target = path.join(root, ...relativePath.split('/'))
-    await fs.mkdir(path.dirname(target), { recursive: true })
-    await fs.writeFile(target, redactTextForDebug(text, secrets), 'utf8')
+    await ensureDirectoryNoFollow(path.dirname(target))
+    await writeFileAtomic(target, redactTextForDebug(cappedText(text), secrets))
   }
   const writeJson = async (relativePath: string, value: unknown): Promise<void> => {
     await writeText(relativePath, `${JSON.stringify(redactForDebug(value, secrets), null, 2)}\n`)
   }
-  const pagePath = (pageId: string, filename: string): string => `pages/${pageId}/${filename}`
+  const pagePath = (pageId: string, filename: string): string => {
+    if (!/^(0|[1-9][0-9]*)$/.test(pageId)) {
+      throw new Error('invalid debug page id')
+    }
+    return `pages/${pageId}/${filename}`
+  }
 
   return {
     enabled: true,
@@ -50,7 +58,7 @@ export function createDebugCollector (outputRoot: string, secrets: readonly stri
         data: value
       }, secrets)
       const target = path.join(root, 'events.ndjson')
-      await fs.mkdir(path.dirname(target), { recursive: true })
+      await ensureDirectoryNoFollow(path.dirname(target))
       await fs.appendFile(target, `${JSON.stringify(payload)}\n`, 'utf8')
     },
     async writePageMetadata (pageId: string, value: unknown): Promise<void> {
@@ -75,6 +83,14 @@ export function createDebugCollector (outputRoot: string, secrets: readonly stri
       }
     }
   }
+}
+
+function cappedText (value: string): string {
+  const bytes = Buffer.from(value, 'utf8')
+  if (bytes.length <= MAX_DEBUG_TEXT_BYTES) {
+    return value
+  }
+  return `${bytes.subarray(0, MAX_DEBUG_TEXT_BYTES).toString('utf8')}\n[truncated]\n`
 }
 
 export function disabledDebugCollector (): DebugCollector {

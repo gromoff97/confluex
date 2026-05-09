@@ -1,5 +1,17 @@
-const SECRET_NAME_PATTERN = /(?:^|[_-])(token|secret|password|authorization|api[_-]?token|pat)(?:$|[_-])/i
 const REDACTED = '[REDACTED]'
+const SECRET_KEY_NAMES = new Set([
+  'token',
+  'secret',
+  'password',
+  'authorization',
+  'apikey',
+  'apitoken',
+  'accesstoken',
+  'refreshtoken',
+  'bearertoken',
+  'confluencetoken',
+  'pat'
+])
 
 export function redactForDebug (value: unknown, secrets: readonly string[] = []): unknown {
   return redactUnknown(value, normalizedSecrets(secrets))
@@ -22,7 +34,7 @@ function redactUnknown (value: unknown, secrets: readonly string[]): unknown {
   if (isRecord(value)) {
     const redacted: Record<string, unknown> = {}
     for (const [key, item] of Object.entries(value)) {
-      redacted[key] = SECRET_NAME_PATTERN.test(key) ? REDACTED : redactUnknown(item, secrets)
+      redacted[key] = isSecretKey(key) ? REDACTED : redactUnknown(item, secrets)
     }
     return redacted
   }
@@ -34,7 +46,7 @@ function redactString (value: string, secrets: readonly string[]): string {
   for (const secret of secrets) {
     redacted = redacted.split(secret).join(REDACTED)
   }
-  return redacted
+  return redactBearerText(redacted)
 }
 
 function normalizedSecrets (secrets: readonly string[]): string[] {
@@ -43,4 +55,14 @@ function normalizedSecrets (secrets: readonly string[]): string[] {
 
 function isRecord (value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isSecretKey (key: string): boolean {
+  return SECRET_KEY_NAMES.has(key.replace(/[-_]/g, '').toLowerCase())
+}
+
+function redactBearerText (value: string): string {
+  return value
+    .replace(/\bAuthorization\s*[:=]\s*Bearer\s+[^\s,;]+/gi, `Authorization: Bearer ${REDACTED}`)
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`)
 }
