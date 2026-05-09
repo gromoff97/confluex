@@ -590,11 +590,13 @@ async function tryRunCleanPayloadExport (
     manifestRowsWithNotRetainedPayloads(scope.manifestRows, failedPayloadPageIds),
     attachmentCounts
   )
+  const requestedZipPath = isZipRequested(options) ? zipPathForOutputRoot(outputRoot) : undefined
   const reportTexts = runReportTexts({
     command: 'export',
     executionMode: 'materialized',
     pageId,
     outputRoot,
+    ...(requestedZipPath === undefined ? {} : { zipPath: requestedZipPath }),
     outputPathProvenance: outputPathProvenance(options),
     pagePayloadFormat,
     finalStatus,
@@ -631,11 +633,13 @@ async function runPlanOnlyExport (
     const scope = await basicPlanScope(metadata, options, dependencies, 'plan_only', initialDownloadedBytes)
     const hasBlockingReasons = scope.scopeFindingRows.length > 0 || scope.unresolvedLinkRows.length > 0 || scope.failedPageRows.length > 0
     const finalStatus = scope.configuredStopReason === 'none' ? completedFinalStatus(options, hasBlockingReasons) : 'incomplete'
+    const requestedZipPath = isZipRequested(options) ? zipPathForOutputRoot(outputRoot) : undefined
     const reportTexts = runReportTexts({
       command: 'export',
       executionMode: 'plan_only',
       pageId,
       outputRoot,
+      ...(requestedZipPath === undefined ? {} : { zipPath: requestedZipPath }),
       outputPathProvenance: outputPathProvenance(options),
       pagePayloadFormat: 'none',
       finalStatus,
@@ -681,6 +685,7 @@ async function successfulPlainRootRunResult (
 ): Promise<CommandResult> {
   const zipResult = await packageZipIfRequested(outputRoot, options)
   if (zipResult.state !== 'ok') {
+    await markZipArchiveFailure(outputRoot)
     return zipArchiveFailure()
   }
   return successfulRunResult(executionMode, pageId, outputRoot, options, finalStatus, zipResult.zipPath === undefined
@@ -697,9 +702,6 @@ async function packageZipIfRequested (outputRoot: string, options: ExportOptions
   try {
     await assertZipPathAvailable(zipPath)
     await createZipFromRoot(outputRoot, zipPath)
-    await rewriteSummaryFields(outputRoot, {
-      zip_path: quotePathString(zipPath)
-    })
     return {
       state: 'ok',
       zipPath
@@ -715,6 +717,11 @@ function zipArchiveFailure (): CommandResult {
     stdout: '',
     stderr: 'ERROR: runtime_failure zip_archive\n'
   }
+}
+
+async function markZipArchiveFailure (outputRoot: string): Promise<void> {
+  await writeIncompleteMarker(outputRoot)
+  await writeNonAuthoritativeMarker(outputRoot)
 }
 
 function successfulRunResult (
@@ -735,38 +742,15 @@ function successfulRunResult (
   if (executionMode === 'materialized') {
     lines.splice(2, 0, 'RUN_PHASE phase=page_processing')
   }
+  if (isZipRequested(options)) {
+    lines.push('RUN_PHASE phase=zip_packaging')
+  }
   lines.push(`RUN_COMPLETE final_status=${finalStatus} artifact=${artifactValue}`)
   return {
     exitCode: successfulRunExitCode(finalStatus),
     stdout: `${lines.join('\n')}\n`,
     stderr: warningText(options)
   }
-}
-
-async function rewriteSummaryFields (outputRoot: string, fields: Record<string, string>): Promise<void> {
-  const summaryPath = path.join(outputRoot, 'summary.txt')
-  const remaining = new Set(Object.keys(fields))
-  const text = await fs.readFile(summaryPath, 'utf8')
-  const rewritten = text.split('\n').map((line: string) => {
-    const separatorIndex = line.indexOf('=')
-    if (separatorIndex === -1) {
-      return line
-    }
-    const key = line.slice(0, separatorIndex)
-    if (!remaining.has(key)) {
-      return line
-    }
-    remaining.delete(key)
-    const value = fields[key]
-    if (value === undefined) {
-      throw new Error('summary field missing')
-    }
-    return `${key}=${value}`
-  }).join('\n')
-  if (remaining.size > 0) {
-    throw new Error('summary key missing')
-  }
-  await writeFileAtomic(summaryPath, rewritten)
 }
 
 function successfulRunExitCode (finalStatus: FinalStatus): number {
@@ -2535,6 +2519,11 @@ function rootMetadataFailedRow (pageId: string): FailedPageRow {
 async function writeIncompleteMarker (outputRoot: string): Promise<void> {
   await ensureDirectoryNoFollow(outputRoot)
   await writeFileAtomic(path.join(outputRoot, 'INCOMPLETE'), 'incomplete=1\n')
+}
+
+async function writeNonAuthoritativeMarker (outputRoot: string): Promise<void> {
+  await ensureDirectoryNoFollow(outputRoot)
+  await writeFileAtomic(path.join(outputRoot, 'NON_AUTHORITATIVE'), 'non_authoritative=1\n')
 }
 
 async function removeIncompleteMarker (outputRoot: string): Promise<void> {

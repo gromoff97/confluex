@@ -12,6 +12,13 @@ type ZipEntry = {
   content: Buffer
 }
 
+type ObservedRegularFile = {
+  dev: number
+  ino: number
+  size: number
+  mtimeMs: number
+}
+
 const DOS_TIME_ZERO = 0
 const DOS_DATE_1980_01_01 = 33
 const CRC32_TABLE = makeCrc32Table()
@@ -81,7 +88,7 @@ async function collectFileEntries (root: string, relativeDirectory: string): Pro
     } else if (stat.isFile()) {
       entries.push({
         name: relativePath,
-        content: await readCommittedRegularFile(absolutePath)
+        content: await readCommittedRegularFile(absolutePath, observedRegularFile(stat))
       })
     } else {
       throw new Error('zip output root contains unsupported entry')
@@ -103,18 +110,37 @@ function validateZipRelativePath (relativePath: string): void {
   }
 }
 
-async function readCommittedRegularFile (absolutePath: string): Promise<Buffer> {
-  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0
-  const handle = await fs.open(absolutePath, constants.O_RDONLY | noFollow)
+async function readCommittedRegularFile (absolutePath: string, observed: ObservedRegularFile): Promise<Buffer> {
+  if (typeof constants.O_NOFOLLOW !== 'number') {
+    throw new Error('zip no-follow file reads are unavailable')
+  }
+
+  const handle = await fs.open(absolutePath, constants.O_RDONLY | constants.O_NOFOLLOW)
   try {
     const stat = await handle.stat()
-    if (!stat.isFile()) {
+    if (!stat.isFile() || !sameObservedRegularFile(observed, observedRegularFile(stat))) {
       throw new Error('zip entry changed before read')
     }
     return await handle.readFile()
   } finally {
     await handle.close()
   }
+}
+
+function observedRegularFile (stat: { dev: number, ino: number, size: number, mtimeMs: number }): ObservedRegularFile {
+  return {
+    dev: stat.dev,
+    ino: stat.ino,
+    size: stat.size,
+    mtimeMs: stat.mtimeMs
+  }
+}
+
+function sameObservedRegularFile (left: ObservedRegularFile, right: ObservedRegularFile): boolean {
+  if (left.dev !== 0 || left.ino !== 0 || right.dev !== 0 || right.ino !== 0) {
+    return left.dev === right.dev && left.ino === right.ino
+  }
+  return left.size === right.size && left.mtimeMs === right.mtimeMs
 }
 
 function hasAsciiControl (value: string): boolean {
