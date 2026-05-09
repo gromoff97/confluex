@@ -31,8 +31,8 @@ const commands: CommandDefinition[] = [
     purpose: 'Confluence export workflow',
     usage: 'confluex export --page-id <id> [options]',
     examples: [
-      'confluex export --page-id <id> --plan-only',
-      'confluex export --page-id <id> --zip'
+      'confluex export --page-id <id>',
+      'confluex export --page-id <id> --plan-only'
     ],
     options: [
       { token: '--page-id', value: '<id>', required: true, description: 'Root Confluence page id to export.' },

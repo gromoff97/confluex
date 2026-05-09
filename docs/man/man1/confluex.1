@@ -228,6 +228,32 @@ Runtime failure.
 Interrupted by signal.
 .SH TROUBLESHOOTING
 .TP
+.B installation fails
+Use Node.js 20.11.0 or newer, then reinstall with
+.BR "npm install -g confluex@latest" .
+If
+.B man confluex
+is unavailable after install, verify that npm's global man directory is on the
+system man path.
+.TP
+.B uvx or the Markdown exporter is missing
+Install or repair
+.BR uvx .
+Confluex uses
+.B uvx
+to run the supported
+.B confluence-markdown-exporter
+package for Markdown payload acquisition.
+.TP
+.B token or config is rejected
+Run
+.B confluex setup
+again, or edit the JSON config directly. The token must be a JSON string in the
+.B confluenceToken
+field. Explicit config files passed with
+.B --config
+use the same JSON schema as the user config.
+.TP
 .B setup rejects the URL
 Use an HTTPS Confluence base URL without userinfo, query, or fragment. Setup
 does not have insecure mode.
@@ -244,6 +270,13 @@ Use
 .B --resume --out <path>
 with an incomplete materialized output root from the same root page and payload
 format.
+.TP
+.B ZIP creation fails
+Check that
+.I <out>.zip
+does not already exist and that every retained output file is a regular file.
+Confluex fails closed instead of archiving through symlinks or unsupported
+filesystem objects.
 .TP
 .B debug data is needed
 Run export with
