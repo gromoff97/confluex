@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { TextDecoder, promisify } from 'node:util'
 
+import { allowedChildProcessEnv } from '../prereq/checks'
 import { resolveRemoteAccessContext, type TransportPolicy } from '../remote/access'
 import {
   markdownRemnantDiagnostics,
@@ -224,34 +225,14 @@ export function markdownExporterConfig (input: MarkdownExporterConfigInput): Mar
   }
 }
 
-const sanitizedChildEnvNames = [
-  'http_proxy',
-  'https_proxy',
-  'HTTP_PROXY',
-  'HTTPS_PROXY',
-  'all_proxy',
-  'ALL_PROXY'
-] as const
-
 function confluenceChildProcessEnv (
   env: NodeJS.ProcessEnv,
   overrides: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv {
-  const mergedEnv: NodeJS.ProcessEnv = {
-    ...process.env,
-    ...env,
+  return {
+    ...allowedChildProcessEnv(env),
     ...overrides
   }
-  const sanitizedNames = new Set<string>(sanitizedChildEnvNames)
-  const childEnv: NodeJS.ProcessEnv = {}
-
-  for (const [name, value] of Object.entries(mergedEnv)) {
-    if (!sanitizedNames.has(name)) {
-      childEnv[name] = value
-    }
-  }
-
-  return childEnv
 }
 
 export function markdownExporterArgs (baseUrl: string, pageId: string): string[] {

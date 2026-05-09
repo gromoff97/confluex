@@ -14,6 +14,7 @@ export type DependencyState = {
 
 const MIN_NODE_VERSION: [number, number, number] = [20, 11, 0]
 const MIN_NODE_VERSION_TEXT = '>=20.11.0'
+const CHILD_ENV_ALLOWLIST = ['PATH', 'Path', 'HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR'] as const
 
 export function checkNodeVersion (version: string = process.versions.node): NodeVersionCheck {
   const parsed = parseNodeVersion(version)
@@ -46,7 +47,8 @@ export function executableDependencyProbe (
   executable: string,
   env: NodeJS.ProcessEnv = process.env
 ): DependencyState {
-  const resolved = resolveExecutable(executable, env)
+  const childEnv = allowedChildProcessEnv(env)
+  const resolved = resolveExecutable(executable, childEnv)
   if (resolved === null) {
     return {
       label,
@@ -56,7 +58,7 @@ export function executableDependencyProbe (
 
   const result = spawnSync(resolved, ['--version'], {
     encoding: 'buffer',
-    env
+    env: childEnv
   })
 
   const version = parseVersionProbe(result)
@@ -64,6 +66,17 @@ export function executableDependencyProbe (
     label,
     state: version === null ? 'present:unknown_version' : `present:${version}`
   }
+}
+
+export function allowedChildProcessEnv (parent: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {}
+  for (const key of CHILD_ENV_ALLOWLIST) {
+    const value = parent[key]
+    if (value !== undefined) {
+      env[key] = value
+    }
+  }
+  return env
 }
 
 export function runtimePrerequisiteFailure (name: string, details?: string): string {
@@ -99,22 +112,42 @@ function compareVersionParts (
 }
 
 function resolveExecutable (executable: string, env: NodeJS.ProcessEnv = process.env): string | null {
-  const pathValue = env.PATH ?? ''
+  const pathValue = env.PATH ?? env.Path ?? ''
+  const executableNames = executableCandidates(executable, env)
   for (const directory of pathValue.split(path.delimiter)) {
     if (directory === '') {
       continue
     }
 
-    const candidate = path.join(directory, executable)
-    try {
-      fs.accessSync(candidate, fs.constants.X_OK)
-      return candidate
-    } catch {
-      // Continue searching PATH entries.
+    for (const executableName of executableNames) {
+      const candidate = path.join(directory, executableName)
+      try {
+        fs.accessSync(candidate, fs.constants.X_OK)
+        return candidate
+      } catch {
+        // Continue searching PATH entries.
+      }
     }
   }
 
   return null
+}
+
+function executableCandidates (executable: string, env: NodeJS.ProcessEnv, platform: NodeJS.Platform = process.platform): string[] {
+  if (platform !== 'win32' || path.extname(executable) !== '') {
+    return [executable]
+  }
+
+  const pathExt = env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD'
+  const extensions = pathExt
+    .split(';')
+    .map(extension => extension.trim())
+    .filter(extension => extension !== '')
+  return [
+    executable,
+    ...extensions.map(extension => `${executable}${extension.toLowerCase()}`),
+    ...extensions.map(extension => `${executable}${extension.toUpperCase()}`)
+  ]
 }
 
 function parseVersionProbe (result: SpawnSyncReturns<Buffer>): string | null {
