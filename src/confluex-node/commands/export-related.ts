@@ -322,30 +322,16 @@ async function runExportRelatedCommand (
     return {
       exitCode: 1,
       stdout: '',
-      stderr: `${transportWarning}${formatDiagnostic({
+      stderr: `${formatDiagnostic({
         type: 'missing-required-option',
         optionToken: '--page-id'
-      })}\n`
-    }
-  }
-  const accessCheck = commandDependencies.checkRootPageAccess ?? checkRootPageAccess
-  const access = await accessCheck(pageId, env, transportPolicy)
-
-  if (access.state !== 'ok') {
-    return {
-      exitCode: 1,
-      stdout: '',
-      stderr: `${transportWarning}${formatDiagnostic({
-        type: 'validation-failed-page-id',
-        requirementId: 'FR-0017',
-        pageId
       })}\n`
     }
   }
 
   const outputRoot = selectOutputRoot(
     executionMode,
-    access.identity,
+    pageId,
     options,
     dependencies.cwd === undefined ? {} : { cwd: dependencies.cwd }
   )
@@ -353,9 +339,24 @@ async function runExportRelatedCommand (
     return {
       exitCode: 1,
       stdout: '',
-      stderr: `${transportWarning}${formatDiagnostic({
+      stderr: `${formatDiagnostic({
         type: 'validation-failed',
         requirementId: outputRoot.requirementId
+      })}\n`
+    }
+  }
+
+  const accessCheck = commandDependencies.checkRootPageAccess ?? checkRootPageAccess
+  const access = await accessCheck(pageId, env, transportPolicy)
+
+  if (access.state !== 'ok') {
+    return {
+      exitCode: 1,
+      stdout: '',
+      stderr: `${formatDiagnostic({
+        type: 'validation-failed-page-id',
+        requirementId: 'FR-0017',
+        pageId
       })}\n`
     }
   }
@@ -366,7 +367,7 @@ async function runExportRelatedCommand (
       return {
         exitCode: 1,
         stdout: '',
-        stderr: `${transportWarning}${formatDiagnostic({
+        stderr: `${formatDiagnostic({
           type: 'validation-failed',
           requirementId: 'FR-0103'
         })}\n`

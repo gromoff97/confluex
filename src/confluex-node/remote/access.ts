@@ -132,11 +132,6 @@ export async function checkRootPageAccess (
 
   try {
     const request = dependencies.request ?? get
-    const identity = await checkTokenIdentity(context, request)
-    if (identity.state === 'failed') {
-      return { state: 'failed', reason: identity.reason }
-    }
-
     const url = rootPageUrl(context.baseUrl, pageId)
     const response = await request(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {

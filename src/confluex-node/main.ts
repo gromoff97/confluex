@@ -100,8 +100,8 @@ function loadConfigContext (parsed: CommandParseResult, cwd: string, env: NodeJS
         userConfig: {},
         defaultValues: {},
         diagnostic: {
-          type: 'invalid-option-value',
-          optionToken: '--config'
+          type: 'validation-failed',
+          requirementId: loadedExplicitConfig.state === 'absent' ? 'FR-0219' : 'FR-0246'
         }
       }
     }
