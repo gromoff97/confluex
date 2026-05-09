@@ -2,7 +2,7 @@ import { execFile as nodeExecFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
+import { TextDecoder, promisify } from 'node:util'
 
 import { resolveRemoteAccessContext, type TransportPolicy } from '../remote/access'
 import {
@@ -13,6 +13,10 @@ import {
 
 const execFilePromise = promisify(nodeExecFile)
 const EXPORTER_PACKAGE = 'confluence-markdown-exporter==5.0.0'
+const EXPORTER_TIMEOUT_MS = 120_000
+const EXPORTER_MAX_BUFFER_BYTES = 8 * 1024 * 1024
+const MARKDOWN_PAYLOAD_MAX_BYTES = 64 * 1024 * 1024
+const DEBUG_TEXT_MAX_BYTES = 1024 * 1024
 
 type PageRef = {
   page_id: string
@@ -42,6 +46,8 @@ export type MarkdownExporterDebugArtifacts = {
 
 type ExecFileOptions = {
   env: NodeJS.ProcessEnv
+  timeout: number
+  maxBuffer: number
 }
 
 type ExecFileDependency = (file: string, args: string[], options: ExecFileOptions) => Promise<unknown>
@@ -122,7 +128,7 @@ export async function acquireMarkdownPagePayload (
     const debugBase = execResult.debug
     let rawPayload: string
     try {
-      rawPayload = await fs.readFile(path.join(outputDir, `${page.page_id}.md`), 'utf8')
+      rawPayload = await readMarkdownPayload(path.join(outputDir, `${page.page_id}.md`))
     } catch {
       return failedPayload(debugBase)
     }
@@ -161,7 +167,9 @@ async function runExporter (
         CME_CONFIG_PATH: configPath,
         CI: 'true',
         NO_COLOR: '1'
-      })
+      }),
+      timeout: EXPORTER_TIMEOUT_MS,
+      maxBuffer: EXPORTER_MAX_BUFFER_BYTES
     })
     return {
       state: 'ok',
@@ -292,6 +300,14 @@ async function defaultExecFile (file: string, args: string[], options: ExecFileO
   return await execFilePromise(file, args, options)
 }
 
+async function readMarkdownPayload (payloadPath: string): Promise<string> {
+  const bytes = await fs.readFile(payloadPath)
+  if (bytes.length > MARKDOWN_PAYLOAD_MAX_BYTES) {
+    throw new Error('markdown payload exceeded byte cap')
+  }
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+}
+
 async function removeTempDir (tempDir: string, dependencies: MarkdownExporterDependencies): Promise<void> {
   const remove = dependencies.removeTempDir ?? ((dir: string): Promise<void> => fs.rm(dir, { recursive: true, force: true }))
   try {
@@ -304,13 +320,21 @@ function execTextField (value: unknown, field: 'stdout' | 'stderr'): string {
   if (isRecord(value)) {
     const output = value[field]
     if (typeof output === 'string') {
-      return output
+      return capDebugText(output)
     }
     if (Buffer.isBuffer(output)) {
-      return output.toString('utf8')
+      return capDebugText(output.toString('utf8'))
     }
   }
   return ''
+}
+
+function capDebugText (value: string): string {
+  const bytes = Buffer.from(value, 'utf8')
+  if (bytes.length <= DEBUG_TEXT_MAX_BYTES) {
+    return value
+  }
+  return `${bytes.subarray(0, DEBUG_TEXT_MAX_BYTES).toString('utf8')}\n[truncated]\n`
 }
 
 function execExitCode (value: unknown): number | null {

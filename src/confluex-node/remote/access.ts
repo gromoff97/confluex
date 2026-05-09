@@ -50,7 +50,17 @@ export type HttpResponse = {
   chunks: Buffer[]
 }
 
-export type HttpRequest = (url: URL, authorization: string, policy: TransportPolicy) => Promise<HttpResponse>
+export type RequestLimits = {
+  timeoutMs: number
+  maxBufferedBytes: number
+}
+
+export type HttpRequest = (
+  url: URL,
+  authorization: string,
+  policy: TransportPolicy,
+  limits?: RequestLimits
+) => Promise<HttpResponse>
 
 type AccessCheckDependencies = {
   request?: HttpRequest
@@ -70,6 +80,12 @@ type DownloadableAttachment = {
 }
 
 const DEFAULT_TRANSPORT_POLICY: TransportPolicy = { insecure: false }
+const DEFAULT_REMOTE_TIMEOUT_MS = 60_000
+const DEFAULT_BUFFERED_RESPONSE_LIMIT_BYTES = 64 * 1024 * 1024
+const DEFAULT_REQUEST_LIMITS: RequestLimits = {
+  timeoutMs: DEFAULT_REMOTE_TIMEOUT_MS,
+  maxBufferedBytes: DEFAULT_BUFFERED_RESPONSE_LIMIT_BYTES
+}
 
 export function resolveRemoteAccessContext (
   env: NodeJS.ProcessEnv = process.env,
@@ -383,7 +399,10 @@ export async function downloadAttachmentPayload (
   }
 
   try {
-    const url = new URL(attachment.downloadUrl)
+    const url = governedAttachmentDownloadUrl(context.baseUrl, attachment.downloadUrl)
+    if (url === null) {
+      return { state: 'failed' }
+    }
     const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
@@ -561,11 +580,21 @@ function titleCandidatesUrl (baseUrl: string, discovery: TitleDiscovery): URL {
 function get (
   url: URL,
   authorization: string,
-  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY,
+  limits: RequestLimits = DEFAULT_REQUEST_LIMITS
 ): Promise<HttpResponse> {
   const client = url.protocol === 'https:' ? https : http
 
   return new Promise((resolve, reject) => {
+    let settled = false
+    const fail = (error: Error): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      request.destroy(error)
+      reject(error)
+    }
     const request = client.request(url, {
       method: 'GET',
       rejectUnauthorized: !policy.insecure,
@@ -574,10 +603,22 @@ function get (
       }
     }, response => {
       const chunks: Buffer[] = []
+      let bufferedBytes = 0
       response.on('data', (chunk: Buffer | string) => {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+        bufferedBytes += buffer.length
+        if (bufferedBytes > limits.maxBufferedBytes) {
+          fail(Object.assign(new Error('remote response exceeded byte cap'), { code: 'EREMOTE_RESPONSE_TOO_LARGE' }))
+          return
+        }
+        chunks.push(buffer)
       })
+      response.on('error', fail)
       response.on('end', () => {
+        if (settled) {
+          return
+        }
+        settled = true
         resolve({
           statusCode: response.statusCode,
           chunks
@@ -585,7 +626,10 @@ function get (
       })
     })
 
-    request.on('error', reject)
+    request.on('error', fail)
+    request.setTimeout(limits.timeoutMs, () => {
+      fail(Object.assign(new Error('remote request timed out'), { code: 'ETIMEDOUT' }))
+    })
     request.end()
   })
 }
@@ -651,10 +695,71 @@ function attachmentDataItem (baseUrl: string, result: unknown): AttachmentDataIt
     return null
   }
 
+  const downloadUrl = attachmentDownloadUrl(baseUrl, download)
+  if (downloadUrl === null) {
+    return null
+  }
+
   return {
     filename: singleLine(result.title),
-    downloadUrl: new URL(download, baseUrl).toString()
+    downloadUrl
   }
+}
+
+function attachmentDownloadUrl (baseUrl: string, download: string): string | null {
+  if (download === '' || !download.startsWith('/') || download.startsWith('//') || download.includes('#')) {
+    return null
+  }
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(download)) {
+    return null
+  }
+  const pathPart = download.split('?', 1)[0]
+  if (pathPart === undefined || hasTraversalSegment(pathPart)) {
+    return null
+  }
+
+  try {
+    return new URL(`${baseUrl}${download}`).toString()
+  } catch {
+    return null
+  }
+}
+
+function governedAttachmentDownloadUrl (baseUrl: string, downloadUrl: string): URL | null {
+  let base: URL
+  let url: URL
+  try {
+    base = new URL(baseUrl)
+    url = new URL(downloadUrl)
+  } catch {
+    return null
+  }
+  if (url.origin !== base.origin || url.username !== '' || url.password !== '' || url.hash !== '') {
+    return null
+  }
+  const prefix = base.pathname === '/' ? '' : base.pathname
+  if (prefix !== '' && url.pathname !== prefix && !url.pathname.startsWith(`${prefix}/`)) {
+    return null
+  }
+  if (hasTraversalSegment(url.pathname)) {
+    return null
+  }
+  return url
+}
+
+function hasTraversalSegment (pathValue: string): boolean {
+  for (const segment of pathValue.split('/')) {
+    let decoded: string
+    try {
+      decoded = decodeURIComponent(segment)
+    } catch {
+      return true
+    }
+    if (decoded === '.' || decoded === '..') {
+      return true
+    }
+  }
+  return false
 }
 
 function attachmentSourceFilename (result: unknown): string {

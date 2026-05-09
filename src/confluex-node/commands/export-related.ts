@@ -1424,6 +1424,10 @@ function totalDownloadedBytes (downloadedBytes: DownloadedBytes): number {
   return downloadedBytes.content + downloadedBytes.metadata
 }
 
+function remainingDownloadBudget (downloadedBytes: DownloadedBytes, maxDownloadBytes: number | null): number | null {
+  return maxDownloadBytes === null ? null : maxDownloadBytes - totalDownloadedBytes(downloadedBytes)
+}
+
 function downloadedMibFields (downloadedBytes: DownloadedBytes = { content: 0, metadata: 0 }): Record<string, string> {
   return {
     total: formatMib(totalDownloadedBytes(downloadedBytes)),
@@ -1742,11 +1746,20 @@ async function materializeExportAttachments (
   const payloads: AttachmentPayloadArtifact[] = []
   let downloadLimitReached = false
   for (const item of orderedAttachmentItems(attachmentData.items)) {
+    const remainingBudget = remainingDownloadBudget(downloadedBytes, maxDownloadBytes)
+    if (remainingBudget !== null && remainingBudget <= 0) {
+      downloadLimitReached = true
+      break
+    }
     const payload = await safeDownloadAttachmentPayload(dependencies.downloadAttachmentPayload, item)
     if (payload.state !== 'ok') {
       return { count: attachmentData.items.length, failed: true, downloadLimitReached: false }
     }
     addBufferContentDownloadBytes(downloadedBytes, payload.bytes)
+    if (remainingBudget !== null && payload.bytes.length > remainingBudget) {
+      downloadLimitReached = true
+      break
+    }
     payloads.push({
       filename: item.filename,
       bytes: payload.bytes
