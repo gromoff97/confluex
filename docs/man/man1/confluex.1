@@ -9,83 +9,100 @@ confluex \- export Confluence page scopes to Markdown
 .RI [ options ]
 .SH DESCRIPTION
 .B confluex
-is a token-authenticated command line tool for exporting Confluence page scopes
-to Markdown and operator reports.
+is a token-authenticated CLI for exporting Confluence pages to Markdown,
+attachments, ZIP archives, and machine-readable reports.
 .PP
-Use
-.B setup
-to save reusable Confluence access settings. Use
-.B export
-to inspect a page scope, materialize Markdown payloads, retain attachments, and
-write reports. Add
-.B --plan-only
-to inspect scope and reports without materializing page payloads.
+.B --help
+is a short reminder. This manual is the installed command reference.
 .SH COMMANDS
 .TP
 .B setup
-Interactively save the Confluence base URL and token in the user configuration
-file. The token prompt does not echo input.
+Interactively writes the user JSON config. It asks for a Confluence base URL and
+token; token input is hidden. Setup validates access with verified HTTPS only
+and writes the config after validation succeeds.
 .TP
 .B export
-Validate root-page access, discover the selected page scope, and write the
-governed report set. By default this command also writes Markdown page payloads
-and retained attachments.
+Validates root-page access, discovers scope, writes reports, and by default
+materializes Markdown page payloads and retained attachments.
+.SH COMMON WORKFLOW
+.TP
+Install:
+.B npm install -g confluex
+.TP
+Update:
+.B npm install -g confluex@latest
+.TP
+Uninstall:
+.B npm uninstall -g confluex
+.TP
+Configure:
+.B confluex setup
+.TP
+Inspect scope:
+.B confluex export --page-id 12345 --plan-only --out ./plan
+.TP
+Export and archive:
+.B confluex export --page-id 12345 --out ./dump --zip
 .SH EXPORT MODES
 .TP
 .B materialized
-Default mode. Writes reports, Markdown page payloads, and retained attachments
-under the selected output root. This mode supports
-.BR --zip
+Default mode. Writes reports, Markdown page payloads under
+.IR pages/ ,
+and retained attachments. Supports
+.BR --zip ,
+.BR --debug ,
 and
 .BR --resume .
 .TP
 .B plan_only
 Selected by
 .BR --plan-only .
-Writes reports for the selected scope without materializing page payloads or
-attachments. This mode does not imply any other option.
+Writes the report set only. It does not retain
+.IR pages/ ,
+page payloads, or attachment payloads.
 .SH OPTIONS
-.SS Required selection
+.SS Selection And Output
 .TP
 .BI --page-id " id"
-Root Confluence page id to export or inspect.
-.SS Output and mode
+Required root Confluence page id.
 .TP
 .BI --out " path"
-Output directory. If omitted, Confluex generates one in the current directory.
+Output directory. If omitted, Confluex creates a generated output directory in
+the current directory.
 .TP
 .B --plan-only
-Inspect export scope and reports without materializing page payloads.
-.TP
-.B --debug
-Write sanitized diagnostic artifacts inside
-.I _debug/
-under the selected output root. Debug artifacts include run metadata, effective
-options, events, page metadata, storage XML, attachment-preview data, and
-markdown-exporter diagnostics for operations that were actually performed.
-.TP
-.B --zip
-Create a ZIP archive beside the Markdown output root.
-.TP
-.B --resume
-Reuse a compatible incomplete materialized export root selected by
-.BR --out .
-.SS Scope control
+Inspect scope and reports without materializing page payloads.
 .TP
 .B --include-children
-Include the recursive Confluence child tree of the root page. If omitted,
-Confluex does not traverse child pages.
+Include the recursive Confluence child tree. By default child traversal is off.
 .TP
-.BI --link-depth " n"
-Follow supported internal links up to
-.I n
-hops from pages already in scope. The default is 1.
+.B --zip
+Create a sibling ZIP archive at
+.IR <out>.zip .
+The plain output root remains on disk. On success,
+.I summary.txt
+contains the ZIP path and
+.B RUN_COMPLETE
+selects the ZIP archive as the primary artifact.
 .TP
-.BI --max-find-candidates " n"
-Inspect at most
-.I n
-title-resolution candidates per link.
-.SS Safety limits
+.B --debug
+Write sanitized diagnostics under
+.IR _debug/ .
+Debug mode does not imply any other option.
+.SS Configuration And Transport
+.TP
+.BI --config " file"
+Load an explicit JSON config file. It uses the same schema as the user config.
+.TP
+.B --insecure
+For the current
+.B export
+only, allow
+.B http://
+Confluence base URLs and disable TLS certificate verification for HTTPS
+Confluence/exporter traffic. This option does not imply debug, zip, resume,
+child traversal, plan-only, or run limits.
+.SS Limits And Pacing
 .TP
 .BI --max-pages " n"
 Stop after
@@ -93,76 +110,106 @@ Stop after
 processed pages.
 .TP
 .BI --max-download-mib " n"
-Stop after downloading
+Stop when current-run downloaded content plus metadata reaches
 .I n
-MiB in total.
-.SS Runtime behavior
-.TP
-.B --no-fail-fast
-Continue after page-local runtime failures.
+MiB.
 .TP
 .BI --sleep-ms " n"
 Sleep
 .I n
 milliseconds between processed pages.
-.SS Configuration input
 .TP
-.BI --env-file " file"
-Load public configuration from an explicit env file.
+.BI --max-find-candidates " n"
+Inspect at most
+.I n
+title-resolution candidates per link.
+.TP
+.BI --link-depth " n"
+Follow supported internal links up to
+.I n
+hops from pages already in scope. Default:
+.BR 1 .
+.SS Recovery
+.TP
+.B --resume
+Reuse a compatible incomplete materialized output root. The current command line
+must include
+.BR --out .
+.TP
+.B --no-fail-fast
+Continue after page-local failures and report them instead of stopping at the
+first such failure.
 .SH CONFIGURATION
-Configuration precedence is command-line options, explicit env file, default
-current-directory
-.IR .confluex.env ,
-user config written by
-.BR setup ,
-process environment, then no value.
+Configuration precedence is:
+.IP 1. 3
+command-line option values;
+.IP 2. 3
+explicit JSON config selected by
+.BR --config ;
+.IP 3. 3
+user JSON config written by
+.BR setup ;
+.IP 4. 3
+credential environment variables;
+.IP 5. 3
+no value.
 .PP
-Supported public configuration names are
-.BR CONFLUEX_CONFLUENCE_BASE_URL ,
-.BR CONFLUEX_CONFLUENCE_TOKEN ,
-.BR CONFLUEX_OUTPUT_ROOT ,
-.BR CONFLUEX_MAX_PAGES ,
-.BR CONFLUEX_MAX_DOWNLOAD_MIB ,
-.BR CONFLUEX_SLEEP_MS ,
-.BR CONFLUEX_MAX_FIND_CANDIDATES ,
+JSON config keys are:
+.BR confluenceBaseUrl ,
+.BR confluenceToken ,
+.BR insecure ,
+.BR outputRoot ,
+.BR maxPages ,
+.BR maxDownloadMib ,
+.BR sleepMs ,
+.BR maxFindCandidates ,
 and
-.BR CONFLUEX_LINK_DEPTH .
+.BR linkDepth .
 .PP
-Tokens are used as Bearer token values for Confluence requests. Confluex does
-not print token values in setup prompts, command output, reports, or debug
-artifacts.
+Environment variables are limited to credentials:
+.BR CONFLUEX_CONFLUENCE_BASE_URL
+and
+.BR CONFLUEX_CONFLUENCE_TOKEN .
+Run options are configured with JSON, not environment variables.
+.PP
+The user config paths are:
+.TP
+.I $XDG_CONFIG_HOME/confluex/config.json
+Linux/XDG when
+.B XDG_CONFIG_HOME
+is set.
+.TP
+.I $HOME/.config/confluex/config.json
+Linux/XDG fallback.
+.TP
+.I %APPDATA%\\confluex\\config.json
+Windows.
 .SH OUTPUTS
 .TP
 .I summary.txt
-Run outcome summary. It includes
-.B command=export
-and
-.B execution_mode
-for the selected export mode.
+Machine-readable run summary.
 .TP
 .I manifest.tsv
-Selected page inventory, including page id, space key, title, output folder,
-discovery source, execution mode, and attachment count.
+Processed page inventory.
 .TP
 .I resolved-links.tsv
-Supported links resolved into the selected scope.
+Resolved supported internal links.
 .TP
 .I unresolved-links.tsv
-Supported links that could not be resolved into the selected scope.
+Supported internal links that did not resolve to one target.
 .TP
 .I failed-pages.tsv
 Page-local failures.
 .TP
 .I scope-findings.tsv
-Scope and discovery findings.
+Scope confidence findings.
 .TP
 .I pages/
-Materialized Markdown page payloads and retained attachments.
+Materialized Markdown payloads and retained attachments.
 .TP
 .I _debug/
-Sanitized diagnostic artifacts written only when
-.B --debug
-is supplied.
+Sanitized diagnostics written only with
+.BR --debug .
 .SH EXIT STATUS
 .TP
 .B 0
@@ -179,38 +226,30 @@ Runtime failure.
 .TP
 .B 130
 Interrupted by signal.
-.SH FILES
+.SH TROUBLESHOOTING
 .TP
-.I $XDG_CONFIG_HOME/confluex/config.json
-User config on Linux and XDG environments when
-.B XDG_CONFIG_HOME
-is set.
+.B setup rejects the URL
+Use an HTTPS Confluence base URL without userinfo, query, or fragment. Setup
+does not have insecure mode.
 .TP
-.I $HOME/.config/confluex/config.json
-User config on Linux and XDG environments when
-.B XDG_CONFIG_HOME
-is not set.
+.B export must use an HTTP lab stand
+Use
+.BR --insecure
+or JSON key
+.BR insecure=true
+for that export.
 .TP
-.I %APPDATA%\econfluex\econfig.json
-User config on Windows.
+.B resume is rejected
+Use
+.B --resume --out <path>
+with an incomplete materialized output root from the same root page and payload
+format.
 .TP
-.I ./.confluex.env
-Default current-directory env file.
-.SH EXAMPLES
-.TP
-Configure reusable access:
-.B confluex setup
-.TP
-Validate access and inspect the planned scope:
-.B confluex export --page-id 12345 --plan-only --out ./plan
-.TP
-Export Markdown and create a ZIP archive:
-.B confluex export --page-id 12345 --out ./dump --zip
-.TP
-Export with diagnostic artifacts:
-.B confluex export --page-id 12345 --out ./dump --debug
-.TP
-Resume an incomplete materialized export:
-.B confluex export --page-id 12345 --out ./dump --resume
+.B debug data is needed
+Run export with
+.BR --debug .
+Debug artifacts are redacted but may include page content, titles, links, and
+storage XML.
 .SH SEE ALSO
-.BR npm (1)
+.BR npm (1),
+.BR man (1)
