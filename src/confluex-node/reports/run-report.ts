@@ -1,6 +1,6 @@
-import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { ensureDirectoryNoFollow, writeFileAtomic } from '../output/filesystem-safety'
 import { quotePathString } from '../path/format'
 
 export const REPORT_FILE_ORDER = [
@@ -132,9 +132,9 @@ export function runReportTexts (input: RunReportInput): RunReportTexts {
 
 export async function writeRunReportSet (outputRoot: string, reportTexts: unknown): Promise<void> {
   validateReportTexts(reportTexts)
-  await fs.mkdir(outputRoot, { recursive: true })
+  await ensureDirectoryNoFollow(outputRoot)
   for (const name of REPORT_FILE_ORDER) {
-    await fs.writeFile(path.join(outputRoot, name), reportTexts[name], 'utf8')
+    await writeFileAtomic(path.join(outputRoot, name), reportTexts[name])
   }
 }
 
@@ -149,7 +149,7 @@ function summaryValues (input: RunReportInput, counts: ReportCounts = zeroCounts
   const pageId = requireCanonicalNonNegativeInteger(input.pageId, 'pageId')
   const outputRoot = requireString(input.outputRoot, 'outputRoot')
   const zipPath = input.zipPath === undefined ? 'none' : quotePathString(requireString(input.zipPath, 'zipPath'))
-  const outputPathProvenance = requireOneOf(input.outputPathProvenance, ['explicit', 'generated'], 'outputPathProvenance')
+  const outputPathProvenance = requireOneOf(input.outputPathProvenance, ['explicit', 'configured', 'generated'], 'outputPathProvenance')
   const pagePayloadFormat = requirePagePayloadFormat(executionMode, input.pagePayloadFormat)
   const finalStatus = requireOneOf(input.finalStatus, ['success', 'success_with_findings', 'incomplete', 'interrupted'], 'finalStatus')
   const scopeTrust = requireOneOf(input.scopeTrust, ['trusted', 'degraded'], 'scopeTrust')

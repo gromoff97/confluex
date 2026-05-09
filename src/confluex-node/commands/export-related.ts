@@ -13,6 +13,7 @@ import {
   titleLinkFromRelativeUrl
 } from '../links/internal-target'
 import { pagePayloadFolder } from '../output/page-folder'
+import { ensureDirectoryNoFollow, joinGovernedRelativePath, writeFileAtomic } from '../output/filesystem-safety'
 import { selectOutputRoot, type ExecutionMode } from '../output/root'
 import { assertZipPathAvailable, createZipFromRoot, zipPathForOutputRoot } from '../output/zip'
 import { localizeMarkdownPayload } from '../payload/markdown-localizer'
@@ -453,7 +454,7 @@ async function runRootMetadataFailure (
       ]
     })
     if (executionMode === 'materialized') {
-      await fs.mkdir(path.join(outputRoot, 'pages'), { recursive: true })
+      await ensureDirectoryNoFollow(path.join(outputRoot, 'pages'))
     }
     await writeRunReportSet(outputRoot, reportTexts)
     return await finalizeRunResult(executionMode, pageId, outputRoot, options, finalStatus)
@@ -474,49 +475,8 @@ async function runBasicExport (
   initialDownloadedBytes: DownloadedBytes
 ): Promise<CommandResult> {
   try {
-    const pageId = metadata.page_id
-    const folder = pagePayloadFolderForPage(pageId, metadata.space_key)
     const pagePayloadFormat = effectiveExportPagePayloadFormat(options)
-    const cleanExport = await tryRunCleanPayloadExport(metadata, outputRoot, options, dependencies, pagePayloadFormat, initialDownloadedBytes)
-    if (cleanExport !== null) {
-      return cleanExport
-    }
-    const finalStatus = completedFinalStatus(options, true)
-    const reportTexts = runReportTexts({
-      command: 'export',
-      executionMode: 'materialized',
-      pageId,
-      outputRoot,
-      outputPathProvenance: outputPathProvenance(options),
-      pagePayloadFormat,
-      finalStatus,
-      scopeTrust: 'degraded',
-      interruptReason: 'none',
-      downloadedMib: downloadedMibFields(initialDownloadedBytes),
-      manifestRows: [
-        {
-          page_id: pageId,
-          space_key: metadata.space_key ?? 'none',
-          page_title: metadata.page_title,
-          folder,
-          discovery_source: 'root',
-          execution_mode: 'materialized',
-          attachment_count: 'none'
-        }
-      ],
-      scopeFindingRows: rootScopeFindingRows(pageId),
-      failedPageRows: [
-        {
-          page_id: pageId,
-          page_title: metadata.page_title,
-          operation: 'page_payload',
-          error_summary: 'page_payload_failed'
-        }
-      ]
-    })
-    await fs.mkdir(path.join(outputRoot, 'pages'), { recursive: true })
-    await writeRunReportSet(outputRoot, reportTexts)
-    return await finalizeRunResult('materialized', pageId, outputRoot, options, finalStatus)
+    return await tryRunCleanPayloadExport(metadata, outputRoot, options, dependencies, pagePayloadFormat, initialDownloadedBytes)
   } catch {
     return {
       exitCode: 4,
@@ -533,11 +493,11 @@ async function tryRunCleanPayloadExport (
   dependencies: ExportDependencies,
   pagePayloadFormat: PagePayloadFormat,
   initialDownloadedBytes: DownloadedBytes
-): Promise<CommandResult | null> {
+): Promise<CommandResult> {
   const pageId = metadata.page_id
   const scope = await basicPlanScope(metadata, options, dependencies, 'materialized', initialDownloadedBytes)
   if (scope.configuredStopReason === 'none' && scope.payloadArtifacts.length !== scope.manifestRows.length) {
-    return null
+    scope.failedPageRows.push(pagePayloadFailedRow(metadata))
   }
 
   const maxDownloadBytes = maxDownloadBytesLimit(options)
@@ -798,7 +758,7 @@ async function rewriteSummaryFields (outputRoot: string, fields: Record<string, 
   if (remaining.size > 0) {
     throw new Error('summary key missing')
   }
-  await fs.writeFile(summaryPath, rewritten, 'utf8')
+  await writeFileAtomic(summaryPath, rewritten)
 }
 
 function successfulRunExitCode (finalStatus: FinalStatus): number {
@@ -1025,8 +985,11 @@ function isNonNegativeInteger (value: unknown): value is string {
   return typeof value === 'string' && /^(?:0|[1-9][0-9]*)$/.test(value)
 }
 
-function outputPathProvenance (options: ExportOptions): 'explicit' | 'generated' {
-  return Object.prototype.hasOwnProperty.call(options.values, '--out') ? 'explicit' : 'generated'
+function outputPathProvenance (options: ExportOptions): 'explicit' | 'configured' | 'generated' {
+  if (!Object.prototype.hasOwnProperty.call(options.values, '--out')) {
+    return 'generated'
+  }
+  return options.config?.outputRoot === options.values['--out'] ? 'configured' : 'explicit'
 }
 
 function effectiveExportPagePayloadFormat (options: ExportOptions): PagePayloadFormat {
@@ -2416,13 +2379,6 @@ function hasUnparsedLinkMarkers (storage: string): boolean {
     storage.includes('title=')
 }
 
-function rootScopeFindingRows (pageId: string): ScopeFindingRow[] {
-  return [
-    childListingIncompleteRow(pageId),
-    storageUnavailableRow(pageId)
-  ]
-}
-
 function childListingIncompleteRow (pageId: string): ScopeFindingRow {
   return {
     page_id: pageId,
@@ -2523,8 +2479,8 @@ function rootMetadataFailedRow (pageId: string): FailedPageRow {
 }
 
 async function writeIncompleteMarker (outputRoot: string): Promise<void> {
-  await fs.mkdir(outputRoot, { recursive: true })
-  await fs.writeFile(path.join(outputRoot, 'INCOMPLETE'), 'incomplete=1\n', 'utf8')
+  await ensureDirectoryNoFollow(outputRoot)
+  await writeFileAtomic(path.join(outputRoot, 'INCOMPLETE'), 'incomplete=1\n')
 }
 
 async function removeIncompleteMarker (outputRoot: string): Promise<void> {
@@ -2538,8 +2494,8 @@ async function writePagePayloadArtifact (
   pagePayloadFormat: PagePayloadFormat
 ): Promise<void> {
   const folderPath = path.join(outputRoot, ...folder.split('/'))
-  await fs.mkdir(folderPath, { recursive: true })
-  await fs.writeFile(path.join(folderPath, pagePayloadFilename(pagePayloadFormat)), storage, 'utf8')
+  await ensureDirectoryNoFollow(folderPath)
+  await writeFileAtomic(path.join(folderPath, pagePayloadFilename(pagePayloadFormat)), storage)
 }
 
 function pagePayloadFilename (pagePayloadFormat: PagePayloadFormat): string {
@@ -2555,10 +2511,10 @@ async function writeAttachmentPayloadArtifacts (
   if (payloads.length === 0) {
     return
   }
-  const attachmentsPath = path.join(outputRoot, ...folder.split('/'), 'attachments')
-  await fs.mkdir(attachmentsPath, { recursive: true })
+  const attachmentsPath = path.join(joinGovernedRelativePath(outputRoot, folder), 'attachments')
+  await ensureDirectoryNoFollow(attachmentsPath)
   for (const payload of payloads) {
-    await fs.writeFile(path.join(attachmentsPath, payload.filename), payload.bytes)
+    await writeFileAtomic(path.join(attachmentsPath, payload.filename), payload.bytes)
   }
 }
 

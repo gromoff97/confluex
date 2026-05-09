@@ -45,7 +45,7 @@ function selectExplicitOutputRoot (
   cwd: string
 ): OutputRootSelection {
   const outputRoot = path.isAbsolute(source) ? path.resolve(source) : path.resolve(cwd, source)
-  const state = lstatState(outputRoot)
+  const state = checkedLstatState(outputRoot)
   const isResume = executionMode === 'materialized' && options.flags.includes('--resume')
 
   if ('error' in state) {
@@ -88,7 +88,7 @@ function selectGeneratedOutputRoot (
   for (let suffix = 0; suffix < Number.MAX_SAFE_INTEGER; suffix += 1) {
     const candidateName = suffix === 0 ? baseName : `${baseName}_${suffix}`
     const candidate = path.join(normalizedCwd, candidateName)
-    const state = lstatState(candidate)
+    const state = checkedLstatState(candidate)
     if ('error' in state) {
       return rejected('FR-0055')
     }
@@ -128,6 +128,45 @@ function lstatState (absolutePath: string): LstatState {
     }
     return { error }
   }
+}
+
+function checkedLstatState (absolutePath: string): LstatState {
+  const ancestorCheck = checkExistingSegments(absolutePath)
+  if ('error' in ancestorCheck) {
+    return ancestorCheck
+  }
+  return lstatState(absolutePath)
+}
+
+function checkExistingSegments (absolutePath: string): { ok: true } | { error: unknown } {
+  const resolved = path.resolve(absolutePath)
+  const root = path.parse(resolved).root
+  const segments = path.relative(root, resolved).split(path.sep).filter(segment => segment !== '')
+  let current = root
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index]
+    if (segment === undefined) {
+      return { error: new Error('invalid path segment') }
+    }
+    current = path.join(current, segment)
+    try {
+      const stat = fs.lstatSync(current)
+      if (stat.isSymbolicLink()) {
+        return { error: new Error('symlink path segment') }
+      }
+      if (index < segments.length - 1 && !stat.isDirectory()) {
+        return { error: new Error('non-directory ancestor') }
+      }
+    } catch (error) {
+      if (isNodeErrorCode(error, 'ENOENT')) {
+        return { ok: true }
+      }
+      return { error }
+    }
+  }
+
+  return { ok: true }
 }
 
 function rejected (requirementId: string): OutputRootSelection {
