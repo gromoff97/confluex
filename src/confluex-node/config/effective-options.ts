@@ -28,6 +28,7 @@ export function buildEffectiveOptions (
 ): EffectiveCommandOptions {
   const values: Record<string, string> = { ...parsedOptions.values }
   const supportedOptions = supportedValueOptions(commandName)
+  let configuredOutputRoot: string | undefined
   for (const [optionToken, configName] of configOptionNames) {
     if (!supportedOptions.has(optionToken)) {
       continue
@@ -40,6 +41,9 @@ export function buildEffectiveOptions (
     const value = selectedConfigValue(configName, explicitConfig, userConfig)
     if (value !== undefined) {
       values[optionToken] = String(value)
+      if (optionToken === '--out') {
+        configuredOutputRoot = String(value)
+      }
     }
   }
 
@@ -67,6 +71,9 @@ export function buildEffectiveOptions (
   }
   if (insecure !== undefined) {
     config.insecure = insecure
+  }
+  if (configuredOutputRoot !== undefined) {
+    config.outputRoot = configuredOutputRoot
   }
 
   return {
