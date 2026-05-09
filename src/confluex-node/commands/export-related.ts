@@ -677,7 +677,9 @@ async function successfulPlainRootRunResult (
   if (zipResult.state !== 'ok') {
     return zipArchiveFailure()
   }
-  return successfulRunResult(executionMode, pageId, outputRoot, options, finalStatus)
+  return successfulRunResult(executionMode, pageId, outputRoot, options, finalStatus, zipResult.zipPath === undefined
+    ? {}
+    : { artifactPath: zipResult.zipPath })
 }
 
 async function packageZipIfRequested (outputRoot: string, options: ExportOptions): Promise<ZipPackageResult> {
@@ -688,10 +690,10 @@ async function packageZipIfRequested (outputRoot: string, options: ExportOptions
   const zipPath = zipPathForOutputRoot(outputRoot)
   try {
     await assertZipPathAvailable(zipPath)
+    await createZipFromRoot(outputRoot, zipPath)
     await rewriteSummaryFields(outputRoot, {
       zip_path: quotePathString(zipPath)
     })
-    await createZipFromRoot(outputRoot, zipPath)
     return {
       state: 'ok',
       zipPath

@@ -1,3 +1,4 @@
+import { constants } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -42,18 +43,22 @@ export async function createZipFromRoot (
 
   const entries = await collectFileEntries(outputRoot, '')
   const archiveBytes = archiveBuffer(entries)
+  const tempZipPath = `${zipPath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
   let handle: fs.FileHandle | undefined
   try {
-    handle = await fs.open(zipPath, 'wx')
+    handle = await fs.open(tempZipPath, 'wx')
     await handle.writeFile(archiveBytes)
+    await handle.close()
+    handle = undefined
+    await assertZipPathAvailable(zipPath)
+    await fs.rename(tempZipPath, zipPath)
   } catch (error) {
     if (handle !== undefined) {
       await handle.close().catch(() => undefined)
-      await fs.rm(zipPath, { force: true }).catch(() => undefined)
     }
+    await fs.rm(tempZipPath, { force: true }).catch(() => undefined)
     throw error
   }
-  await handle.close()
 
   return {
     state: 'ok',
@@ -76,7 +81,7 @@ async function collectFileEntries (root: string, relativeDirectory: string): Pro
     } else if (stat.isFile()) {
       entries.push({
         name: relativePath,
-        content: await fs.readFile(absolutePath)
+        content: await readCommittedRegularFile(absolutePath)
       })
     } else {
       throw new Error('zip output root contains unsupported entry')
@@ -90,10 +95,36 @@ function validateZipRelativePath (relativePath: string): void {
   if (
     relativePath.startsWith('/') ||
     relativePath.includes('\\') ||
+    relativePath.includes(':') ||
+    hasAsciiControl(relativePath) ||
     relativePath.split('/').some(segment => segment === '' || segment === '.' || segment === '..')
   ) {
     throw new Error('zip entry path must be relative')
   }
+}
+
+async function readCommittedRegularFile (absolutePath: string): Promise<Buffer> {
+  const noFollow = typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0
+  const handle = await fs.open(absolutePath, constants.O_RDONLY | noFollow)
+  try {
+    const stat = await handle.stat()
+    if (!stat.isFile()) {
+      throw new Error('zip entry changed before read')
+    }
+    return await handle.readFile()
+  } finally {
+    await handle.close()
+  }
+}
+
+function hasAsciiControl (value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code <= 0x1f || code === 0x7f) {
+      return true
+    }
+  }
+  return false
 }
 
 function archiveBuffer (entries: ZipEntry[]): Buffer {
