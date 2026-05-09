@@ -37,8 +37,7 @@ export async function readHiddenLine (
   }
 
   if (!supportsRawMode(input)) {
-    output.write(prompt)
-    return readLine(input, output, true)
+    throw new Error('hidden_input_unavailable')
   }
 
   output.write(prompt)

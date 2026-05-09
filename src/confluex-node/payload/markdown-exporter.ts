@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { resolveRemoteAccessContext } from '../remote/access'
+import { resolveRemoteAccessContext, type TransportPolicy } from '../remote/access'
 import {
   markdownRemnantDiagnostics,
   normalizeMarkdownPayload,
@@ -56,6 +56,7 @@ type MarkdownExporterConfigInput = {
   baseUrl: string
   token: string
   outputDir: string
+  verifySsl: boolean
 }
 
 type MarkdownExporterConfig = {
@@ -71,7 +72,7 @@ type MarkdownExporterConfig = {
   }
   connection_config: {
     use_v2_api: false
-    verify_ssl: false
+    verify_ssl: boolean
     max_workers: 1
   }
   auth: {
@@ -88,9 +89,10 @@ type MarkdownExporterConfig = {
 export async function acquireMarkdownPagePayload (
   page: unknown,
   env: NodeJS.ProcessEnv = process.env,
-  dependencies: MarkdownExporterDependencies = {}
+  dependencies: MarkdownExporterDependencies = {},
+  policy: TransportPolicy = { insecure: false }
 ): Promise<MarkdownPayloadResult> {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isCanonicalPageRef(page)) {
     return failedPayload()
   }
@@ -105,7 +107,8 @@ export async function acquireMarkdownPagePayload (
     const config = markdownExporterConfig({
       baseUrl: context.baseUrl,
       token: context.token,
-      outputDir
+      outputDir,
+      verifySsl: !policy.insecure
     })
 
     await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
@@ -196,7 +199,7 @@ export function markdownExporterConfig (input: MarkdownExporterConfigInput): Mar
     },
     connection_config: {
       use_v2_api: false,
-      verify_ssl: false,
+      verify_ssl: input.verifySsl,
       max_workers: 1
     },
     auth: {

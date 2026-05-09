@@ -28,7 +28,8 @@ import {
   listChildPages,
   resolveRemoteAccessContext,
   type AttachmentDataItem,
-  type PageMetadata
+  type PageMetadata,
+  type TransportPolicy
 } from '../remote/access'
 import { runReportTexts, writeRunReportSet } from '../reports/run-report'
 import type { MarkdownRemnantDiagnostic } from '../payload/markdown'
@@ -238,7 +239,7 @@ type ExportDependencies = {
   markdownBaseUrl?: string | undefined
   debugCollector?: DebugCollector | undefined
   sleepMs?: ((milliseconds: number) => Promise<void>) | undefined
-  checkRootPageAccess?: ((pageId: string, env: NodeJS.ProcessEnv) => Promise<RootAccessResult>) | undefined
+  checkRootPageAccess?: ((pageId: string, env: NodeJS.ProcessEnv, policy: TransportPolicy) => Promise<RootAccessResult>) | undefined
   lookupPageById?: ((pageId: string) => Promise<RootAccessResult>) | undefined
   listChildPages?: ((page: PageMetadata) => Promise<ChildListingResult>) | undefined
   getStorageContent?: ((page: PageMetadata) => Promise<PageStorageResult>) | undefined
@@ -264,6 +265,7 @@ type ExportDependencies = {
 }
 
 const UNBOUNDED_RUN_WARNING = 'WARNING: unbounded_run use --max-pages or --max-download-mib\n'
+const INSECURE_TRANSPORT_WARNING = 'WARNING: insecure_transport TLS verification disabled or HTTP transport allowed\n'
 const BOUNDED_VALUE_OPTIONS = ['--max-pages', '--max-download-mib']
 const MAX_FIND_CANDIDATES_OPTION = '--max-find-candidates'
 const LINK_DEPTH_OPTION = '--link-depth'
@@ -283,54 +285,56 @@ async function runExportRelatedCommand (
   dependencies: ExportDependencies = {}
 ): Promise<CommandResult> {
   const executionMode = effectiveExecutionMode(options)
+  const transportPolicy = effectiveTransportPolicy(options)
   const env = effectiveConfluenceEnv(options, dependencies.env ?? process.env)
-  const remoteAccessContext = resolveRemoteAccessContext(env)
+  const remoteAccessContext = resolveRemoteAccessContext(env, transportPolicy)
   const defaultAttachmentPreview = remoteAccessContext.usable
-    ? (page: PageMetadata) => getAttachmentPreview(page, env)
+    ? (page: PageMetadata) => getAttachmentPreview(page, env, transportPolicy)
     : undefined
   const defaultAttachmentData = remoteAccessContext.usable
-    ? (page: PageMetadata) => getAttachmentData(page, env)
+    ? (page: PageMetadata) => getAttachmentData(page, env, transportPolicy)
     : undefined
   const defaultAttachmentPayloadDownload = remoteAccessContext.usable
-    ? (attachment: AttachmentDataItem) => downloadAttachmentPayload(attachment, env)
+    ? (attachment: AttachmentDataItem) => downloadAttachmentPayload(attachment, env, transportPolicy)
     : undefined
   const defaultPagePayload = executionMode === 'materialized' &&
     effectiveExportPagePayloadFormat(options) === 'md' &&
     remoteAccessContext.usable
-    ? (page: PageMetadata) => acquireMarkdownPagePayload(page, env)
+    ? (page: PageMetadata) => acquireMarkdownPagePayload(page, env, {}, transportPolicy)
     : undefined
   const commandDependencies: ExportDependencies = {
     ...dependencies,
     downloadAttachmentPayload: dependencies.downloadAttachmentPayload ?? defaultAttachmentPayloadDownload,
     getAttachmentData: dependencies.getAttachmentData ?? defaultAttachmentData,
-    findTitleCandidates: dependencies.findTitleCandidates ?? ((discovery: TitleDiscovery) => findTitleCandidates(discovery, env)),
+    findTitleCandidates: dependencies.findTitleCandidates ?? ((discovery: TitleDiscovery) => findTitleCandidates(discovery, env, transportPolicy)),
     getAttachmentPreview: dependencies.getAttachmentPreview ?? defaultAttachmentPreview,
     localizeMarkdownPayload: dependencies.localizeMarkdownPayload ?? localizeMarkdownPayload,
     markdownBaseUrl: dependencies.markdownBaseUrl ?? (remoteAccessContext.usable ? remoteAccessContext.baseUrl : undefined),
     getPagePayload: dependencies.getPagePayload ?? defaultPagePayload,
-    getStorageContent: dependencies.getStorageContent ?? ((page: PageMetadata) => getPageStorageContent(page, env)),
-    lookupPageById: dependencies.lookupPageById ?? ((pageId: string) => checkRootPageAccess(pageId, env)),
-    listChildPages: dependencies.listChildPages ?? ((page: PageMetadata) => listChildPages(page, env))
+    getStorageContent: dependencies.getStorageContent ?? ((page: PageMetadata) => getPageStorageContent(page, env, transportPolicy)),
+    lookupPageById: dependencies.lookupPageById ?? ((pageId: string) => checkRootPageAccess(pageId, env, transportPolicy)),
+    listChildPages: dependencies.listChildPages ?? ((page: PageMetadata) => listChildPages(page, env, transportPolicy))
   }
   const pageId = options.values['--page-id']
+  const transportWarning = insecureTransportWarning(options)
   if (pageId === undefined) {
     return {
       exitCode: 1,
       stdout: '',
-      stderr: `${formatDiagnostic({
+      stderr: `${transportWarning}${formatDiagnostic({
         type: 'missing-required-option',
         optionToken: '--page-id'
       })}\n`
     }
   }
   const accessCheck = commandDependencies.checkRootPageAccess ?? checkRootPageAccess
-  const access = await accessCheck(pageId, env)
+  const access = await accessCheck(pageId, env, transportPolicy)
 
   if (access.state !== 'ok') {
     return {
       exitCode: 1,
       stdout: '',
-      stderr: `${formatDiagnostic({
+      stderr: `${transportWarning}${formatDiagnostic({
         type: 'validation-failed-page-id',
         requirementId: 'FR-0017',
         pageId
@@ -348,7 +352,7 @@ async function runExportRelatedCommand (
     return {
       exitCode: 1,
       stdout: '',
-      stderr: `${formatDiagnostic({
+      stderr: `${transportWarning}${formatDiagnostic({
         type: 'validation-failed',
         requirementId: outputRoot.requirementId
       })}\n`
@@ -361,7 +365,7 @@ async function runExportRelatedCommand (
       return {
         exitCode: 1,
         stdout: '',
-        stderr: `${formatDiagnostic({
+        stderr: `${transportWarning}${formatDiagnostic({
           type: 'validation-failed',
           requirementId: 'FR-0103'
         })}\n`
@@ -396,7 +400,7 @@ async function runExportRelatedCommand (
       return {
         exitCode: 4,
         stdout: '',
-        stderr: 'ERROR: runtime_failure debug_artifact\n'
+        stderr: `${transportWarning}ERROR: runtime_failure debug_artifact\n`
       }
     }
   }
@@ -416,7 +420,7 @@ async function runExportRelatedCommand (
   return {
     exitCode: 4,
     stdout: '',
-    stderr: `${formatDiagnostic({
+    stderr: `${transportWarning}${formatDiagnostic({
       type: 'development-pending',
       command: 'export'
     })}\n`
@@ -983,13 +987,23 @@ function rejectedResume (): ResumeState {
 }
 
 function warningText (options: ExportOptions): string {
-  return unboundedRunWarning(options)
+  return `${insecureTransportWarning(options)}${unboundedRunWarning(options)}`
+}
+
+function insecureTransportWarning (options: ExportOptions): string {
+  return effectiveTransportPolicy(options).insecure ? INSECURE_TRANSPORT_WARNING : ''
 }
 
 function unboundedRunWarning (options: ExportOptions): string {
   return hasPositiveBoundedValue(options)
     ? ''
     : UNBOUNDED_RUN_WARNING
+}
+
+function effectiveTransportPolicy (options: ExportOptions): TransportPolicy {
+  return {
+    insecure: options.flags.includes('--insecure') || options.config?.insecure === true
+  }
 }
 
 function completedFinalStatus (_options: ExportOptions, hasBlockingReasons: boolean): FinalStatus {

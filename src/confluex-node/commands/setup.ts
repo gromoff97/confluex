@@ -23,6 +23,7 @@ type SetupFailureReason =
   | 'transport_timeout'
   | 'transport_connection_reset'
   | 'transport_proxy'
+  | 'hidden_input_unavailable'
 
 type SetupStreams = {
   stdout: NodeJS.WritableStream
@@ -53,7 +54,7 @@ export async function runSetupCommand (
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
       CONFLUEX_CONFLUENCE_TOKEN: token
     }
-    const connection = await checkCurrentUserAccess(connectionEnv)
+    const connection = await checkCurrentUserAccess(connectionEnv, { insecure: false })
     if (connection.state === 'failed') {
       return setupFailure(setupReason(connection.reason))
     }
@@ -75,6 +76,9 @@ export async function runSetupCommand (
         stdout: '',
         stderr: ''
       }
+    }
+    if (error instanceof Error && error.message === 'hidden_input_unavailable') {
+      return setupFailure('hidden_input_unavailable')
     }
     return {
       exitCode: 4,

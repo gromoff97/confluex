@@ -23,11 +23,16 @@ export type RemoteAccessContext =
     baseUrl: string
     token: string
     authorization: string
+    transportPolicy: TransportPolicy
   }
   | {
     usable: false
     reason: RemoteAccessFailureReason
   }
+
+export type TransportPolicy = {
+  insecure: boolean
+}
 
 export type PageMetadata = {
   page_id: string
@@ -45,7 +50,7 @@ export type HttpResponse = {
   chunks: Buffer[]
 }
 
-export type HttpRequest = (url: URL, authorization: string) => Promise<HttpResponse>
+export type HttpRequest = (url: URL, authorization: string, policy: TransportPolicy) => Promise<HttpResponse>
 
 type AccessCheckDependencies = {
   request?: HttpRequest
@@ -64,7 +69,12 @@ type DownloadableAttachment = {
   downloadUrl: string
 }
 
-export function resolveRemoteAccessContext (env: NodeJS.ProcessEnv = process.env): RemoteAccessContext {
+const DEFAULT_TRANSPORT_POLICY: TransportPolicy = { insecure: false }
+
+export function resolveRemoteAccessContext (
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
+): RemoteAccessContext {
   const baseUrlValue = env.CONFLUEX_CONFLUENCE_BASE_URL
   const token = env.CONFLUEX_CONFLUENCE_TOKEN
 
@@ -72,7 +82,7 @@ export function resolveRemoteAccessContext (env: NodeJS.ProcessEnv = process.env
     return { usable: false, reason: 'missing_base_url' }
   }
 
-  const parsed = parseUsableBaseUrl(baseUrlValue)
+  const parsed = parseUsableBaseUrl(baseUrlValue, policy)
   if (parsed === null) {
     return { usable: false, reason: 'invalid_base_url' }
   }
@@ -85,19 +95,21 @@ export function resolveRemoteAccessContext (env: NodeJS.ProcessEnv = process.env
     usable: true,
     baseUrl: parsed.baseUrl,
     token,
-    authorization: `Bearer ${token}`
+    authorization: `Bearer ${token}`,
+    transportPolicy: policy
   }
 }
 
 export async function checkRootPageAccess (
   pageId: string,
   env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY,
   dependencies: AccessCheckDependencies = {}
 ): Promise<
   | { state: 'ok', identity: string, metadataBytes: number, metadata?: PageMetadata }
   | { state: 'failed', reason: RemoteAccessFailureReason | RootPageFailureReason }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable) {
     return { state: 'failed', reason: context.reason }
   }
@@ -110,7 +122,7 @@ export async function checkRootPageAccess (
     }
 
     const url = rootPageUrl(context.baseUrl, pageId)
-    const response = await request(url, context.authorization)
+    const response = await request(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed', reason: classifyHttpFailure(response) }
     }
@@ -141,12 +153,13 @@ export async function checkRootPageAccess (
 
 export async function checkCurrentUserAccess (
   env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY,
   dependencies: AccessCheckDependencies = {}
 ): Promise<
   | { state: 'ok', baseUrl: string }
   | { state: 'failed', reason: RemoteOperationFailureReason }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable) {
     return { state: 'failed', reason: context.reason }
   }
@@ -171,7 +184,7 @@ async function checkTokenIdentity (
   | { state: 'failed', reason: RootPageFailureReason }
 > {
   try {
-    const response = await request(currentUserUrl(context.baseUrl), context.authorization)
+    const response = await request(currentUserUrl(context.baseUrl), context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed', reason: classifyHttpFailure(response) }
     }
@@ -189,19 +202,20 @@ async function checkTokenIdentity (
 
 export async function listChildPages (
   page: unknown,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
 ): Promise<
   | { state: 'ok', complete: boolean, children: PageMetadata[], metadataBytes: number }
   | { state: 'failed' }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isPageRef(page)) {
     return { state: 'failed' }
   }
 
   try {
     const url = childPagesUrl(context.baseUrl, page.page_id)
-    const response = await get(url, context.authorization)
+    const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -234,19 +248,20 @@ export async function listChildPages (
 
 export async function getPageStorageContent (
   page: unknown,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
 ): Promise<
   | { state: 'ok', storage: string, metadataBytes: number }
   | { state: 'failed' }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isPageRef(page)) {
     return { state: 'failed' }
   }
 
   try {
     const url = pageStorageUrl(context.baseUrl, page.page_id)
-    const response = await get(url, context.authorization)
+    const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -274,19 +289,20 @@ export async function getPageStorageContent (
 
 export async function getAttachmentPreview (
   page: unknown,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
 ): Promise<
   | { state: 'ok', count: number, preview: string, metadataBytes: number }
   | { state: 'failed' }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isPageRef(page)) {
     return { state: 'failed' }
   }
 
   try {
     const url = attachmentPreviewUrl(context.baseUrl, page.page_id)
-    const response = await get(url, context.authorization)
+    const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -310,19 +326,20 @@ export async function getAttachmentPreview (
 
 export async function getAttachmentData (
   page: unknown,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
 ): Promise<
   | { state: 'ok', items: AttachmentDataItem[], metadataBytes: number }
   | { state: 'failed' }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isPageRef(page)) {
     return { state: 'failed' }
   }
 
   try {
     const url = attachmentPreviewUrl(context.baseUrl, page.page_id)
-    const response = await get(url, context.authorization)
+    const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -354,19 +371,20 @@ export async function getAttachmentData (
 
 export async function downloadAttachmentPayload (
   attachment: unknown,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
 ): Promise<
   | { state: 'ok', bytes: Buffer }
   | { state: 'failed' }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isDownloadableAttachment(attachment)) {
     return { state: 'failed' }
   }
 
   try {
     const url = new URL(attachment.downloadUrl)
-    const response = await get(url, context.authorization)
+    const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -381,19 +399,20 @@ export async function downloadAttachmentPayload (
 
 export async function findTitleCandidates (
   discovery: unknown,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
 ): Promise<
   | { state: 'ok', complete: boolean, candidates: PageMetadata[], metadataBytes: number }
   | { state: 'failed' }
 > {
-  const context = resolveRemoteAccessContext(env)
+  const context = resolveRemoteAccessContext(env, policy)
   if (!context.usable || !isUsableTitleDiscovery(discovery)) {
     return { state: 'failed' }
   }
 
   try {
     const url = titleCandidatesUrl(context.baseUrl, discovery)
-    const response = await get(url, context.authorization)
+    const response = await get(url, context.authorization, context.transportPolicy)
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -477,7 +496,7 @@ function isTlsErrorCode (code: unknown): boolean {
     code === 'DEPTH_ZERO_SELF_SIGNED_CERT'
 }
 
-function parseUsableBaseUrl (value: string): { baseUrl: string } | null {
+function parseUsableBaseUrl (value: string, policy: TransportPolicy): { baseUrl: string } | null {
   let url: URL
   try {
     url = new URL(value)
@@ -486,6 +505,10 @@ function parseUsableBaseUrl (value: string): { baseUrl: string } | null {
   }
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return null
+  }
+
+  if (url.protocol === 'http:' && !policy.insecure) {
     return null
   }
 
@@ -535,12 +558,17 @@ function titleCandidatesUrl (baseUrl: string, discovery: TitleDiscovery): URL {
   return url
 }
 
-function get (url: URL, authorization: string): Promise<HttpResponse> {
+function get (
+  url: URL,
+  authorization: string,
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
+): Promise<HttpResponse> {
   const client = url.protocol === 'https:' ? https : http
 
   return new Promise((resolve, reject) => {
     const request = client.request(url, {
       method: 'GET',
+      rejectUnauthorized: !policy.insecure,
       headers: {
         authorization
       }
