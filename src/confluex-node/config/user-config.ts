@@ -19,16 +19,25 @@ export function userConfigPath (
   platform: NodeJS.Platform = process.platform
 ): string {
   if (platform === 'win32') {
-    const base = nonEmpty(env.APPDATA) ?? path.join(homeDirectory(env), 'AppData', 'Roaming')
-    return path.join(base, 'confluex', 'config.json')
+    const base = nonEmpty(env.APPDATA)
+    if (base === undefined) {
+      throw new Error('missing APPDATA')
+    }
+    return path.win32.resolve(base, 'confluex', 'config.json')
   }
 
   const configRoot = nonEmpty(env.XDG_CONFIG_HOME) ?? path.join(homeDirectory(env), '.config')
-  return path.join(configRoot, 'confluex', 'config.json')
+  return path.resolve(configRoot, 'confluex', 'config.json')
 }
 
 export function loadUserConfig (env: NodeJS.ProcessEnv = process.env): LoadedUserConfig {
-  const configPath = userConfigPath(env)
+  const configPath = selectedUserConfigPath(env)
+  if (configPath === null) {
+    return {
+      state: 'invalid',
+      path: ''
+    }
+  }
   let bytes: Buffer
 
   try {
@@ -85,6 +94,14 @@ export function writeUserConfig (
 
 function homeDirectory (env: NodeJS.ProcessEnv): string {
   return nonEmpty(env.HOME) ?? os.homedir()
+}
+
+function selectedUserConfigPath (env: NodeJS.ProcessEnv): string | null {
+  try {
+    return userConfigPath(env)
+  } catch {
+    return null
+  }
 }
 
 function nonEmpty (value: string | undefined): string | undefined {

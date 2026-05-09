@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import type { EffectiveOptions } from '../cli/validate'
+import { classifyPathSource } from '../path/source'
 
 export type OutputRootSelection =
   | { state: 'ok', outputRoot: string }
@@ -44,7 +45,12 @@ function selectExplicitOutputRoot (
   options: EffectiveOptions,
   cwd: string
 ): OutputRootSelection {
-  const outputRoot = path.isAbsolute(source) ? path.resolve(source) : path.resolve(cwd, source)
+  const pathSource = classifyPathSource(source, cwd)
+  if (pathSource.state !== 'ok') {
+    return rejected('FR-0076')
+  }
+
+  const outputRoot = pathSource.absolutePath
   const state = checkedLstatState(outputRoot)
   const isResume = executionMode === 'materialized' && options.flags.includes('--resume')
 

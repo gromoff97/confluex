@@ -14,7 +14,7 @@ export type DependencyState = {
 
 const MIN_NODE_VERSION: [number, number, number] = [20, 11, 0]
 const MIN_NODE_VERSION_TEXT = '>=20.11.0'
-const CHILD_ENV_ALLOWLIST = ['PATH', 'Path', 'HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR'] as const
+const CHILD_ENV_ALLOWLIST = ['PATH', 'Path', 'PATHEXT', 'HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR'] as const
 
 export function checkNodeVersion (version: string = process.versions.node): NodeVersionCheck {
   const parsed = parseNodeVersion(version)

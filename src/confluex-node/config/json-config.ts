@@ -1,6 +1,7 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { TextDecoder } from 'node:util'
+
+import { classifyPathSource } from '../path/source'
 
 export type ConfluexConfig = {
   confluenceBaseUrl?: string
@@ -84,7 +85,11 @@ export function parseConfluexConfigObject (value: Record<string, unknown>): Conf
 }
 
 export function loadExplicitJsonConfig (cwd: string, sourcePath: string): LoadedJsonConfig {
-  const configPath = path.resolve(cwd, sourcePath)
+  const pathSource = classifyPathSource(sourcePath, cwd)
+  if (pathSource.state !== 'ok') {
+    return { state: 'invalid', path: sourcePath }
+  }
+  const configPath = pathSource.absolutePath
   try {
     const metadata = fs.lstatSync(configPath)
     if (!metadata.isFile()) {
