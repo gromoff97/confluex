@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { structuredRawLinkValue } from '../reports/rows'
+
 type UrlParts = {
   pathPart: string
   queryPart: string
@@ -99,6 +101,7 @@ function markdownDestinationParts (
   value: unknown,
   options: MarkdownDestinationOptions
 ): UrlParts | null {
+  void options
   if (typeof value !== 'string' || value === '') {
     return null
   }
@@ -107,41 +110,7 @@ function markdownDestinationParts (
     return relativeUrlParts(value)
   }
 
-  if (value.startsWith('//') || typeof options.baseUrl !== 'string' || options.baseUrl === '') {
-    return null
-  }
-
-  try {
-    const url = new URL(value)
-    const baseUrl = new URL(options.baseUrl)
-    if (url.origin !== baseUrl.origin) {
-      return null
-    }
-    const strippedPath = stripBasePath(url.pathname, baseUrl.pathname)
-    if (strippedPath === null) {
-      return null
-    }
-    return {
-      pathPart: strippedPath,
-      queryPart: url.search.length > 0 ? url.search.slice(1) : '',
-      fragment: url.hash.length > 0 ? url.hash.slice(1) : ''
-    }
-  } catch {
-    return null
-  }
-}
-
-function stripBasePath (pathname: string, basePathname: string): string | null {
-  const normalizedBase = basePathname === '/' ? '' : basePathname.replace(/\/+$/g, '')
-  if (normalizedBase === '') {
-    return pathname
-  }
-  if (pathname === normalizedBase) {
-    return '/'
-  }
-  return pathname.startsWith(`${normalizedBase}/`)
-    ? pathname.slice(normalizedBase.length)
-    : null
+  return null
 }
 
 export function relativeUrlParts (value: string): UrlParts | null {
@@ -167,7 +136,7 @@ function pageIdFromQuery (query: string): string | null {
     const separatorIndex = part.indexOf('=')
     const name = separatorIndex === -1 ? part : part.slice(0, separatorIndex)
     const rawValue = separatorIndex === -1 ? '' : part.slice(separatorIndex + 1)
-    if (name === 'pageId' && /^(0|[1-9][0-9]*)$/.test(rawValue)) {
+    if (name === 'pageId' && /^[0-9]+$/.test(rawValue)) {
       return rawValue
     }
   }
@@ -179,7 +148,7 @@ function pageIdFromPath (pathPart: string): string | null {
   for (let index = 0; index < segments.length - 1; index += 1) {
     const marker = segments[index]
     const candidate = segments[index + 1]
-    if (marker === 'pages' && candidate !== undefined && /^(0|[1-9][0-9]*)$/.test(candidate)) {
+    if (marker === 'pages' && candidate !== undefined && /^[0-9]+$/.test(candidate)) {
       return candidate
     }
   }
@@ -254,11 +223,5 @@ function titleRawLinkValue (discovery: LinkDiscovery): string {
   const discoveredSpaceKey = discovery.spaceKey
   const spaceKeyPresent = typeof discoveredSpaceKey === 'string'
   const spaceKey = spaceKeyPresent ? discoveredSpaceKey : ''
-  return [
-    `space_key_present=${spaceKeyPresent ? '1' : '0'}`,
-    `space_key_bytes=${Buffer.byteLength(spaceKey, 'utf8')}`,
-    `space_key=${spaceKey}`,
-    `title_bytes=${Buffer.byteLength(discovery.title, 'utf8')}`,
-    `title=${discovery.title}`
-  ].join(';')
+  return structuredRawLinkValue('title', [spaceKeyPresent ? '1' : '0', spaceKey, discovery.title])
 }

@@ -216,7 +216,7 @@ type SafeChildListingResult =
 
 type ResolvePageIdResult =
   | { state: 'ok', metadata: PageMetadata, metadataBytes: number | undefined }
-  | { state: 'failed', metadataBytes?: number | undefined }
+  | { state: 'failed', reason: ResolutionReason, metadataBytes?: number | undefined }
 
 type ResolveTitleResult =
   | { state: 'ok', metadata: PageMetadata, metadataBytes: number | undefined }
@@ -1357,7 +1357,7 @@ async function basicPlanScope (
           downloadLimitReached = true
         }
         if (resolution.state !== 'ok') {
-          unresolvedLinkRows.push(unresolvedPageIdLinkRow(page.metadata, discovery))
+          unresolvedLinkRows.push(unresolvedPageIdLinkRow(page.metadata, discovery, resolution.reason))
           if (downloadLimitReached) {
             break
           }
@@ -2187,13 +2187,13 @@ function pageIdLinkRow (source: PageMetadata, target: PageMetadata, discovery: P
   }
 }
 
-function unresolvedPageIdLinkRow (source: PageMetadata, discovery: PageIdDiscovery): LinkRow {
+function unresolvedPageIdLinkRow (source: PageMetadata, discovery: PageIdDiscovery, reason: ResolutionReason): LinkRow {
   return {
     source_page_id: source.page_id,
     source_title: source.page_title,
     link_kind: discovery.linkKind,
     raw_link_value: `page_id:${discovery.pageId}`,
-    resolution_reason: 'insufficient_data'
+    resolution_reason: reason
   }
 }
 
@@ -2298,22 +2298,33 @@ function metadataBytesFromResult (result: unknown): number | undefined {
 
 async function resolvePageId (pageId: string, dependencies: ExportDependencies): Promise<ResolvePageIdResult> {
   if (typeof dependencies.lookupPageById !== 'function') {
-    return { state: 'failed' }
+    return { state: 'failed', reason: 'insufficient_data' }
   }
 
   try {
     const result = await dependencies.lookupPageById(pageId)
-    if (result.state !== 'ok' || !isUsablePageMetadata(result.metadata)) {
-      return { state: 'failed' }
+    const metadataBytes = metadataBytesFromResult(result)
+    if (result.state !== 'ok') {
+      return { state: 'failed', reason: pageIdResolutionReason(result), metadataBytes }
+    }
+    if (!isUsablePageMetadata(result.metadata) || result.metadata.page_id !== pageId) {
+      return { state: 'failed', reason: 'insufficient_data', metadataBytes }
     }
     return {
       state: 'ok',
       metadata: result.metadata,
-      metadataBytes: metadataBytesFromResult(result)
+      metadataBytes
     }
   } catch {
-    return { state: 'failed' }
+    return { state: 'failed', reason: 'insufficient_data' }
   }
+}
+
+function pageIdResolutionReason (result: unknown): ResolutionReason {
+  if (isRecord(result) && (result.reason === 'not_found' || result.reason === 'not_unique')) {
+    return result.reason
+  }
+  return 'insufficient_data'
 }
 
 async function resolveTitleLink (
@@ -2333,10 +2344,15 @@ async function resolveTitleLink (
     }
 
     const candidateLimit = effectiveCandidateLimit(options)
-    if (candidateLimit !== null && result.candidates.length > candidateLimit) {
+    const orderedCandidates = orderedTitleCandidates(result.candidates)
+    if (candidateLimit !== null && orderedCandidates.length > candidateLimit) {
       return { state: 'unresolved', reason: 'candidate_limit', finding: false, metadataBytes }
     }
-    const compatible = uniqueCompatibleTitleCandidates(discovery, candidateLimit === null ? result.candidates : result.candidates.slice(0, candidateLimit))
+    const inspectedCandidates = candidateLimit === null ? orderedCandidates : orderedCandidates.slice(0, candidateLimit)
+    if (inspectedCandidates.some(candidate => !isUsablePageMetadata(candidate))) {
+      return { state: 'unresolved', reason: 'insufficient_data', finding: true, metadataBytes }
+    }
+    const compatible = uniqueCompatibleTitleCandidates(discovery, inspectedCandidates)
     if (compatible.length === 0) {
       return { state: 'unresolved', reason: 'not_found', finding: false, metadataBytes }
     }
@@ -2376,6 +2392,25 @@ function uniqueCompatibleTitleCandidates (discovery: TitleDiscovery, candidates:
   return Array.from(byPageId.values())
 }
 
+function orderedTitleCandidates (candidates: unknown[]): unknown[] {
+  return candidates.slice().sort((left, right) => Buffer.compare(
+    Buffer.from(titleCandidateSortKey(left), 'utf8'),
+    Buffer.from(titleCandidateSortKey(right), 'utf8')
+  ))
+}
+
+function titleCandidateSortKey (candidate: unknown): string {
+  if (!isRecord(candidate)) {
+    return ''
+  }
+  return [
+    typeof candidate.space_key === 'string' ? '1' : '0',
+    typeof candidate.space_key === 'string' ? candidate.space_key : '',
+    typeof candidate.page_title === 'string' ? candidate.page_title : '',
+    typeof candidate.page_id === 'string' ? candidate.page_id : ''
+  ].join('\0')
+}
+
 function isCompatibleTitleCandidate (discovery: TitleDiscovery, candidate: unknown): candidate is PageMetadata {
   return isUsablePageMetadata(candidate) &&
     candidate.page_title === discovery.title &&
@@ -2385,7 +2420,7 @@ function isCompatibleTitleCandidate (discovery: TitleDiscovery, candidate: unkno
 function pageIdDiscoveries (storage: string): PageIdDiscoveryResult {
   const pageIdLinks: PageIdDiscovery[] = []
   const titleLinks: TitleDiscovery[] = []
-  const contentIdPattern = /<ri:(?:content-entity|page)\b[^>]*\bri:content-id="(0|[1-9][0-9]*)"[^>]*>/g
+  const contentIdPattern = /<ri:(?:content-entity|page)\b[^>]*\bri:content-id="([0-9]+)"[^>]*>/g
   const withoutContentIds = storage.replace(contentIdPattern, (_match: string, contentId: string) => {
     pageIdLinks.push({ linkKind: 'content_id', pageId: contentId })
     return ''
@@ -2506,8 +2541,8 @@ function unsupportedPatternValue (value: string | null): string | null {
   if (value === null) {
     return null
   }
-  if (/(^|[^A-Za-z0-9_])pageId=(0|[1-9][0-9]*)(?=$|[^A-Za-z0-9])/.test(value) ||
-    /\/pages\/(0|[1-9][0-9]*)(?=$|[/?#&]|[^A-Za-z0-9])/.test(value)) {
+  if (/(^|[^A-Za-z0-9_])pageId=([0-9]+)(?=$|[^A-Za-z0-9])/.test(value) ||
+    /\/pages\/([0-9]+)(?=$|[/?#&]|[^A-Za-z0-9])/.test(value)) {
     return value
   }
   const parts = relativeUrlParts(value)

@@ -9,6 +9,7 @@ import {
 import {
   normalizeMarkdownPayload
 } from './markdown'
+import { structuredRawLinkValue } from '../reports/rows'
 
 type LocalizeMarkdownInput = {
   payload: string
@@ -102,14 +103,14 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
       if (node.type === 'image') {
         parent.children.splice(index, 1, {
           type: 'text',
-          value: `${node.alt ?? destination} ${unresolvedInlineMarker(normalized.targetKey, unresolved)}`
+          value: unresolvedInlineMarker(normalized.targetKey, unresolved)
         })
         return index
       }
 
       parent.children.splice(index, 1, {
         type: 'text',
-        value: `${linkText(node)} ${unresolvedInlineMarker(normalized.targetKey, unresolved)}`
+        value: unresolvedInlineMarker(normalized.targetKey, unresolved)
       })
       return index
     }
@@ -294,43 +295,11 @@ function parseTitleTargetKey (targetKey: string): TitleTargetKey | null {
 }
 
 function titleTargetKeyWithoutSpaceKey (title: string): string {
-  return [
-    'space_key_present=0',
-    'space_key_bytes=0',
-    'space_key=',
-    `title_bytes=${Buffer.byteLength(title, 'utf8')}`,
-    `title=${title}`
-  ].join(';')
+  return structuredRawLinkValue('title', ['0', '', title])
 }
 
 function titleTargetKeyWithSpaceKey (spaceKey: string, title: string): string {
-  return [
-    'space_key_present=1',
-    `space_key_bytes=${Buffer.byteLength(spaceKey, 'utf8')}`,
-    `space_key=${spaceKey}`,
-    `title_bytes=${Buffer.byteLength(title, 'utf8')}`,
-    `title=${title}`
-  ].join(';')
-}
-
-function linkText (node: Link): string {
-  return flattenTextChildren(node.children).trim() || node.url
-}
-
-function flattenTextChildren (children: unknown): string {
-  let output = ''
-  for (const child of arrayValue(children)) {
-    if (!isRecord(child)) {
-      continue
-    }
-    if (typeof child.value === 'string') {
-      output += child.value
-    }
-    if (Array.isArray(child.children)) {
-      output += flattenTextChildren(child.children)
-    }
-  }
-  return output
+  return structuredRawLinkValue('title', ['1', spaceKey, title])
 }
 
 function appendFragment (pathValue: string, fragment: string): string {
