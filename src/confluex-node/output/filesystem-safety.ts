@@ -78,6 +78,26 @@ export async function assertRegularFileNoFollow (targetPath: string): Promise<vo
   }
 }
 
+export async function readFileNoFollow (targetPath: string): Promise<Buffer> {
+  const absolutePath = path.resolve(targetPath)
+  await assertRegularFileNoFollow(absolutePath)
+
+  if (typeof fsConstants.O_NOFOLLOW !== 'number') {
+    throw new Error('no-follow file reads are unavailable')
+  }
+
+  const handle = await fs.open(absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
+  try {
+    const stat = await handle.stat()
+    if (!stat.isFile()) {
+      throw new Error('path is not a regular file')
+    }
+    return await handle.readFile()
+  } finally {
+    await handle.close()
+  }
+}
+
 export async function writeFileNoFollowAtomic (
   targetPath: string,
   bytes: Buffer | string,
@@ -177,17 +197,7 @@ async function readExistingRegularFileNoFollow (absolutePath: string): Promise<B
     throw error
   }
 
-  const openFlags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0)
-  const handle = await fs.open(absolutePath, openFlags)
-  try {
-    const stat = await handle.stat()
-    if (!stat.isFile()) {
-      throw new Error('path is not a regular file')
-    }
-    return await handle.readFile()
-  } finally {
-    await handle.close()
-  }
+  return await readFileNoFollow(absolutePath)
 }
 
 function isNodeErrorCode (error: unknown, code: string): boolean {

@@ -13,7 +13,7 @@ import {
   titleLinkFromRelativeUrl
 } from '../links/internal-target'
 import { pagePayloadFolder } from '../output/page-folder'
-import { ensureDirectoryNoFollow, joinGovernedRelativePath, writeFileAtomic } from '../output/filesystem-safety'
+import { ensureDirectoryNoFollow, joinGovernedRelativePath, readFileNoFollow, writeFileAtomic } from '../output/filesystem-safety'
 import { selectOutputRoot, type ExecutionMode } from '../output/root'
 import { assertZipPathAvailable, createZipFromRoot, zipPathForOutputRoot } from '../output/zip'
 import { localizeMarkdownPayload } from '../payload/markdown-localizer'
@@ -32,7 +32,7 @@ import {
   type PageMetadata,
   type TransportPolicy
 } from '../remote/access'
-import { runReportTexts, writeRunReportSet } from '../reports/run-report'
+import { REPORT_FILE_ORDER, REPORT_HEADER_TEXT, SUMMARY_KEYS, runReportTexts, writeRunReportSet } from '../reports/run-report'
 import { structuredRawLinkValue } from '../reports/rows'
 import type { MarkdownRemnantDiagnostic } from '../payload/markdown'
 import type { EffectiveConfluenceConfig } from '../config/effective-options'
@@ -64,6 +64,11 @@ type ResumeState =
   | { state: 'absent' }
   | { state: 'rejected' }
   | { state: 'ok', priorFolders: Map<string, string> }
+
+type ResumeReportSet = {
+  summary: Map<string, string>
+  priorFolders: Map<string, string>
+}
 
 type RootAccessResult =
   | { state: 'ok', identity: string, metadata?: PageMetadata, metadataBytes?: number }
@@ -280,7 +285,6 @@ const RESUME_REPORT_FILENAMES = [
   'scope-findings.tsv',
   'summary.txt'
 ]
-const MANIFEST_HEADER = 'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\texecution_mode\tattachment_count'
 
 async function runExportRelatedCommand (
   options: ExportOptions,
@@ -806,28 +810,49 @@ async function evaluateResumeCompatibility (outputRoot: string, pageId: string, 
     if (await pathExists(path.join(outputRoot, 'NON_AUTHORITATIVE'))) {
       return rejectedResume()
     }
-    for (const filename of RESUME_REPORT_FILENAMES) {
-      if (!await pathIsFile(path.join(outputRoot, filename))) {
-        return rejectedResume()
-      }
-    }
-
-    const summary = parseSummaryText(await fs.readFile(path.join(outputRoot, 'summary.txt'), 'utf8'))
-    if (summary === null || !resumeSummaryMatches(summary, outputRoot, pageId, options)) {
+    const reportSet = await readResumeReportSet(outputRoot)
+    if (reportSet === null || !resumeSummaryMatches(reportSet.summary, outputRoot, pageId, options)) {
       return rejectedResume()
     }
-
-    const priorFolders = parseResumeManifest(await fs.readFile(path.join(outputRoot, 'manifest.tsv'), 'utf8'))
-    if (priorFolders === null) {
+    if (!await validateClosedResumeTree(outputRoot, reportSet.priorFolders)) {
       return rejectedResume()
     }
 
     return {
       state: 'ok',
-      priorFolders
+      priorFolders: reportSet.priorFolders
     }
   } catch {
     return rejectedResume()
+  }
+}
+
+async function readResumeReportSet (outputRoot: string): Promise<ResumeReportSet | null> {
+  const reportTexts = new Map<string, string>()
+  for (const filename of RESUME_REPORT_FILENAMES) {
+    if (!await pathIsFile(path.join(outputRoot, filename))) {
+      return null
+    }
+    reportTexts.set(filename, (await readFileNoFollow(path.join(outputRoot, filename))).toString('utf8'))
+  }
+
+  if (!resumeReportHeadersAreValid(reportTexts)) {
+    return null
+  }
+
+  const summaryText = reportTexts.get('summary.txt')
+  const manifestText = reportTexts.get('manifest.tsv')
+  if (summaryText === undefined || manifestText === undefined) {
+    return null
+  }
+  const summary = parseSummaryText(summaryText)
+  const manifest = parseResumeManifest(manifestText)
+  if (summary === null || manifest === null || !resumeSummaryCountsMatch(summary, reportTexts)) {
+    return null
+  }
+  return {
+    summary,
+    priorFolders: manifest
   }
 }
 
@@ -848,7 +873,55 @@ function parseSummaryText (text: string): Map<string, string> | null {
     }
     values.set(key, value)
   }
+  if (Array.from(values.keys()).join('\n') !== SUMMARY_KEYS.join('\n')) {
+    return null
+  }
   return values
+}
+
+function resumeReportHeadersAreValid (reportTexts: Map<string, string>): boolean {
+  for (const filename of REPORT_FILE_ORDER) {
+    if (filename === 'summary.txt') {
+      continue
+    }
+    const text = reportTexts.get(filename)
+    const expected = REPORT_HEADER_TEXT[filename]
+    if (text === undefined || expected === undefined || !text.startsWith(expected)) {
+      return false
+    }
+  }
+  return true
+}
+
+function resumeSummaryCountsMatch (summary: Map<string, string>, reportTexts: Map<string, string>): boolean {
+  const manifestText = reportTexts.get('manifest.tsv')
+  const resolvedText = reportTexts.get('resolved-links.tsv')
+  const unresolvedText = reportTexts.get('unresolved-links.tsv')
+  const failedText = reportTexts.get('failed-pages.tsv')
+  const scopeText = reportTexts.get('scope-findings.tsv')
+  if (
+    manifestText === undefined ||
+    resolvedText === undefined ||
+    unresolvedText === undefined ||
+    failedText === undefined ||
+    scopeText === undefined
+  ) {
+    return false
+  }
+
+  const manifestRows = tsvRows(manifestText)
+  if (manifestRows === null) {
+    return false
+  }
+
+  return summary.get('processed_pages') === String(manifestRows.length) &&
+    summary.get('root_pages') === String(manifestRows.filter(row => row[4] === 'root').length) &&
+    summary.get('tree_pages') === String(manifestRows.filter(row => row[4] === 'tree').length) &&
+    summary.get('linked_pages') === String(manifestRows.filter(row => row[4] === 'linked').length) &&
+    summary.get('resolved_links') === String(dataRowCount(resolvedText)) &&
+    summary.get('unresolved_links') === String(dataRowCount(unresolvedText)) &&
+    summary.get('failed_operations') === String(dataRowCount(failedText)) &&
+    summary.get('scope_findings') === String(dataRowCount(scopeText))
 }
 
 function resumeSummaryMatches (summary: Map<string, string>, outputRoot: string, pageId: string, options: ExportOptions): boolean {
@@ -879,33 +952,129 @@ function jsonStringValue (value: unknown): string | null {
 }
 
 function parseResumeManifest (text: string): Map<string, string> | null {
-  const lines = text.split('\n')
-  if (lines[0] !== MANIFEST_HEADER) {
+  const rows = tsvRows(text)
+  if (rows === null) {
     return null
   }
   const priorFolders = new Map<string, string>()
-  for (const line of lines.slice(1)) {
-    if (line === '') {
-      continue
-    }
-    const fields = line.split('\t')
-    if (fields.length !== 7) {
+  for (const fields of rows) {
+    const [pageId, serializedSpaceKey, , folder] = fields
+    if (pageId === undefined || serializedSpaceKey === undefined || folder === undefined) {
       return null
     }
-    const [pageId, spaceKey, , folder] = fields
-    if (pageId === undefined || spaceKey === undefined || folder === undefined) {
+    const spaceKey = decodeAbsenceOrDataField(serializedSpaceKey)
+    if (spaceKey === null) {
       return null
     }
     if (folder === 'none') {
       continue
     }
-    const expectedFolder = pagePayloadFolderForPage(pageId, spaceKey === 'none' ? undefined : spaceKey)
+    const expectedFolder = pagePayloadFolderForPage(pageId, spaceKey)
     if (folder !== expectedFolder) {
       return null
     }
     priorFolders.set(pageId, folder)
   }
   return priorFolders
+}
+
+function tsvRows (text: string): string[][] | null {
+  const lines = text.split('\n')
+  if (lines.length === 0) {
+    return null
+  }
+  const header = lines[0]
+  if (header === undefined || !Object.values(REPORT_HEADER_TEXT).some(value => value.trimEnd() === header)) {
+    return null
+  }
+
+  const rows: string[][] = []
+  for (const line of lines.slice(1)) {
+    if (line === '') {
+      continue
+    }
+    const fields = line.split('\t')
+    if (fields.some(field => field.includes('\n') || field.includes('\r'))) {
+      return null
+    }
+    rows.push(fields)
+  }
+  return rows
+}
+
+function dataRowCount (text: string): number {
+  const rows = tsvRows(text)
+  return rows === null ? -1 : rows.length
+}
+
+function decodeAbsenceOrDataField (value: string): string | undefined | null {
+  if (value === 'none') {
+    return undefined
+  }
+  if (value === '\\none') {
+    return 'none'
+  }
+  if (value.startsWith('\\\\')) {
+    return value.slice(1)
+  }
+  if (value.startsWith('\\')) {
+    return null
+  }
+  return value
+}
+
+async function validateClosedResumeTree (outputRoot: string, priorFolders: Map<string, string>): Promise<boolean> {
+  const allowedTopLevel = new Set([...RESUME_REPORT_FILENAMES, 'INCOMPLETE', 'pages', '_debug'])
+  const topLevelEntries = await fs.readdir(outputRoot, { withFileTypes: true })
+  for (const entry of topLevelEntries) {
+    if (!allowedTopLevel.has(entry.name)) {
+      return false
+    }
+    const entryPath = path.join(outputRoot, entry.name)
+    const stat = await fs.lstat(entryPath)
+    if (stat.isSymbolicLink()) {
+      return false
+    }
+  }
+
+  const requiredFolders = new Set(Array.from(priorFolders.values()))
+  const pagesPath = path.join(outputRoot, 'pages')
+  if (!await pathExists(pagesPath)) {
+    return requiredFolders.size === 0
+  }
+  const pagesStat = await fs.lstat(pagesPath)
+  if (!pagesStat.isDirectory() || pagesStat.isSymbolicLink()) {
+    return false
+  }
+  return await validatePagesTree(outputRoot, requiredFolders)
+}
+
+async function validatePagesTree (outputRoot: string, requiredFolders: Set<string>): Promise<boolean> {
+  const requiredSpaceSegments = new Set(Array.from(requiredFolders, folder => folder.split('/')[1]).filter(isString))
+  const pagesPath = path.join(outputRoot, 'pages')
+  const spaceEntries = await fs.readdir(pagesPath, { withFileTypes: true })
+  for (const entry of spaceEntries) {
+    if (!entry.isDirectory() || entry.isSymbolicLink() || !requiredSpaceSegments.has(entry.name)) {
+      return false
+    }
+    const spacePath = path.join(pagesPath, entry.name)
+    const pageEntries = await fs.readdir(spacePath, { withFileTypes: true })
+    const requiredPageSegments = new Set(Array.from(requiredFolders)
+      .filter(folder => folder.split('/')[1] === entry.name)
+      .map(folder => folder.split('/')[2])
+      .filter(isString))
+    for (const pageEntry of pageEntries) {
+      if (!pageEntry.isDirectory() || pageEntry.isSymbolicLink() || !requiredPageSegments.has(pageEntry.name)) {
+        return false
+      }
+    }
+  }
+  for (const folder of requiredFolders) {
+    if (!await pathIsDirectory(path.join(outputRoot, ...folder.split('/')))) {
+      return false
+    }
+  }
+  return true
 }
 
 async function pathExists (targetPath: string): Promise<boolean> {
@@ -923,13 +1092,29 @@ async function pathExists (targetPath: string): Promise<boolean> {
 async function pathIsFile (targetPath: string): Promise<boolean> {
   try {
     const stat = await fs.lstat(targetPath)
-    return stat.isFile()
+    return stat.isFile() && !stat.isSymbolicLink()
   } catch (error) {
     if (isNodeErrorCode(error, 'ENOENT')) {
       return false
     }
     throw error
   }
+}
+
+async function pathIsDirectory (targetPath: string): Promise<boolean> {
+  try {
+    const stat = await fs.lstat(targetPath)
+    return stat.isDirectory() && !stat.isSymbolicLink()
+  } catch (error) {
+    if (isNodeErrorCode(error, 'ENOENT')) {
+      return false
+    }
+    throw error
+  }
+}
+
+function isString (value: unknown): value is string {
+  return typeof value === 'string'
 }
 
 function rejectedResume (): ResumeState {

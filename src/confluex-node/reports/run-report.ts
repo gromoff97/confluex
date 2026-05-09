@@ -14,7 +14,7 @@ export const REPORT_FILE_ORDER = [
 type ReportFileName = typeof REPORT_FILE_ORDER[number]
 type TsvReportFileName = Exclude<ReportFileName, 'summary.txt'>
 
-const HEADER_TEXT = {
+export const REPORT_HEADER_TEXT = {
   'manifest.tsv': 'page_id\tspace_key\tpage_title\tfolder\tdiscovery_source\texecution_mode\tattachment_count\n',
   'resolved-links.tsv': 'source_page_id\tsource_title\tlink_kind\traw_link_value\ttarget_page_id\ttarget_space_key\ttarget_title\n',
   'unresolved-links.tsv': 'source_page_id\tsource_title\tlink_kind\traw_link_value\tresolution_reason\n',
@@ -22,7 +22,7 @@ const HEADER_TEXT = {
   'scope-findings.tsv': 'page_id\tfinding_area\tfinding_type\tdetail\n'
 } as const satisfies Record<TsvReportFileName, string>
 
-const SUMMARY_KEYS = [
+export const SUMMARY_KEYS = [
   'command',
   'execution_mode',
   'page_id',
@@ -121,11 +121,11 @@ export function runReportTexts (input: RunReportInput): RunReportTexts {
   }
 
   return {
-    'manifest.tsv': tsvText(HEADER_TEXT['manifest.tsv'], manifestRows),
-    'resolved-links.tsv': tsvText(HEADER_TEXT['resolved-links.tsv'], resolvedLinkRows),
-    'unresolved-links.tsv': tsvText(HEADER_TEXT['unresolved-links.tsv'], unresolvedLinkRows),
-    'failed-pages.tsv': tsvText(HEADER_TEXT['failed-pages.tsv'], failedPageRows),
-    'scope-findings.tsv': tsvText(HEADER_TEXT['scope-findings.tsv'], scopeFindingRows),
+    'manifest.tsv': tsvText(REPORT_HEADER_TEXT['manifest.tsv'], manifestRows),
+    'resolved-links.tsv': tsvText(REPORT_HEADER_TEXT['resolved-links.tsv'], resolvedLinkRows),
+    'unresolved-links.tsv': tsvText(REPORT_HEADER_TEXT['unresolved-links.tsv'], unresolvedLinkRows),
+    'failed-pages.tsv': tsvText(REPORT_HEADER_TEXT['failed-pages.tsv'], failedPageRows),
+    'scope-findings.tsv': tsvText(REPORT_HEADER_TEXT['scope-findings.tsv'], scopeFindingRows),
     'summary.txt': summaryText(input, counts)
   }
 }
