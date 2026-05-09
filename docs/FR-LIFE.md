@@ -118,6 +118,7 @@ and manual resolution.
 - local package install checks
 - package update checks
 - release verification
+- external Docker verification
 
 **Rationale**:
 - A package that only renders top-level help can still be missing lazy-loaded
@@ -136,6 +137,8 @@ and manual resolution.
 5. Any smoke command output containing a JavaScript module-resolution stack
    trace, an unhandled exception stack trace, or a missing packaged-runtime
    path fails installed-package validation.
+6. Installed-package smoke checks are executed by the external verification
+   project in Docker, not by product-internal test code.
 
 **Dependencies**:
 - `FR-0007`
@@ -153,6 +156,7 @@ publication.
 **Applicability**:
 - release verification
 - package-content review
+- external Docker verification
 
 **Rationale**:
 - Package publication needs reviewable contents that include runtime files and
@@ -167,6 +171,9 @@ publication.
    `LICENSE`, `bin/confluex.js`, and at least one path beginning with `dist/`.
 4. Every normalized package content path belongs to exactly one package path
    class from the closed inventory governed by `FR-0215`.
+5. Package content review is executed by the external verification project in
+   Docker and must reject product-internal tests, stand files, Superpowers
+   artifacts, scan output, and private workspace paths.
 
 **Dependencies**:
 - `FR-0215`

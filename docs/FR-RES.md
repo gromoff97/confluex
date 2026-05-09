@@ -27,7 +27,7 @@ recovery criteria.
    contracts governed by `FR-0117` and `FR-0119`: it identifies an `export`
    result with the `support_profile` value required by `FR-0119`,
    `page_payload_format` equal to the current invocation's effective page
-   payload format, `resume_mode=0`, and `resume_schema_version=2`; its
+   payload format, `resume_mode=0`, and `resume_schema_version=3`; its
    `page_id` value equals the current
    invocation's canonical resolved root page identifier established by
    root-page preflight under `FR-0017`, and its `output_root` value is one
@@ -155,6 +155,8 @@ recovery criteria.
    reject the invocation, the current invocation does not treat that prior
    payload as reused and instead follows the ordinary current-run page-payload
    persistence or `page_payload` failure behavior governed by `FR-0074`.
+9. Resume never searches legacy root-level payload files, alternate page directory
+   shapes, or other non-`FR-0079` locations as fallback reuse sources.
 
 **Dependencies**:
 - `FR-0074`

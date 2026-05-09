@@ -35,14 +35,14 @@ output root for export-related runs.
 **Acceptance Criteria**:
 1. If `--out <path>` is supplied, it selects the logical plain output root for
    the run.
-2. If `--out <path>` is omitted and `CONFLUEX_OUTPUT_ROOT` has an effective
+2. If `--out <path>` is omitted and `outputRoot` has an effective JSON config
    value under `FR-0219`, that value selects the logical plain output root for
    the run.
 3. The selected logical plain output-root path is the path-normalized absolute
    path produced from the operator-supplied path source under `FR-0158` and
    normalized under `FR-0159` before existence checks, path comparison,
    artifact naming, summary reporting, or sibling artifact path derivation.
-4. If neither `--out <path>` nor `CONFLUEX_OUTPUT_ROOT` selects an output root,
+4. If neither `--out <path>` nor `outputRoot` selects an output root,
    the product generates the output root automatically.
 
 **Dependencies**:
@@ -55,23 +55,24 @@ output root for export-related runs.
 - Observable evidence: output-root location, path normalization, summary output
 
 ### FR-0225
-**Requirement**: `--env-file <file>` shall select the invocation's env-file
+**Requirement**: `--config <file>` shall select the invocation's explicit JSON
 configuration source.
 
 **Applicability**:
-- `export --env-file <file>`
-- `export --plan-only --env-file <file>`
+- `export --config <file>`
+- `export --plan-only --config <file>`
 
 **Rationale**:
-- Operators need a deterministic way to load invocation-local configuration from
-  a file without relying only on shell profile state.
+- Operators need a deterministic way to load invocation-local JSON
+  configuration from a file without relying only on shell profile state.
 
 **Acceptance Criteria**:
-1. `--env-file <file>` selects the env-file source for the current invocation.
-2. Env-file path normalization, readability validation, parsing, and precedence
-   are governed by `FR-0219`.
-3. `--env-file <file>` is supported only by `export`.
-4. Any command other than `export` used with `--env-file` is rejected.
+1. `--config <file>` selects the explicit JSON config source for the current
+   invocation.
+2. Config path normalization, readability validation, parsing, and precedence
+   are governed by `FR-0219` and `FR-0246`.
+3. `--config <file>` is supported only by `export`.
+4. Any command other than `export` used with `--config` is rejected.
 
 **Dependencies**:
 - `FR-0036`
@@ -79,7 +80,8 @@ configuration source.
 
 **Traceability**:
 - Area: option semantics
-- Observable evidence: selected env-file reads and unsupported-command rejection
+- Observable evidence: selected explicit config reads and unsupported-command
+  rejection
 
 ### FR-0226
 **Requirement**: `export` shall use fail-fast page processing unless
@@ -115,17 +117,17 @@ source model.
 
 **Applicability**:
 - `export --out <path>`
-- env-file and process-environment values selected by `FR-0219`
+- JSON config values selected by `FR-0219`
 
 **Rationale**:
 - Operators need path inputs to resolve the same way whether supplied on the
-  command line, in an env file, or in the process environment.
+  command line or in JSON config.
 
 **Acceptance Criteria**:
-1. The public path-valued selectors are exactly `--out <path>` and
-   `CONFLUEX_OUTPUT_ROOT`.
-2. `--out <path>` and `CONFLUEX_OUTPUT_ROOT` select the logical plain
-   output-root path governed by `FR-0021`.
+1. The public path-valued selectors are exactly `--out <path>` and JSON config
+   key `outputRoot`.
+2. `--out <path>` and `outputRoot` select the logical plain output-root path
+   governed by `FR-0021`.
 3. Each selected path value is normalized under `FR-0158` and `FR-0159` before
    the path is used for artifact naming, existence checks, or path comparison.
 
@@ -145,20 +147,21 @@ invocation-local source model.
 
 **Applicability**:
 - `export` numeric run-control options
-- env-file and process-environment values selected by `FR-0219`
+- JSON config values selected by `FR-0219`
 
 **Rationale**:
 - Operators need run-control values to have the same validation and precedence
-  across command-line, env-file, and process-environment sources.
+  across command-line and JSON config sources.
 
 **Acceptance Criteria**:
 1. The public numeric run-control selectors are exactly `--max-pages <n>`,
-   `CONFLUEX_MAX_PAGES`, `--max-download-mib <n>`,
-   `CONFLUEX_MAX_DOWNLOAD_MIB`, `--sleep-ms <n>`, `CONFLUEX_SLEEP_MS`,
-   `--max-find-candidates <n>`, `CONFLUEX_MAX_FIND_CANDIDATES`,
-   `--link-depth <n>`, and `CONFLUEX_LINK_DEPTH`.
-2. Effective values selected from the command line, env file, or process
-   environment are validated with the numeric syntax governed by `FR-0014`.
+   JSON config key `maxPages`, `--max-download-mib <n>`, JSON config key
+   `maxDownloadMib`, `--sleep-ms <n>`, JSON config key `sleepMs`,
+   `--max-find-candidates <n>`, JSON config key `maxFindCandidates`,
+   `--link-depth <n>`, and JSON config key `linkDepth`.
+2. Effective values selected from the command line or JSON config are validated
+   with the numeric syntax governed by `FR-0014` and the JSON numeric schema
+   governed by `FR-0246`.
 3. The selected `max-pages` and `max-download-mib` values are consumed by
    `FR-0034`.
 4. The selected `sleep-ms` value is consumed by `FR-0035`.
@@ -172,6 +175,7 @@ invocation-local source model.
 - `FR-0157`
 - `FR-0218`
 - `FR-0219`
+- `FR-0246`
 
 **Traceability**:
 - Area: option semantics
@@ -190,7 +194,8 @@ root.
 
 **Acceptance Criteria**:
 1. `--resume` is supported only for `export`.
-2. `export --resume` requires `--out`.
+2. `export --resume` requires `--out <path>` to be present on the current
+   command line; a configured `outputRoot` does not satisfy this prerequisite.
 3. `export --resume --out <path>` is accepted only when `<path>` is an existing
    recovery-compatible output root under `FR-0103`.
 4. Any command other than `export` used with `--resume` is rejected.
@@ -288,26 +293,59 @@ selected output root.
 - Area: option semantics
 - Observable evidence: debug artifact tree presence, unchanged run behavior
 
+### FR-0252
+**Requirement**: `--insecure` shall request insecure export transport for one
+run.
+
+**Applicability**:
+- `export --insecure`
+- `export --plan-only --insecure`
+
+**Rationale**:
+- Operators need insecure transport to be explicit and isolated to one export
+  invocation.
+
+**Acceptance Criteria**:
+1. If `--insecure` is supplied on `export`, insecure transport is selected for
+   that invocation as governed by `FR-0251`.
+2. If `--insecure` is omitted from `export`, insecure transport is selected only
+   when effective JSON config key `insecure` is `true` under `FR-0219`.
+3. `--insecure` does not select, imply, or mutate any other public option.
+4. `--insecure` never changes page scope, fail-fast behavior, generated
+   output-root selection, ZIP selection, resume selection, child traversal, link
+   depth, debug artifact selection, or configured run limits.
+5. Any command other than `export` used with `--insecure` is rejected.
+
+**Dependencies**:
+- `FR-0036`
+- `FR-0219`
+- `FR-0251`
+
+**Traceability**:
+- Area: option semantics
+- Observable evidence: insecure transport selection, warning emission,
+  unchanged non-transport behavior
+
 ### FR-0229
 **Requirement**: Configured public option-equivalent values shall use the same
 value validation as command-line option values.
 
 **Applicability**:
-- effective option-equivalent values selected from env files under `FR-0219`
-- effective option-equivalent values selected from the process environment
-  under `FR-0219`
+- effective option-equivalent values selected from explicit JSON config under
+  `FR-0219`
+- effective option-equivalent values selected from user JSON config under
+  `FR-0219`
 
 **Rationale**:
-- Operators need env-file and process-environment inputs that select public
-  option behavior to fail the same way as equivalent command-line inputs.
+- Operators need JSON config inputs that select public option behavior to fail
+  the same way as equivalent command-line inputs.
 
 **Acceptance Criteria**:
-1. A configured value selected for `CONFLUEX_OUTPUT_ROOT` is validated as the
-   path value consumed by `FR-0021`.
-2. Configured values selected for `CONFLUEX_MAX_PAGES`,
-   `CONFLUEX_MAX_DOWNLOAD_MIB`, `CONFLUEX_SLEEP_MS`,
-   `CONFLUEX_MAX_FIND_CANDIDATES`, and `CONFLUEX_LINK_DEPTH` are validated by
-   the corresponding numeric syntax rules in `FR-0014`.
+1. A configured value selected for `outputRoot` is validated as the path value
+   consumed by `FR-0021`.
+2. Configured values selected for `maxPages`, `maxDownloadMib`, `sleepMs`,
+   `maxFindCandidates`, and `linkDepth` are validated by the corresponding
+   numeric syntax rules in `FR-0014` and `FR-0246`.
 3. Effective Confluence access values selected under `FR-0219` are interpreted
    by the remote-access context rules in `FR-0216`.
 4. If a configured option-equivalent value fails the validation required by
@@ -319,6 +357,7 @@ value validation as command-line option values.
 - `FR-0021`
 - `FR-0216`
 - `FR-0219`
+- `FR-0246`
 
 **Traceability**:
 - Area: option semantics
@@ -337,7 +376,7 @@ value.
 
 **Acceptance Criteria**:
 1. Public flag options are exactly `--plan-only`, `--debug`, `--resume`,
-   `--no-fail-fast`, `--zip`, and `--include-children`.
+   `--no-fail-fast`, `--zip`, `--include-children`, and `--insecure`.
 2. A public flag option consumes only its own argv token.
 3. The argv token immediately following a public flag option remains available
    for normal option parsing, valued-option value consumption, or positional
@@ -362,7 +401,7 @@ token as their value.
   begins with `-` or `--`.
 
 **Acceptance Criteria**:
-1. Public valued options are exactly `--page-id`, `--out`, `--env-file`,
+1. Public valued options are exactly `--page-id`, `--out`, `--config`,
    `--max-pages`, `--max-download-mib`, `--sleep-ms`,
    `--max-find-candidates`, and `--link-depth`.
 2. Each public valued option consumes exactly the immediately following argv
@@ -385,23 +424,23 @@ runs.
 **Applicability**:
 - `export --max-pages <n>`
 - `export --plan-only --max-pages <n>`
-- `export` with effective `CONFLUEX_MAX_PAGES`
+- `export` with effective JSON config key `maxPages`
 - `export --max-download-mib <n>`
 - `export --plan-only --max-download-mib <n>`
-- `export` with effective `CONFLUEX_MAX_DOWNLOAD_MIB`
+- `export` with effective JSON config key `maxDownloadMib`
 
 **Rationale**:
 - Operators need explicit controls that can stop a run before it grows beyond the
   intended size.
 
 **Acceptance Criteria**:
-1. If `--max-pages <n>` or effective `CONFLUEX_MAX_PAGES` selects a max-pages
+1. If `--max-pages <n>` or effective JSON config key `maxPages` selects a max-pages
    value, that value stops further page processing when `n` processed pages
    have been reached.
 2. When the nth page reaches processed-page status under `FR-0127`, the product
    completes the remaining required processing for that nth page before applying
    the `--max-pages` stop; no later queued page begins processing.
-3. If `--max-download-mib <n>` or effective `CONFLUEX_MAX_DOWNLOAD_MIB` selects
+3. If `--max-download-mib <n>` or effective JSON config key `maxDownloadMib` selects
    a max-download-mib value, that value stops further byte-contributing
    page-processing or attachment activity once the current run's accumulated
    downloaded volume reaches or exceeds `n * 1,048,576` bytes, where the
@@ -490,7 +529,7 @@ runs.
 **Applicability**:
 - `export --sleep-ms <n>`
 - `export --plan-only --sleep-ms <n>`
-- `export` with effective `CONFLUEX_SLEEP_MS`
+- `export` with effective JSON config key `sleepMs`
 
 **Rationale**:
 - Operators need explicit control over request pacing.
@@ -498,9 +537,10 @@ runs.
 **Acceptance Criteria**:
 1. If `--sleep-ms <n>` is supplied, the effective per-page delay is `n`
    milliseconds.
-2. If `--sleep-ms <n>` is omitted and `CONFLUEX_SLEEP_MS` has an effective value
-   under `FR-0219`, the effective per-page delay is that value in milliseconds.
-3. If neither `--sleep-ms <n>` nor `CONFLUEX_SLEEP_MS` supplies a sleep value,
+2. If `--sleep-ms <n>` is omitted and JSON config key `sleepMs` has an
+   effective value under `FR-0219`, the effective per-page delay is that value
+   in milliseconds.
+3. If neither `--sleep-ms <n>` nor `sleepMs` supplies a sleep value,
    the effective per-page delay is `0` milliseconds.
 4. The effective per-page delay is applied after a page reaches processed-page
    status under `FR-0127` and before the next queued page begins processing
@@ -532,7 +572,7 @@ candidate inspection.
 **Applicability**:
 - `export --max-find-candidates <n>`
 - `export --plan-only --max-find-candidates <n>`
-- `export` with effective `CONFLUEX_MAX_FIND_CANDIDATES`
+- `export` with effective JSON config key `maxFindCandidates`
 
 **Rationale**:
 - Operators need explicit control over conservative title-resolution breadth.
@@ -540,12 +580,11 @@ candidate inspection.
 **Acceptance Criteria**:
 1. If `--max-find-candidates <n>` is supplied, the effective candidate limit for
    one title-resolution attempt is `n`.
-2. If `--max-find-candidates <n>` is omitted and
-   `CONFLUEX_MAX_FIND_CANDIDATES` has an effective value under `FR-0219`, the
-   effective candidate limit for one title-resolution attempt is that value.
-3. If neither `--max-find-candidates <n>` nor
-   `CONFLUEX_MAX_FIND_CANDIDATES` supplies a candidate limit, title-resolution
-   candidate inspection is unlimited.
+2. If `--max-find-candidates <n>` is omitted and JSON config key
+   `maxFindCandidates` has an effective value under `FR-0219`, the effective
+   candidate limit for one title-resolution attempt is that value.
+3. If neither `--max-find-candidates <n>` nor `maxFindCandidates` supplies a
+   candidate limit, title-resolution candidate inspection is unlimited.
 4. When an effective candidate limit applies, the product inspects at most that
    many title candidates for any single title-resolution attempt.
 5. If the effective candidate limit prevents unique resolution, the link remains
@@ -573,13 +612,13 @@ candidate inspection.
 
 **Acceptance Criteria**:
 1. `export` supports only `--page-id`, `--out`, `--plan-only`, `--debug`,
-   `--resume`, `--no-fail-fast`, `--zip`, `--include-children`, `--env-file`,
-   `--max-pages`, `--max-download-mib`, `--sleep-ms`,
+   `--resume`, `--no-fail-fast`, `--zip`, `--include-children`, `--config`,
+   `--insecure`, `--max-pages`, `--max-download-mib`, `--sleep-ms`,
    `--max-find-candidates`, and `--link-depth`.
 2. `setup` supports no options.
 3. The supported options that take values use exactly these value placeholders in
    help output: `--page-id` uses `<id>`, `--out` uses `<path>`,
-   `--env-file` uses `<file>`, `--max-pages` uses `<n>`,
+   `--config` uses `<file>`, `--max-pages` uses `<n>`,
    `--max-download-mib` uses `<n>`, `--sleep-ms` uses `<n>`,
    `--max-find-candidates` uses `<n>`, and `--link-depth` uses `<n>`.
 4. Every supported option in criteria 1 through 2 that is not listed in
@@ -610,12 +649,12 @@ invocation-local inputs only.
 **Acceptance Criteria**:
 1. Effective values selected from public command-line options take precedence
    according to `FR-0219`.
-2. Effective values selected from env files take precedence according to
-   `FR-0219`.
-3. Effective values selected from user configuration take precedence according
+2. Effective values selected from explicit JSON config take precedence according
    to `FR-0219`.
-4. Effective values selected from the process environment take precedence
+3. Effective values selected from user JSON configuration take precedence
    according to `FR-0219`.
+4. Effective credential values selected from the process environment take
+   precedence according to `FR-0219`.
 
 **Dependencies**:
 - `FR-0036`
@@ -729,7 +768,7 @@ link-driven scope expansion.
 **Applicability**:
 - `export --link-depth <n>`
 - `export --plan-only --link-depth <n>`
-- `export` with effective `CONFLUEX_LINK_DEPTH`
+- `export` with effective JSON config key `linkDepth`
 
 **Rationale**:
 - Operators need explicit control over how many supported internal-link hops can
@@ -740,10 +779,10 @@ link-driven scope expansion.
    supported internal-link hops away from pages already in scope for one run.
 2. If `--link-depth <n>` is supplied on `export`, the effective
    link-depth for that run is `n`.
-3. If `--link-depth <n>` is omitted and `CONFLUEX_LINK_DEPTH` has an effective
-   value under `FR-0219`, the effective link-depth is that value.
-4. If neither `--link-depth <n>` nor `CONFLUEX_LINK_DEPTH` supplies a
-   link-depth value, the effective link-depth is `1`.
+3. If `--link-depth <n>` is omitted and JSON config key `linkDepth` has an
+   effective value under `FR-0219`, the effective link-depth is that value.
+4. If neither `--link-depth <n>` nor `linkDepth` supplies a link-depth value,
+   the effective link-depth is `1`.
 5. Any command other than `export` used with `--link-depth` is
    rejected.
 6. The selector chooses only the effective link-depth value; recursive child

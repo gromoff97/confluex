@@ -77,7 +77,7 @@ option values before command work begins.
 **Acceptance Criteria**:
 1. Omitting `--page-id` from `export` causes rejection.
 2. Omitting a required value for an option that takes a value causes rejection.
-3. An empty string supplied to `--out` or `--env-file` causes
+3. An empty string supplied to `--out` or `--config` causes
    rejection.
 4. For every valued option defined by `FR-0036`, the option consumes the
    immediately following argv token as its value even when that token begins with
@@ -259,9 +259,9 @@ output-root reuse begins.
    pre-acceptance and is not an accepted-command or accepted-run runtime
    failure.
 3. For `export`, pre-acceptance work occurs in this order:
-   command-surface validation; env-file source selection, env-file path
-   validation, env-file parsing, and effective public configuration selection
-   under `FR-0219`; explicit or configured output-root selector normalization
+   command-surface validation; explicit config source selection, explicit config
+   path validation, JSON config parsing, and effective public configuration
+   selection under `FR-0219`; explicit or configured output-root selector normalization
    under `FR-0021` when an output-root selector supplies a path;
    explicit-output-root filesystem and non-resume reuse rejection under
    `FR-0016` and `FR-0076` for checks that do not require the resolved root page
@@ -272,15 +272,18 @@ output-root reuse begins.
    output-root filesystem rejection under `FR-0076` when no output-root selector
    supplies a path.
 4. For `setup`, pre-acceptance work is command-surface validation.
-5. Creating or reusing an output root, traversing Confluence data, generating
+5. Top-level help, command help, unknown-command rejection, and command-surface
+   rejection do not load user config, explicit config, or process-environment
+   run options.
+6. Creating or reusing an output root, traversing Confluence data, generating
    reports, materializing page payloads, downloading attachments, creating a ZIP
    archive, prompting for setup input, setup dependency probing, setup remote
    validation, or user configuration writing occurs only after criterion 1.
-6. For `export`, the accepted-work threshold from criterion 1 is the
+7. For `export`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
-7. For `setup`, the accepted-work threshold from criterion 1 is the first
+8. For `setup`, the accepted-work threshold from criterion 1 is the first
    setup prompt governed by `FR-0041`.
-8. A setup validation failure observed after criterion 7 is classified by
+9. A setup validation failure observed after criterion 8 is classified by
    `FR-0043`.
 
 **Dependencies**:

@@ -266,7 +266,7 @@ shared self-location acquisition rule.
 **Acceptance Criteria**:
 1. For operator-supplied `--out` under `FR-0021`, any path-normalization failure
    under `FR-0159` rejects the invocation under `FR-0019`.
-2. For configured `CONFLUEX_OUTPUT_ROOT` under `FR-0021`, any
+2. For configured `outputRoot` under `FR-0021`, any
    path-normalization failure under `FR-0159` rejects the invocation under
    `FR-0019`.
 3. Generated output-root selection under `FR-0055` uses the generated
@@ -329,10 +329,8 @@ input contract.
 
 **Applicability**:
 - operator-supplied path options
-- public configuration environment-value sources used by owning cards to select
-  output-root paths
-- public env-file value sources selected under `FR-0219` and used by owning
-  cards to select output-root paths
+- public JSON configuration value sources selected under `FR-0219` and used by
+  owning cards to select output-root paths
 - current-working-directory sources used by relative-path normalization and
   generated root selection
 
@@ -346,25 +344,20 @@ input contract.
    NUL, LF, or CR.
 2. On POSIX, operator-supplied path options use the exact byte sequence of the
    effective option value selected by the owning requirement from process argv,
-   environment-value sources use the exact byte sequence obtained when the
-   product reads the named environment variable, env-file value sources use the
-   exact byte sequence of the parsed value selected under `FR-0219` after
-   ignored-line handling, quote-pair removal, duplicate-key resolution, and
-   key selection, and current-working-directory sources use the exact byte
-   sequence obtained when the product asks for the process current working
-   directory and do not use `$PWD`.
+   JSON configuration value sources use the exact Unicode string selected under
+   `FR-0219` after strict UTF-8 JSON decoding under `FR-0246`, and
+   current-working-directory sources use the exact byte sequence obtained when
+   the product asks for the process current working directory and do not use
+   `$PWD`.
 3. Producing the Unicode string from any POSIX source requires lossless UTF-8
    decoding with no replacement or omission; if the source byte sequence is not
    valid UTF-8 or would require replacement or omission, path-source
    acquisition fails.
 4. On Windows, operator-supplied path options use the Unicode argument value
-   received after command-line parsing, environment-value sources use the
-   Unicode value obtained when the product reads the named environment
-   variable, env-file value sources use the exact Unicode string of the parsed
-   value selected under `FR-0219` after ignored-line handling, quote-pair
-   removal, duplicate-key resolution, and key selection, and current-working-
-   directory sources use the Unicode path obtained when the product asks for the
-   process current working directory.
+   received after command-line parsing, JSON configuration value sources use the
+   exact Unicode string selected under `FR-0219` after strict UTF-8 JSON decoding
+   under `FR-0246`, and current-working-directory sources use the Unicode path
+   obtained when the product asks for the process current working directory.
 5. If any governed Windows path source cannot supply a Unicode string,
    path-source acquisition fails.
 6. The platform is Windows when the running Confluex process is a native

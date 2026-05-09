@@ -368,27 +368,25 @@ supplied for a processed page as `page.md`.
    blocks, inline code spans, and plain text that is not part of a Markdown
    link or image node are not rewritten by Markdown localization.
 5. If one Markdown link or image destination denotes a supported internal page
-   target that resolves to one exported processed page under the run's
-   resolved-link result, the persisted `page.md` rewrites that destination to
-   exactly one governed relative path from the source page payload folder to the
-   target page payload file `page.md`. If the source destination contains a
-   `#fragment`, the rewritten destination preserves that exact fragment suffix
-   byte-for-byte after the localized relative path.
-6. If one Markdown link or image destination is already one governed relative
-   path that begins with the exact first path segment `attachments`, the
-   persisted `page.md` preserves that destination unchanged.
-7. If one Markdown link or image destination denotes one supported internal page
-   target for the source page
-   whose unresolved-link result is recorded for that same source page, the
-   persisted `page.md` replaces that link or image with one inline unresolved
-   marker that uses exactly the text
+   target for the source page whose unresolved-link result is recorded for that
+   same source page, the persisted `page.md` replaces that link or image with
+   one inline unresolved marker that uses exactly the text
    `[unresolved: page; reason=<reason>; target_hint=<hint>; value="<value>"]`
    where `<reason>` is exactly one of `not_found`, `not_unique`,
    `candidate_limit`, or `insufficient_data`, `<hint>` is exactly `page_id`,
    `title`, or `raw`, and `<value>` is the exact page-id, title value, or raw
-   target value selected for that unresolved-link row. For this card, a
-   source-page unresolved-link result takes precedence over any otherwise
-   available exported-page localization for the same target.
+   target value selected for that unresolved-link row.
+6. If one Markdown link or image destination denotes a supported internal page
+   target that resolves to one exported processed page under the run's
+   resolved-link result for that same source page, the persisted `page.md`
+   rewrites that destination to exactly one governed relative path from the
+   source page payload folder to the target page payload file `page.md`. If the
+   source destination contains a `#fragment`, the rewritten destination preserves
+   that exact fragment suffix byte-for-byte after the localized relative path.
+7. If one Markdown link or image destination is already one governed relative
+   path of the exact form `attachments/<filename>` optionally followed by a
+   `#fragment`, where `<filename>` is a valid retained attachment filename under
+   `FR-0075`, the persisted `page.md` preserves that destination unchanged.
 8. If one Markdown link or image destination does not satisfy criteria 5
     through 7, the persisted `page.md`
     preserves that destination unchanged. This includes external URLs,
@@ -423,6 +421,7 @@ supplied for a processed page as `page.md`.
 **Dependencies**:
 - `FR-0079`
 - `FR-0080`
+- `FR-0075`
 - `FR-0088`
 - `FR-0089`
 - `FR-0091`
@@ -481,29 +480,46 @@ when attachments are present using the remote-access context defined by
    before downloading any invalid or duplicate-named attachment payload bytes;
    final attachment payload retention for that page after the failure is governed
    by `FR-0128`.
-8. If the criterion-1 attachment-data acquisition fails before `attachment_count`
+8. For each attachment item whose payload download can be attempted, the
+   attachment metadata exposes a governed Confluence download target under
+   `FR-0216` with no scheme, no authority, no userinfo, no fragment, an absolute
+   path beginning with `/`, and an optional query string.
+9. If an attachment metadata item exposes an invalid download target under
+   criterion 8, attachment-download work for that page fails before downloading
+   any payload bytes for that invalid item.
+10. Attachment payload requests are constructed by applying the configured
+    Confluence base URL path-prefix rules from `FR-0216` to the governed
+    download target; a leading slash in source metadata does not strip the
+    configured context path.
+11. The product sends the Confluence Authorization field for attachment payload
+    requests only to URLs satisfying the governed request target and transport
+    rules in `FR-0216` and `FR-0251`.
+12. Attachment payload downloads are streamed with bounded memory, and no
+    partial attachment file is retained when a stream fails or is stopped by the
+    max-download limit.
+13. If the criterion-1 attachment-data acquisition fails before `attachment_count`
    is determined for a page, attachment-download work for that page fails before
    any attachment payload download for that page begins.
-9. If a page still appears in `manifest.tsv` after attachment-download work for
+14. If a page still appears in `manifest.tsv` after attachment-download work for
    that page and the product did not determine `attachment_count`, that
    manifest row serializes `attachment_count` using the shared absence token
    governed by `FR-0125` as required by `FR-0086`.
-10. Each page-local attachment-download failure is recorded in
+15. Each page-local attachment-download failure is recorded in
    `failed-pages.tsv` with `operation=attachment_download`; that row is a
    page-local failure under `FR-0088`.
-11. Attachment-download failures are reported per processed page: one or more
+16. Attachment-download failures are reported per processed page: one or more
    failed attachment metadata or payload items for the same page produce exactly
    one `attachment_download` failed-pages row for that page.
-12. When multiple attachment failures for one page are collapsed into one row, the
+17. When multiple attachment failures for one page are collapsed into one row, the
    row's `error_summary` remains the explanatory field governed by `FR-0088` and
    is not required to enumerate every failed attachment.
-13. If `--no-fail-fast` is not in effect, an `attachment_download` page-local
+18. If `--no-fail-fast` is not in effect, an `attachment_download` page-local
    failure stops further page processing after the failure is recorded.
-14. If `--no-fail-fast` is in effect, an `attachment_download` page-local
+19. If `--no-fail-fast` is in effect, an `attachment_download` page-local
    failure does not by itself prevent processing of later pages.
-15. When an `attachments/` folder is retained for a page, it contains exactly the
+20. When an `attachments/` folder is retained for a page, it contains exactly the
    retained attachment payload files for that page and no other entries.
-16. Persisted attachment payload files reside directly inside that page's
+21. Persisted attachment payload files reside directly inside that page's
    `attachments/` folder and do not escape it.
 
 **Dependencies**:
@@ -516,6 +532,7 @@ when attachments are present using the remote-access context defined by
 - `FR-0125`
 - `FR-0128`
 - `FR-0216`
+- `FR-0251`
 
 **Traceability**:
 - Area: data acquisition

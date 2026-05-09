@@ -238,3 +238,83 @@ results but discard misleading abnormal partial results.
 **Traceability**:
 - Area: safety
 - Observable evidence: retained or removed plan-only output roots
+
+### FR-0253
+**Requirement**: Child subprocesses shall receive only the environment variables
+needed for dependency execution.
+
+**Applicability**:
+- dependency probes
+- Markdown exporter subprocess invocations
+
+**Rationale**:
+- Subprocesses should not inherit Confluence tokens, shell secrets, or unrelated
+  host configuration by default.
+
+**Acceptance Criteria**:
+1. Dependency probes are executed with an environment allowlist containing only
+   `PATH`, `Path`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`,
+   `SystemRoot`, and `WINDIR` when those variables are present in the parent
+   environment.
+2. Markdown exporter subprocesses start from the allowlist in criterion 1 and add
+   only exporter-owned variables needed for the invocation: `CME_CONFIG_PATH`,
+   `CI`, and `NO_COLOR`.
+3. Child subprocess environments do not include `CONFLUEX_CONFLUENCE_TOKEN`,
+   `CONFLUEX_CONFLUENCE_BASE_URL`, Authorization header values, cookies, or
+   arbitrary parent environment variables outside criteria 1 and 2.
+4. Dependency probe diagnostics and exporter diagnostics do not print the full
+   child environment.
+
+**Dependencies**:
+- `FR-0038`
+- `FR-0236`
+- `FR-0237`
+
+**Traceability**:
+- Area: safety
+- Observable evidence: dependency probe execution and exporter subprocess
+  invocation
+
+### FR-0254
+**Requirement**: Remote Confluence requests and Markdown exporter subprocesses
+shall be bounded by explicit IO limits.
+
+**Applicability**:
+- accepted `export` runs
+- accepted `export --plan-only` runs
+- non-help `setup` invocations during connection validation
+
+**Rationale**:
+- Network and child-process failures should fail predictably instead of consuming
+  unbounded memory, disk, or time.
+
+**Acceptance Criteria**:
+1. Every product-owned Confluence HTTP request has a finite request timeout.
+2. Every buffered product-owned Confluence HTTP response has a finite byte cap.
+3. If a response exceeds its cap or timeout, the affected operation fails through
+   the same rejected-invocation, setup-failure, page-local failure, configured
+   stop, or runtime-failure branch that owns that operation.
+4. Attachment payload downloads are streamed or otherwise bounded so bytes beyond
+   the active download budget are not retained as authoritative artifacts.
+5. Markdown exporter subprocess invocations have finite timeout, stdout cap,
+   stderr cap, and produced-payload cap.
+6. If the Markdown exporter exceeds a timeout or cap, the affected page payload
+   materialization fails through the page-local failure behavior governed by
+   `FR-0074`, unless another requirement classifies the same condition as a
+   configured stop or runtime failure.
+7. Debug capture of bounded request or exporter data remains capped and redacted
+   under `FR-0249` and `FR-0250`.
+
+**Dependencies**:
+- `FR-0043`
+- `FR-0074`
+- `FR-0075`
+- `FR-0097`
+- `FR-0102`
+- `FR-0249`
+- `FR-0250`
+
+**Traceability**:
+- Area: safety
+- Observable evidence: timeout behavior, capped response handling, and retained
+  artifacts after oversized remote or exporter output

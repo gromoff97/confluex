@@ -489,9 +489,16 @@ tree inside the selected output root.
 7. `materialized` execution mode writes Markdown exporter artifacts only for
    pages whose page-payload materialization was attempted.
 8. Debug artifact content is sanitized under `FR-0250` before it is written.
+9. Debug artifact path components are governed relative path segments under
+   `FR-0150`; a page-level debug directory is not created if `<page_id>` is not a
+   canonical page identifier under `FR-0014`.
+10. Debug artifact writes use the same atomic regular-file commit semantics as
+    retained per-page artifacts under `FR-0151`.
 
 **Dependencies**:
 - `FR-0014`
+- `FR-0150`
+- `FR-0151`
 - `FR-0248`
 - `FR-0250`
 
@@ -586,16 +593,29 @@ failure branches beside the plain output root.
 2. If the `FR-0238` ZIP sibling path already exists before ZIP creation begins
    after accepted run execution has begun, the accepted invocation fails under
    `FR-0102` before modifying that path.
-3. The ZIP archive contains only relative entries for files retained under the
-   plain output root. It contains no absolute path entries, no empty directory
-   entries, and no entries containing `..` as a path segment.
-4. ZIP entries are added in ascending bytewise lexicographic order of their
+3. ZIP input collection evaluates every included filesystem object using
+   non-following metadata after the plain output root reaches its final retained
+   content.
+4. The ZIP archive contains only relative entries for regular files retained
+   under the plain output root. It contains no absolute path entries, no empty
+   directory entries, and no entries containing `..` as a path segment.
+5. ZIP entry names contain no backslash, colon, ASCII control character, absolute
+   path prefix, `.` segment, or `..` segment.
+6. If an included path is not a regular file under non-following metadata during
+   collection or immediately before its bytes are read, ZIP creation fails under
+   `FR-0102`.
+7. ZIP entries are added in ascending bytewise lexicographic order of their
    governed relative path under `FR-0150`.
-5. The plain output root remains on disk after successful ZIP creation.
-6. `summary.txt` includes exactly one `zip_path=<quoted_path_string>` line when
+8. ZIP bytes are first written to a unique temporary sibling path and are moved to
+   the final ZIP sibling path only after all archive bytes have been produced and
+   the temporary path has been closed.
+9. If ZIP creation fails before final rename, the final ZIP sibling path is absent
+   unless it pre-existed and triggered criterion 2.
+10. The plain output root remains on disk after successful ZIP creation.
+11. `summary.txt` includes exactly one `zip_path=<quoted_path_string>` line when
    ZIP creation succeeds; the serialized ZIP path is governed by `FR-0238` and
    `FR-0119`.
-7. If ZIP creation fails after accepted run execution begins, the run fails
+12. If ZIP creation fails after accepted run execution begins, the run fails
    under `FR-0102`; any partially written ZIP archive is non-authoritative
    output debris and is not a report-set container.
 
@@ -605,6 +625,7 @@ failure branches beside the plain output root.
 - `FR-0102`
 - `FR-0119`
 - `FR-0150`
+- `FR-0154`
 - `FR-0220`
 
 **Traceability**:

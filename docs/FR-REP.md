@@ -23,6 +23,14 @@ closed report-file set.
    report-file set from criterion 2.
 5. In exact report-header literals in this file, `<TAB>` denotes one literal
    horizontal tab byte `0x09` between adjacent field names.
+6. Report files become authoritative as one coherent set: the product validates
+   all report text for the retained branch before replacing or creating any final
+   report-set member.
+7. If report-set commit fails after accepted run execution begins, the retained
+   root is not a report-set container unless all closed report-file members from
+   criterion 2 are present and satisfy their governed schemas.
+8. A coherent report-set commit does not leave a mixture of old and new report
+   files as the authoritative report set for one run.
 
 **Dependencies**:
 - `FR-0058`

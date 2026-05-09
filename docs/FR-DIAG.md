@@ -21,15 +21,20 @@ persisting user configuration.
    greater than or equal to `20.11.0`.
 4. The exact dependency executable name is `uvx` for the Markdown converter.
 5. `uvx` is resolved on `PATH`.
-6. If the Node.js runtime is unsupported, setup fails before writing user config
+6. Dependency probes receive only the subprocess environment keys allowed by
+   `FR-0253`.
+7. On Windows, `uvx` resolution honors executable candidates compatible with
+   `PATHEXT`, including command shims such as `uvx.cmd`.
+8. If the Node.js runtime is unsupported, setup fails before writing user config
    with stderr exactly `ERROR: setup_failed unsupported_node_runtime`.
-7. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
+9. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
    config with stderr exactly `ERROR: setup_failed missing_markdown_converter`.
-8. Local dependency failure output never emits token values, Authorization
+10. Local dependency failure output never emits token values, Authorization
    header values, cookies, full response bodies, or full process environments.
 
 **Dependencies**:
 - `FR-0237`
+- `FR-0253`
 
 **Traceability**:
 - Area: diagnostics
@@ -56,7 +61,7 @@ output root.
 3. If root page access fails, the invocation exits `1`, writes no stdout, and
    writes the root-page validation rejection diagnostic governed by `FR-0146`.
 4. If root page access fails, the product creates no output root selected by
-   `--out`, `CONFLUEX_OUTPUT_ROOT`, or generated output-root selection.
+   `--out`, JSON config key `outputRoot`, or generated output-root selection.
 5. Page-access failure output never emits token values, Authorization header
    values, cookies, full response bodies, or full process environments.
 
@@ -143,7 +148,9 @@ persisting user configuration.
    disabled.
 4. Bytes entered for the token are never written to stdout.
 5. Bytes entered for the token are never written to stderr.
-6. Setup accepts no command-line option that supplies the base URL or token.
+6. If setup is running interactively and echo suppression is unavailable, setup
+   fails before accepting token bytes and before writing user config.
+7. Setup accepts no command-line option that supplies the base URL or token.
 
 **Dependencies**:
 - `FR-0237`
@@ -209,7 +216,8 @@ contract.
    `unsupported_node_runtime`, `missing_markdown_converter`,
    `invalid_base_url`, `missing_token`, `auth_rejected`,
    `page_inaccessible`, `transport_dns`, `transport_tls`,
-   `transport_timeout`, `transport_connection_reset`, or `transport_proxy`.
+   `transport_timeout`, `transport_connection_reset`, `transport_proxy`, or
+   `hidden_input_unavailable`.
 7. On setup failure, exit code is `1`.
 
 **Dependencies**:

@@ -82,8 +82,8 @@ provenance.
 **Acceptance Criteria**:
 1. `output_path_provenance` uses only `explicit`, `configured`, or `generated`.
 2. If the operator supplied `--out`, `output_path_provenance=explicit`.
-3. If `--out` was omitted and `CONFLUEX_OUTPUT_ROOT` supplied the output root
-   under `FR-0219`, `output_path_provenance=configured`.
+3. If `--out` was omitted and JSON config key `outputRoot` supplied the output
+   root under `FR-0219`, `output_path_provenance=configured`.
 4. If the product generated the output root automatically,
    `output_path_provenance=generated`.
 
@@ -148,9 +148,9 @@ reasons.
 1. `interrupt_reason` uses either the shared absence token defined by
    `FR-0125` or one of `max_pages_limit_reached`,
    `max_download_limit_reached`, `runtime_error`, or `signal_interrupt`.
-2. If `--max-pages` or `CONFLUEX_MAX_PAGES` stops the run,
+2. If `--max-pages` or JSON config key `maxPages` stops the run,
    `interrupt_reason=max_pages_limit_reached`.
-3. If `--max-download-mib` or `CONFLUEX_MAX_DOWNLOAD_MIB` stops the run,
+3. If `--max-download-mib` or JSON config key `maxDownloadMib` stops the run,
    `interrupt_reason=max_download_limit_reached`.
 4. If both configured stop limits would stop the run at the same decision
    point, `interrupt_reason=max_pages_limit_reached`.
