@@ -42,12 +42,13 @@ const commands: CommandDefinition[] = [
       { token: '--resume', description: 'Reuse a compatible existing materialized export root selected by --out.' },
       { token: '--no-fail-fast', description: 'Continue after page-local runtime failures.' },
       { token: '--zip', description: 'Create a ZIP archive beside the Markdown output root.' },
-      { token: '--env-file', value: '<file>', description: 'Load public configuration from this env file.' },
+      { token: '--include-children', description: 'Include the recursive Confluence child tree.' },
+      { token: '--config', value: '<file>', description: 'Load public configuration from this JSON file.' },
+      { token: '--insecure', description: 'Allow insecure export transport for this invocation.' },
       { token: '--max-pages', value: '<n>', description: 'Stop after n processed pages.' },
       { token: '--max-download-mib', value: '<n>', description: 'Stop after downloading n MiB in total.' },
       { token: '--sleep-ms', value: '<n>', description: 'Sleep n ms between processed pages.' },
       { token: '--max-find-candidates', value: '<n>', description: 'Inspect at most n title-resolution candidates per link.' },
-      { token: '--include-children', description: 'Include the recursive Confluence child tree.' },
       { token: '--link-depth', value: '<n>', description: 'Follow supported internal links up to n hops from pages already in scope; default: 1.' }
     ],
     notes: [

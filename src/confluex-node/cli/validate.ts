@@ -23,7 +23,7 @@ type ValidationFailures = {
   missingRequiredOptions: Set<string>
 }
 
-const emptyRejectedOptions = new Set(['--out', '--env-file'])
+const emptyRejectedOptions = new Set(['--out', '--config'])
 const positiveIntegerOptions = new Set(['--max-pages', '--max-download-mib', '--max-find-candidates'])
 
 export function validateCommandInvocation (
@@ -49,9 +49,10 @@ export function validateCommandInvocation (
   }
 
   scanArgv(argv, optionDefinitions, flags, values, failures)
+  const commandLineValues = new Set(values.keys())
   applyDefaultValues(optionDefinitions, values, defaultValues)
   validateEffectiveValues(command, values, failures)
-  validateCombinations(commandName, flags, values, failures)
+  validateCombinations(commandName, flags, commandLineValues, failures)
   validateRequiredOptions(command, values, failures)
 
   const diagnostic = selectDiagnostic(command, failures)
@@ -169,10 +170,10 @@ function isCanonicalPositiveInteger (value: string): boolean {
 function validateCombinations (
   commandName: string,
   flags: Set<string>,
-  values: Map<string, string>,
+  commandLineValues: Set<string>,
   failures: ValidationFailures
 ): void {
-  if (commandName === 'export' && flags.has('--resume') && !values.has('--out')) {
+  if (commandName === 'export' && flags.has('--resume') && !commandLineValues.has('--out')) {
     failures.invalidOptionCombinations.push(['--out', '--resume'])
   }
   if (commandName === 'export' && flags.has('--plan-only') && flags.has('--zip')) {

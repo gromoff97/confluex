@@ -809,9 +809,9 @@ function isBasicExport (executionMode: ExecutionMode, options: ExportOptions, ac
 }
 
 function isBasicExportOptions (executionMode: ExecutionMode, options: ExportOptions): boolean {
-  const allowedValues = ['--page-id', '--out', '--env-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
+  const allowedValues = ['--page-id', '--out', '--config', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
   return executionMode === 'materialized' &&
-    hasOnlyFlags(options, ['--debug', '--no-fail-fast', '--resume', '--zip', '--include-children']) &&
+    hasOnlyFlags(options, ['--debug', '--no-fail-fast', '--resume', '--zip', '--include-children', '--insecure']) &&
     Object.keys(options.values).every(token => allowedValues.includes(token) || BOUNDED_VALUE_OPTIONS.includes(token))
 }
 
@@ -820,9 +820,9 @@ function isPlanOnlyExport (executionMode: ExecutionMode, options: ExportOptions,
 }
 
 function isPlanOnlyExportOptions (executionMode: ExecutionMode, options: ExportOptions): boolean {
-  const allowedValues = ['--page-id', '--out', '--env-file', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
+  const allowedValues = ['--page-id', '--out', '--config', '--sleep-ms', MAX_FIND_CANDIDATES_OPTION, LINK_DEPTH_OPTION]
   return executionMode === 'plan_only' &&
-    hasOnlyFlags(options, ['--plan-only', '--debug', '--no-fail-fast', '--include-children']) &&
+    hasOnlyFlags(options, ['--plan-only', '--debug', '--no-fail-fast', '--include-children', '--insecure']) &&
     Object.keys(options.values).every(token => allowedValues.includes(token) || BOUNDED_VALUE_OPTIONS.includes(token))
 }
 

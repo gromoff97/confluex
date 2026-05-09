@@ -1,10 +1,8 @@
 import { findCommand } from '../cli/registry'
 import type { EffectiveOptions } from '../cli/validate'
+import type { ConfluexConfig } from './json-config'
 
-export type EffectiveConfluenceConfig = {
-  confluenceBaseUrl?: string
-  confluenceToken?: string
-}
+export type EffectiveConfluenceConfig = ConfluexConfig
 
 export type EffectiveCommandOptions = EffectiveOptions & {
   config: EffectiveConfluenceConfig
@@ -12,25 +10,25 @@ export type EffectiveCommandOptions = EffectiveOptions & {
 
 export type EnvMap = NodeJS.ProcessEnv | Record<string, string | undefined>
 
-const optionEnvironmentNames = new Map<string, string>([
-  ['--out', 'CONFLUEX_OUTPUT_ROOT'],
-  ['--max-pages', 'CONFLUEX_MAX_PAGES'],
-  ['--max-download-mib', 'CONFLUEX_MAX_DOWNLOAD_MIB'],
-  ['--sleep-ms', 'CONFLUEX_SLEEP_MS'],
-  ['--max-find-candidates', 'CONFLUEX_MAX_FIND_CANDIDATES'],
-  ['--link-depth', 'CONFLUEX_LINK_DEPTH']
+const configOptionNames = new Map<string, keyof ConfluexConfig>([
+  ['--out', 'outputRoot'],
+  ['--max-pages', 'maxPages'],
+  ['--max-download-mib', 'maxDownloadMib'],
+  ['--sleep-ms', 'sleepMs'],
+  ['--max-find-candidates', 'maxFindCandidates'],
+  ['--link-depth', 'linkDepth']
 ])
 
 export function buildEffectiveOptions (
   commandName: string,
   parsedOptions: EffectiveOptions,
   processEnv: EnvMap,
-  envFileValues: Map<string, string>,
-  userConfigValues: Map<string, string> = new Map()
+  explicitConfig: ConfluexConfig = {},
+  userConfig: ConfluexConfig = {}
 ): EffectiveCommandOptions {
   const values: Record<string, string> = { ...parsedOptions.values }
   const supportedOptions = supportedValueOptions(commandName)
-  for (const [optionToken, environmentName] of optionEnvironmentNames) {
+  for (const [optionToken, configName] of configOptionNames) {
     if (!supportedOptions.has(optionToken)) {
       continue
     }
@@ -39,20 +37,36 @@ export function buildEffectiveOptions (
       continue
     }
 
-    const value = selectedValue(environmentName, envFileValues, userConfigValues, processEnv)
+    const value = selectedConfigValue(configName, explicitConfig, userConfig)
     if (value !== undefined) {
-      values[optionToken] = value
+      values[optionToken] = String(value)
     }
   }
 
   const config: EffectiveConfluenceConfig = {}
-  const confluenceBaseUrl = selectedValue('CONFLUEX_CONFLUENCE_BASE_URL', envFileValues, userConfigValues, processEnv)
-  const confluenceToken = selectedValue('CONFLUEX_CONFLUENCE_TOKEN', envFileValues, userConfigValues, processEnv)
+  const confluenceBaseUrl = selectedStringConfigValue(
+    'confluenceBaseUrl',
+    explicitConfig,
+    userConfig,
+    processEnv,
+    'CONFLUEX_CONFLUENCE_BASE_URL'
+  )
+  const confluenceToken = selectedStringConfigValue(
+    'confluenceToken',
+    explicitConfig,
+    userConfig,
+    processEnv,
+    'CONFLUEX_CONFLUENCE_TOKEN'
+  )
+  const insecure = selectedConfigValue('insecure', explicitConfig, userConfig)
   if (confluenceBaseUrl !== undefined) {
     config.confluenceBaseUrl = confluenceBaseUrl
   }
   if (confluenceToken !== undefined) {
     config.confluenceToken = confluenceToken
+  }
+  if (insecure !== undefined) {
+    config.insecure = insecure
   }
 
   return {
@@ -96,18 +110,36 @@ export function effectiveConfluenceEnv (
 
 function selectedValue (
   name: string,
-  envFileValues: Map<string, string>,
-  userConfigValues: Map<string, string>,
   processEnv: EnvMap
 ): string | undefined {
-  if (envFileValues.has(name)) {
-    return envFileValues.get(name)
-  }
-  if (userConfigValues.has(name)) {
-    return userConfigValues.get(name)
-  }
   if (Object.prototype.hasOwnProperty.call(processEnv, name)) {
     return processEnv[name]
   }
   return undefined
+}
+
+function selectedStringConfigValue (
+  configName: keyof ConfluexConfig,
+  explicitConfig: ConfluexConfig,
+  userConfig: ConfluexConfig,
+  processEnv: EnvMap,
+  environmentName: string
+): string | undefined {
+  const configValue = selectedConfigValue(configName, explicitConfig, userConfig)
+  if (typeof configValue === 'string') {
+    return configValue
+  }
+  return selectedValue(environmentName, processEnv)
+}
+
+function selectedConfigValue<K extends keyof ConfluexConfig> (
+  configName: K,
+  explicitConfig: ConfluexConfig,
+  userConfig: ConfluexConfig
+): ConfluexConfig[K] | undefined {
+  const explicitValue = explicitConfig[configName]
+  if (explicitValue !== undefined) {
+    return explicitValue
+  }
+  return userConfig[configName]
 }

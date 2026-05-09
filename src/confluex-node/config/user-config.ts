@@ -2,16 +2,17 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-export type UserConfig = {
-  confluenceBaseUrl?: string
-  confluenceToken?: string
+import { decodeStrictUtf8JsonObject, parseConfluexConfigObject, type ConfluexConfig } from './json-config'
+
+export type UserConfig = ConfluexConfig
+export type SetupUserConfig = {
+  confluenceBaseUrl: string
+  confluenceToken: string
 }
 
 export type LoadedUserConfig =
   | { state: 'ok', path: string, config: UserConfig }
   | { state: 'invalid', path: string }
-
-const userConfigKeys = new Set(['confluenceBaseUrl', 'confluenceToken'])
 
 export function userConfigPath (
   env: NodeJS.ProcessEnv = process.env,
@@ -46,50 +47,23 @@ export function loadUserConfig (env: NodeJS.ProcessEnv = process.env): LoadedUse
     }
   }
 
-  try {
-    const parsed = JSON.parse(bytes.toString('utf8')) as unknown
-    if (!isRecord(parsed)) {
-      return { state: 'invalid', path: configPath }
-    }
-
-    const config: UserConfig = {}
-    for (const [key, value] of Object.entries(parsed)) {
-      if (!userConfigKeys.has(key) || typeof value !== 'string') {
-        return { state: 'invalid', path: configPath }
-      }
-      if (key === 'confluenceBaseUrl') {
-        config.confluenceBaseUrl = value
-      } else if (key === 'confluenceToken') {
-        config.confluenceToken = value
-      }
-    }
-
-    return {
-      state: 'ok',
-      path: configPath,
-      config
-    }
-  } catch {
+  const decoded = decodeStrictUtf8JsonObject(bytes)
+  const config = decoded === null ? null : parseConfluexConfigObject(decoded)
+  if (config === null) {
     return {
       state: 'invalid',
       path: configPath
     }
   }
-}
-
-export function userConfigEnvironmentValues (config: UserConfig): Map<string, string> {
-  const values = new Map<string, string>()
-  if (config.confluenceBaseUrl !== undefined) {
-    values.set('CONFLUEX_CONFLUENCE_BASE_URL', config.confluenceBaseUrl)
+  return {
+    state: 'ok',
+    path: configPath,
+    config
   }
-  if (config.confluenceToken !== undefined) {
-    values.set('CONFLUEX_CONFLUENCE_TOKEN', config.confluenceToken)
-  }
-  return values
 }
 
 export function writeUserConfig (
-  config: Required<UserConfig>,
+  config: SetupUserConfig,
   env: NodeJS.ProcessEnv = process.env
 ): string {
   const configPath = userConfigPath(env)
@@ -115,10 +89,6 @@ function homeDirectory (env: NodeJS.ProcessEnv): string {
 
 function nonEmpty (value: string | undefined): string | undefined {
   return value === undefined || value === '' ? undefined : value
-}
-
-function isRecord (value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function isNodeError (error: unknown): error is NodeJS.ErrnoException {
