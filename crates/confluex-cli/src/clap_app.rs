@@ -27,7 +27,7 @@ pub struct SetupArgs {
 #[derive(Debug, Args)]
 pub struct ExportArgs {
     #[arg(long)]
-    pub root_page: Option<String>,
+    pub page_id: Option<String>,
     #[arg(long)]
     pub out: Option<Utf8PathBuf>,
     #[arg(long)]
@@ -41,15 +41,21 @@ pub struct ExportArgs {
     #[arg(long)]
     pub resume: bool,
     #[arg(long)]
+    pub no_fail_fast: bool,
+    #[arg(long)]
     pub debug: bool,
     #[arg(long)]
     pub insecure: bool,
     #[arg(long)]
-    pub link_depth: Option<u32>,
+    pub max_pages: Option<u64>,
     #[arg(long)]
-    pub max_pages: Option<u32>,
+    pub max_download_mib: Option<u64>,
     #[arg(long)]
-    pub max_bytes: Option<u64>,
+    pub sleep_ms: Option<u64>,
+    #[arg(long)]
+    pub max_find_candidates: Option<u64>,
+    #[arg(long)]
+    pub link_depth: Option<u64>,
 }
 
 pub fn into_request(cli: Cli) -> CommandRequest {
@@ -60,18 +66,21 @@ pub fn into_request(cli: Cli) -> CommandRequest {
             insecure: args.insecure,
         }),
         Some(Commands::Export(args)) => CommandRequest::Export(ExportRequest {
-            root_page: args.root_page,
+            page_id: args.page_id,
             output_root: args.out,
             config_path: args.config,
             include_children: args.include_children,
             plan_only: args.plan_only,
             zip: args.zip,
             resume: args.resume,
+            no_fail_fast: args.no_fail_fast,
             debug: args.debug,
             insecure: args.insecure,
-            link_depth: args.link_depth,
             max_pages: args.max_pages,
-            max_bytes: args.max_bytes,
+            max_download_mib: args.max_download_mib,
+            sleep_ms: args.sleep_ms,
+            max_find_candidates: args.max_find_candidates,
+            link_depth: args.link_depth,
         }),
     }
 }

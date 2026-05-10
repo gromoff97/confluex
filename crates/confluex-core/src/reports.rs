@@ -25,7 +25,10 @@ pub fn tsv_data_field(value: Option<&str>) -> String {
 
 pub fn tsv_formula_safe_field(value: Option<&str>) -> String {
     let field = tsv_data_field(value);
-    if matches!(field.chars().next(), Some('=') | Some('+') | Some('-') | Some('@')) {
+    if matches!(
+        field.chars().next(),
+        Some('=') | Some('+') | Some('-') | Some('@')
+    ) {
         format!("'{field}")
     } else {
         field

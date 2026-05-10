@@ -200,8 +200,11 @@ async fn read_markdown_payload_within_cap(
 }
 
 fn page_view_url(base_url: &str, page_id: &str) -> Result<String, MarkdownExportError> {
-    let mut url = Url::parse(&format!("{}/pages/viewpage.action", base_url.trim_end_matches('/')))
-        .map_err(|error| MarkdownExportError::Process(error.to_string()))?;
+    let mut url = Url::parse(&format!(
+        "{}/pages/viewpage.action",
+        base_url.trim_end_matches('/')
+    ))
+    .map_err(|error| MarkdownExportError::Process(error.to_string()))?;
     url.query_pairs_mut().append_pair("pageId", page_id);
     Ok(url.to_string())
 }
