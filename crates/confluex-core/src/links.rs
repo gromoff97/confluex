@@ -26,6 +26,19 @@ pub struct RelativeUrlParts {
     pub fragment: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NormalizedTargetKey {
+    pub target_key: String,
+    pub fragment: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinkDiscovery {
+    pub link_kind: String,
+    pub title: String,
+    pub space_key: Option<String>,
+}
+
 pub fn parse_canonical_page_id(value: &str) -> Option<&str> {
     is_canonical_non_negative_integer(value).then_some(value)
 }
@@ -80,6 +93,97 @@ pub fn report_raw_link_value(target: &TargetReference) -> String {
     }
 }
 
+pub fn normalized_target_key_from_markdown_destination(value: &str) -> Option<NormalizedTargetKey> {
+    if value.is_empty() || is_absolute_or_scheme_relative_url(value) {
+        return None;
+    }
+    let parts = parse_confluence_relative_url(value)?;
+
+    if let Some(page_id) = page_id_from_query_loose(&parts.query_part)
+        .or_else(|| page_id_from_path_loose(&parts.path_part))
+    {
+        return Some(NormalizedTargetKey {
+            target_key: format!("page_id:{page_id}"),
+            fragment: parts.fragment,
+        });
+    }
+
+    let title_link = title_link_from_display_path(&parts.path_part, "markdown_destination")
+        .or_else(|| title_link_from_query(&parts.query_part, "markdown_destination"))?;
+    Some(NormalizedTargetKey {
+        target_key: title_raw_link_value(&title_link),
+        fragment: parts.fragment,
+    })
+}
+
+pub fn normalized_target_key_from_row_raw(raw_link_value: Option<&str>) -> Option<String> {
+    raw_link_value
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
+pub fn local_path_from_folder_pair(source_folder: &str, target_folder: &str) -> String {
+    let mut source_parts = source_folder.split('/').collect::<Vec<_>>();
+    let mut target_parts = target_folder.split('/').collect::<Vec<_>>();
+
+    while !source_parts.is_empty()
+        && !target_parts.is_empty()
+        && source_parts.first() == target_parts.first()
+    {
+        source_parts.remove(0);
+        target_parts.remove(0);
+    }
+
+    let mut parts = vec![".."; source_parts.len()];
+    parts.extend(target_parts);
+    parts.push("page.md");
+    if parts.is_empty() {
+        "page.md".to_owned()
+    } else {
+        parts.join("/")
+    }
+}
+
+pub fn page_id_from_relative_url(value: &str) -> Option<String> {
+    match target_reference_from_relative_url(value) {
+        Some(TargetReference::PageId(page_id)) => Some(page_id),
+        _ => None,
+    }
+}
+
+pub fn title_link_from_relative_url(value: &str, link_kind: &str) -> Option<LinkDiscovery> {
+    match target_reference_from_relative_url(value) {
+        Some(TargetReference::Title { title, space_key }) => Some(LinkDiscovery {
+            link_kind: link_kind.to_owned(),
+            title,
+            space_key,
+        }),
+        _ => None,
+    }
+}
+
+pub fn title_link_from_display_path(path_part: &str, link_kind: &str) -> Option<LinkDiscovery> {
+    match title_from_display_path(path_part) {
+        Some(TargetReference::Title { title, space_key }) => Some(LinkDiscovery {
+            link_kind: link_kind.to_owned(),
+            title,
+            space_key,
+        }),
+        _ => None,
+    }
+}
+
+pub fn title_link_from_query(query: &str, link_kind: &str) -> Option<LinkDiscovery> {
+    match title_from_query(query) {
+        Some(TargetReference::Title { title, space_key }) => Some(LinkDiscovery {
+            link_kind: link_kind.to_owned(),
+            title,
+            space_key,
+        }),
+        _ => None,
+    }
+}
+
 pub fn is_absolute_or_scheme_relative_url(value: &str) -> bool {
     value.starts_with("//") || has_scheme_prefix(value)
 }
@@ -94,6 +198,20 @@ fn page_id_from_query(query: &str) -> Option<String> {
     None
 }
 
+fn page_id_from_query_loose(query: &str) -> Option<String> {
+    for part in query.split('&') {
+        let (name, raw_value) = part.split_once('=').unwrap_or((part, ""));
+        if name == "pageId"
+            && raw_value
+                .chars()
+                .all(|character| character.is_ascii_digit())
+        {
+            return Some(raw_value.to_owned());
+        }
+    }
+    None
+}
+
 fn page_id_from_path(path_part: &str) -> Option<String> {
     let segments = path_part
         .split('/')
@@ -102,6 +220,24 @@ fn page_id_from_path(path_part: &str) -> Option<String> {
 
     for window in segments.windows(2) {
         if window[0] == "pages" && is_canonical_non_negative_integer(window[1]) {
+            return Some(window[1].to_owned());
+        }
+    }
+    None
+}
+
+fn page_id_from_path_loose(path_part: &str) -> Option<String> {
+    let segments = path_part
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+
+    for window in segments.windows(2) {
+        if window[0] == "pages"
+            && window[1]
+                .chars()
+                .all(|character| character.is_ascii_digit())
+        {
             return Some(window[1].to_owned());
         }
     }
@@ -166,6 +302,13 @@ fn first_query_value(query: &str, name: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn title_raw_link_value(discovery: &LinkDiscovery) -> String {
+    report_raw_link_value(&TargetReference::Title {
+        title: discovery.title.clone(),
+        space_key: discovery.space_key.clone(),
+    })
 }
 
 fn decode_url_component(value: &str, plus_as_space: bool) -> Option<String> {
