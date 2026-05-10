@@ -12,7 +12,6 @@ path = "src/main.rs"
 
 [dependencies]
 camino.workspace = true
-clap.workspace = true
 confluex-core = { path = "../confluex-core" }
 thiserror.workspace = true
 tokio.workspace = true

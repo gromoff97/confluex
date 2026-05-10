@@ -14,7 +14,6 @@ rust-version = "1.88"
 [workspace.dependencies]
 camino = { version = "1.2.2", features = ["serde1"] }
 cap-std = { version = "4.0.2", features = ["fs_utf8"] }
-clap = { version = "4.6.1", features = ["derive", "std", "help", "usage", "error-context"] }
 comrak = "0.52.0"
 fs-err = "3.3.0"
 h2m = "0.7.1"

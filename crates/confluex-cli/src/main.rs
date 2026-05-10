@@ -1,13 +1,12 @@
-mod clap_app;
+mod parser;
 
-use clap::Parser;
-use clap_app::{into_request, Cli};
 use confluex_core::{
     cli::CommandRequest,
     export::run_export,
     runtime::{CliOutcome, ExitCode},
     setup::run_setup,
 };
+use parser::parse_command_request;
 
 #[tokio::main]
 async fn main() {
@@ -16,8 +15,10 @@ async fn main() {
         finish(outcome);
     }
 
-    let cli = Cli::parse();
-    let request = into_request(cli);
+    let request = match parse_command_request(&raw_args) {
+        Ok(request) => request,
+        Err(outcome) => finish(outcome),
+    };
     let outcome = match request {
         CommandRequest::Help => CliOutcome {
             exit: ExitCode::Success,
