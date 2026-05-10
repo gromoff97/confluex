@@ -3,23 +3,22 @@
 `confluex` is a token-authenticated CLI for exporting Confluence pages to
 Markdown.
 
-## Install
+## Build
 
 ```bash
-npm install -g confluex
+cargo build --release -p confluex
 ```
 
-Update and uninstall use npm:
+Run the built CLI:
 
 ```bash
-npm install -g confluex@latest
-npm uninstall -g confluex
+./target/release/confluex --help
 ```
 
 ## Setup
 
 ```bash
-confluex setup
+./target/release/confluex setup
 ```
 
 `setup` asks for the Confluence base URL and token. Token input is hidden.
@@ -27,19 +26,19 @@ confluex setup
 ## Inspect Scope
 
 ```bash
-confluex export --page-id 12345 --plan-only --out ./plan
+./target/release/confluex export --page-id 12345 --plan-only --out ./plan
 ```
 
 ## First Export
 
 ```bash
-confluex export --page-id 12345 --out ./dump --zip
+./target/release/confluex export --page-id 12345 --out ./dump --zip
 ```
 
 ## Manual
 
-Read the full installed command reference:
+Read the full command reference source:
 
 ```bash
-man confluex
+man ./docs/man/man1/confluex.1
 ```

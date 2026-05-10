@@ -13,7 +13,7 @@ is a token-authenticated CLI for exporting Confluence pages to Markdown,
 attachments, ZIP archives, and machine-readable reports.
 .PP
 .B --help
-is a short reminder. This manual is the installed command reference.
+is a short reminder. This manual is the command reference source.
 .SH COMMANDS
 .TP
 .B setup
@@ -26,23 +26,20 @@ Validates root-page access, discovers scope, writes reports, and by default
 materializes Markdown page payloads and retained attachments.
 .SH COMMON WORKFLOW
 .TP
-Install:
-.B npm install -g confluex
+Build:
+.B cargo build --release -p confluex
 .TP
-Update:
-.B npm install -g confluex@latest
-.TP
-Uninstall:
-.B npm uninstall -g confluex
+Run:
+.B ./target/release/confluex --help
 .TP
 Configure:
-.B confluex setup
+.B ./target/release/confluex setup
 .TP
 Inspect scope:
-.B confluex export --page-id 12345 --plan-only --out ./plan
+.B ./target/release/confluex export --page-id 12345 --plan-only --out ./plan
 .TP
 Export and archive:
-.B confluex export --page-id 12345 --out ./dump --zip
+.B ./target/release/confluex export --page-id 12345 --out ./dump --zip
 .SH EXPORT MODES
 .TP
 .B materialized
@@ -100,7 +97,7 @@ For the current
 only, allow
 .B http://
 Confluence base URLs and disable TLS certificate verification for HTTPS
-Confluence/exporter traffic. This option does not imply debug, zip, resume,
+Confluence traffic. This option does not imply debug, zip, resume,
 child traversal, plan-only, or run limits.
 .SS Limits And Pacing
 .TP
@@ -228,13 +225,13 @@ Runtime failure.
 Interrupted by signal.
 .SH TROUBLESHOOTING
 .TP
-.B installation fails
-Reinstall the npm package with
-.BR "npm install -g confluex@latest" .
-If
-.B man confluex
-is unavailable after install, verify that npm's global man directory is on the
-system man path.
+.B build fails
+Run
+.BR "cargo check --workspace" ,
+then
+.BR "cargo build --release -p confluex" .
+If the release binary is missing, inspect Cargo diagnostics before Confluence
+configuration.
 .TP
 .B Markdown output cannot be materialized
 Inspect the retained reports for the failed page id and Confluence storage
@@ -280,5 +277,5 @@ Run export with
 Debug artifacts are redacted but may include page content, titles, links, and
 storage XML.
 .SH SEE ALSO
-.BR npm (1),
+.BR cargo (1),
 .BR man (1)
