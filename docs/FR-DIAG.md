@@ -13,25 +13,19 @@ persisting user configuration.
   Confluex and invoke the Markdown converter.
 
 **Acceptance Criteria**:
-1. Setup checks exactly these local dependencies before writing user config:
-   the currently running Node.js runtime and the `uvx` executable.
-2. The supported Node.js runtime threshold is exactly `>=20.11.0`.
-3. Node.js runtime comparison parses the current `process.versions.node` value
-   as dot-delimited decimal `major.minor.patch` components and accepts versions
-   greater than or equal to `20.11.0`.
-4. The exact dependency executable name is `uvx` for the Markdown converter.
-5. `uvx` is resolved on `PATH`.
-6. Dependency probes receive only the subprocess environment keys allowed by
+1. Setup checks exactly this local dependency before writing user config:
+   the `uvx` executable.
+2. The exact dependency executable name is `uvx` for the Markdown converter.
+3. `uvx` is resolved on `PATH`.
+4. Dependency probes receive only the subprocess environment keys allowed by
    `FR-0253`.
-7. The `uvx` dependency probe timeout is exactly `5000` milliseconds and its
+5. The `uvx` dependency probe timeout is exactly `5000` milliseconds and its
    stdout/stderr buffer cap is exactly `65536` bytes.
-8. On Windows, `uvx` resolution honors executable candidates compatible with
+6. On Windows, `uvx` resolution honors executable candidates compatible with
    `PATHEXT`, including command shims such as `uvx.cmd`.
-9. If the Node.js runtime is unsupported, setup fails before writing user config
-   with stderr exactly `ERROR: setup_failed unsupported_node_runtime`.
-10. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
+7. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
    config with stderr exactly `ERROR: setup_failed missing_markdown_converter`.
-11. Local dependency failure output never emits token values, Authorization
+8. Local dependency failure output never emits token values, Authorization
    header values, cookies, full response bodies, or full process environments.
 
 **Dependencies**:
@@ -215,9 +209,8 @@ contract.
 5. On setup failure, stderr contains exactly one LF-terminated result line:
    `ERROR: setup_failed <reason>`.
 6. On setup failure, `<reason>` is exactly one of
-   `unsupported_node_runtime`, `missing_markdown_converter`,
-   `invalid_base_url`, `missing_token`, `auth_rejected`,
-   `page_inaccessible`, `transport_dns`, `transport_tls`,
+   `missing_markdown_converter`, `invalid_base_url`, `missing_token`,
+   `auth_rejected`, `page_inaccessible`, `transport_dns`, `transport_tls`,
    `transport_timeout`, `transport_connection_reset`, `transport_proxy`, or
    `hidden_input_unavailable`.
 7. On setup failure, exit code is `1`.

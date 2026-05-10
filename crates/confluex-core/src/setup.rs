@@ -7,10 +7,7 @@ use crate::confluence::{
     check_current_user_access, CurrentUserAccessResult, RemoteOperationFailureReason,
     TransportPolicy,
 };
-use crate::runtime::{
-    check_node_version, executable_dependency_probe, CliOutcome, DependencyState, ExitCode,
-    NodeVersionCheck,
-};
+use crate::runtime::{executable_dependency_probe, CliOutcome, DependencyState, ExitCode};
 
 pub async fn run_setup() -> CliOutcome {
     match run_setup_inner().await {
@@ -71,15 +68,6 @@ async fn run_setup_inner() -> Result<CliOutcome, SetupFailureReason> {
 }
 
 async fn validate_setup_dependencies(env: &EnvMap) -> Result<(), SetupFailureReason> {
-    let node_version =
-        std::env::var("CONFLUEX_NODE_VERSION_FOR_SETUP").unwrap_or_else(|_| "20.11.0".to_owned());
-    if matches!(
-        check_node_version(&node_version),
-        NodeVersionCheck::Failed { .. }
-    ) {
-        return Err(SetupFailureReason::UnsupportedNodeRuntime);
-    }
-
     let DependencyState { state, .. } =
         executable_dependency_probe("markdown_converter", "uvx", env).await;
     if state == "absent" {
@@ -122,7 +110,6 @@ fn setup_failure(reason: SetupFailureReason) -> CliOutcome {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SetupFailureReason {
-    UnsupportedNodeRuntime,
     MissingMarkdownConverter,
     InvalidBaseUrl,
     MissingToken,
@@ -140,7 +127,6 @@ enum SetupFailureReason {
 impl SetupFailureReason {
     fn as_str(self) -> &'static str {
         match self {
-            Self::UnsupportedNodeRuntime => "unsupported_node_runtime",
             Self::MissingMarkdownConverter => "missing_markdown_converter",
             Self::InvalidBaseUrl => "invalid_base_url",
             Self::MissingToken => "missing_token",

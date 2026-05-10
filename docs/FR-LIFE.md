@@ -13,15 +13,13 @@ CLI package.
 
 **Acceptance Criteria**:
 1. `package.json` contains a lowercase package `name`, a semver `version`, a
-   non-empty `description`, an `engines.node` constraint exactly equal to
-   `>=20.11.0`, a `bin.confluex` mapping exactly equal to
-   `./bin/confluex.js`, and a `files` allowlist.
+   non-empty `description`, a `bin.confluex` mapping exactly equal to
+   `./bin/confluex`, and a `files` allowlist.
 2. The `files` allowlist is exactly this ordered JSON string array:
-   `["bin/", "dist/", "docs/man/", "README.md", "LICENSE", "package.json"]`.
+   `["bin/", "docs/man/", "README.md", "LICENSE", "package.json"]`.
 3. The publishable package path inventory is closed to these path classes:
-   `package.json`, `README.md`, `LICENSE`, `bin/confluex.js`, regular files
-   whose package-relative path begins with `dist/`, and regular files whose
-   package-relative path begins with `docs/man/`.
+   `package.json`, `README.md`, `LICENSE`, `bin/confluex`, and regular files
+   whose package-relative path begins with `docs/man/`.
 4. The package-public docs inventory is exactly `README.md`, `LICENSE`, and
    `docs/man/man1/confluex.1`.
 5. Package metadata does not mark the package `private` when publication is the
@@ -172,7 +170,7 @@ publication.
 2. The package content review normalizes each listed path by removing exactly
    one leading `package/` prefix when that prefix is present.
 3. The normalized package content listing contains `package.json`, `README.md`,
-   `LICENSE`, `bin/confluex.js`, and at least one path beginning with `dist/`.
+   `LICENSE`, and `bin/confluex`.
 4. Every normalized package content path belongs to exactly one package path
    class from the closed inventory governed by `FR-0215`.
 5. Package content review is executed by the external verification project in
@@ -193,23 +191,23 @@ publication.
 - Observable evidence: package dry-run file list
 
 ### FR-0167
-**Requirement**: The installed command shall dispatch through the packaged
-runtime.
+**Requirement**: The installed command shall execute the packaged native
+runtime directly.
 
 **Applicability**:
 - installed `confluex` command invocations
 
 **Rationale**:
-- npm should expose a small command shim while command behavior remains owned by
-  the packaged runtime.
+- npm should expose the Rust binary directly so command behavior is not mediated
+  by a legacy JavaScript shim.
 
 **Acceptance Criteria**:
-1. The package contains one executable public shim at `bin/confluex.js` for the
-   command name `confluex`.
-2. The public shim delegates to the generated public `dist/` runtime included
-   by `FR-0215`.
-3. The public shim resolves its runtime target through package-relative paths
-   inside the closed package path inventory governed by `FR-0215`.
+1. The package contains one executable public native binary at `bin/confluex`
+   for the command name `confluex`.
+2. The `bin.confluex` mapping governed by `FR-0215` points directly to that
+   native binary.
+3. The package contains no public JavaScript command shim and no public `dist/`
+   runtime directory.
 
 **Dependencies**:
 - `FR-0215`
@@ -345,13 +343,13 @@ next steps.
 - installation, update, uninstall, and package smoke documentation
 
 **Rationale**:
-- Operators need failures to identify whether npm, Node, package contents, or
-  runtime prerequisites are the next problem.
+- Operators need failures to identify whether npm, package contents, native
+  binary execution, or runtime prerequisites are the next problem.
 
 **Acceptance Criteria**:
-1. Lifecycle docs distinguish npm installation failure, unsupported Node.js
-   versions lower than `20.11.0`, missing runtime dependency, missing token
-   configuration, and Confluence access failure.
+1. Lifecycle docs distinguish npm installation failure, missing packaged native
+   binary execution, missing runtime dependency, missing token configuration,
+   and Confluence access failure.
 2. Lifecycle validation failures do not print token values, Authorization header
    values, cookies, or full process environments.
 3. When package smoke fails because the installed runtime cannot load, the next

@@ -7,39 +7,24 @@
     "type": "git",
     "url": "git+ssh://git@github.com/gromoff97/confluex.git"
   },
-  "engines": {
-    "node": ">=20.11.0"
-  },
   "bin": {
-    "confluex": "./bin/confluex.js"
+    "confluex": "./bin/confluex"
   },
   "man": [
     "./docs/man/man1/confluex.1"
   ],
   "files": [
     "bin/",
-    "dist/",
     "docs/man/",
     "README.md",
     "LICENSE",
     "package.json"
   ],
   "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json",
-    "build:rust": "cargo build --workspace",
+    "build": "npm run build:rust && node npm/build-native-package.mjs",
+    "build:rust": "cargo build --release -p confluex",
     "check:rust": "cargo check --workspace",
     "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
     "prepack": "npm run build"
-  },
-  "devDependencies": {
-    "@types/node": "^25.6.0",
-    "typescript": "^6.0.3"
-  },
-  "dependencies": {
-    "mdast-util-from-markdown": "^2.0.3",
-    "mdast-util-gfm": "^3.1.0",
-    "mdast-util-to-markdown": "^2.1.2",
-    "micromark-extension-gfm": "^3.0.0",
-    "unist-util-visit": "^5.1.0"
   }
 }

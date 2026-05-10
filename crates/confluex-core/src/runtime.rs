@@ -10,8 +10,6 @@ use tokio::time::timeout;
 
 use crate::config::EnvMap;
 
-pub const MIN_NODE_VERSION: [u64; 3] = [20, 11, 0];
-pub const MIN_NODE_VERSION_TEXT: &str = ">=20.11.0";
 pub const DEPENDENCY_PROBE_TIMEOUT: Duration = Duration::from_millis(5000);
 pub const DEPENDENCY_PROBE_MAX_BUFFER_BYTES: usize = 64 * 1024;
 pub const CHILD_ENV_ALLOWLIST: [&str; 10] = [
@@ -60,12 +58,6 @@ pub enum InvocationDecision<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum NodeVersionCheck {
-    Passed { required: String, actual: String },
-    Failed { required: String, actual: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DependencyState {
     pub label: String,
     pub state: String,
@@ -75,32 +67,6 @@ pub struct DependencyState {
 pub struct DependencyProbePolicy {
     pub timeout: Duration,
     pub max_buffer_bytes: usize,
-}
-
-pub fn check_node_version(version: &str) -> NodeVersionCheck {
-    match parse_node_version(version) {
-        Some(actual) if compare_version_parts(actual, MIN_NODE_VERSION) >= 0 => {
-            NodeVersionCheck::Passed {
-                required: MIN_NODE_VERSION_TEXT.to_owned(),
-                actual: version.to_owned(),
-            }
-        }
-        _ => NodeVersionCheck::Failed {
-            required: MIN_NODE_VERSION_TEXT.to_owned(),
-            actual: version.to_owned(),
-        },
-    }
-}
-
-pub fn node_runtime_dependency(version: &str) -> DependencyState {
-    let state = match check_node_version(version) {
-        NodeVersionCheck::Passed { .. } => format!("present:{version}"),
-        NodeVersionCheck::Failed { .. } => format!("unsupported:{version}"),
-    };
-    DependencyState {
-        label: "node_runtime".to_owned(),
-        state,
-    }
 }
 
 pub async fn executable_dependency_probe(
@@ -162,30 +128,6 @@ pub fn runtime_prerequisite_failure(name: &str, details: Option<&str>) -> String
         Some(details) => format!("ERROR: runtime_prerequisite_failed {name} {details}\n"),
         None => format!("ERROR: runtime_prerequisite_failed {name}\n"),
     }
-}
-
-fn parse_node_version(version: &str) -> Option<[u64; 3]> {
-    let parts = version
-        .split('.')
-        .map(str::parse::<u64>)
-        .collect::<Result<Vec<_>, _>>()
-        .ok()?;
-    match parts.as_slice() {
-        [major, minor, patch] => Some([*major, *minor, *patch]),
-        _ => None,
-    }
-}
-
-fn compare_version_parts(left: [u64; 3], right: [u64; 3]) -> i8 {
-    for (left_part, right_part) in left.into_iter().zip(right) {
-        if left_part < right_part {
-            return -1;
-        }
-        if left_part > right_part {
-            return 1;
-        }
-    }
-    0
 }
 
 fn resolve_executable(executable: &str, env: &EnvMap) -> Option<PathBuf> {
