@@ -1,6 +1,11 @@
 import path from 'node:path'
 
-import { structuredRawLinkValue } from '../reports/rows'
+import {
+  isAbsoluteOrSchemeRelativeUrl as isAbsoluteOrSchemeRelativeTargetUrl,
+  parseConfluenceRelativeUrl,
+  reportRawLinkValue,
+  targetReferenceFromRelativeUrl
+} from './target-reference'
 
 type UrlParts = {
   pathPart: string
@@ -82,19 +87,20 @@ export function localPathFromFolderPair (sourceFolder: string, targetFolder: str
 }
 
 export function pageIdFromRelativeUrl (value: string): string | null {
-  const parts = relativeUrlParts(value)
-  if (parts === null) {
-    return null
-  }
-  return pageIdFromQuery(parts.queryPart) ?? pageIdFromPath(parts.pathPart)
+  const reference = targetReferenceFromRelativeUrl(value)
+  return reference.state === 'ok' && reference.target.kind === 'page_id' ? reference.target.pageId : null
 }
 
 export function titleLinkFromRelativeUrl (value: string, linkKind: string): LinkDiscovery | null {
-  const parts = relativeUrlParts(value)
-  if (parts === null || pageIdFromQuery(parts.queryPart) !== null || pageIdFromPath(parts.pathPart) !== null) {
+  const reference = targetReferenceFromRelativeUrl(value)
+  if (reference.state !== 'ok' || reference.target.kind !== 'title') {
     return null
   }
-  return titleLinkFromDisplayPath(parts.pathPart, linkKind) ?? titleLinkFromQuery(parts.queryPart, linkKind)
+  return {
+    linkKind,
+    title: reference.target.title,
+    ...(reference.target.spaceKey === undefined ? {} : { spaceKey: reference.target.spaceKey })
+  }
 }
 
 function markdownDestinationParts (
@@ -114,21 +120,19 @@ function markdownDestinationParts (
 }
 
 export function relativeUrlParts (value: string): UrlParts | null {
-  if (isAbsoluteOrSchemeRelativeUrl(value)) {
+  const parts = parseConfluenceRelativeUrl(value)
+  if (parts.state !== 'ok') {
     return null
   }
-  const fragmentStart = value.indexOf('#')
-  const withoutFragment = fragmentStart === -1 ? value : value.slice(0, fragmentStart)
-  const queryStart = withoutFragment.indexOf('?')
   return {
-    pathPart: queryStart === -1 ? withoutFragment : withoutFragment.slice(0, queryStart),
-    queryPart: queryStart === -1 ? '' : withoutFragment.slice(queryStart + 1),
-    fragment: fragmentStart === -1 ? '' : value.slice(fragmentStart + 1)
+    pathPart: parts.pathPart,
+    queryPart: parts.queryPart,
+    fragment: parts.fragment
   }
 }
 
 export function isAbsoluteOrSchemeRelativeUrl (value: string): boolean {
-  return value.startsWith('//') || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)
+  return isAbsoluteOrSchemeRelativeTargetUrl(value)
 }
 
 function pageIdFromQuery (query: string): string | null {
@@ -220,8 +224,9 @@ function decodeUrlComponent (value: string, plusAsSpace: boolean): string | null
 }
 
 function titleRawLinkValue (discovery: LinkDiscovery): string {
-  const discoveredSpaceKey = discovery.spaceKey
-  const spaceKeyPresent = typeof discoveredSpaceKey === 'string'
-  const spaceKey = spaceKeyPresent ? discoveredSpaceKey : ''
-  return structuredRawLinkValue('title', [spaceKeyPresent ? '1' : '0', spaceKey, discovery.title])
+  return reportRawLinkValue({
+    kind: 'title',
+    title: discovery.title,
+    ...(discovery.spaceKey === undefined ? {} : { spaceKey: discovery.spaceKey })
+  })
 }

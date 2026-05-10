@@ -1,11 +1,10 @@
 import process from 'node:process'
 
-import { formatDiagnostic, type Diagnostic } from './cli/diagnostics'
+import { formatDiagnostic } from './cli/diagnostics'
 import { topLevelHelp, commandHelp } from './cli/help'
 import { parseInvocation, type ParseResult } from './cli/parse'
 import { buildEffectiveOptions } from './config/effective-options'
-import { loadExplicitJsonConfig, type ConfluexConfig } from './config/json-config'
-import { loadUserConfig } from './config/user-config'
+import { loadConfigurationSelection } from './config/selection'
 import { runExportRelatedCommand } from './commands/export-related'
 import { runSetupCommand } from './commands/setup'
 import { checkNodeVersion, runtimePrerequisiteFailure } from './prereq/checks'
@@ -15,17 +14,10 @@ type Streams = {
   stderr: Pick<NodeJS.WritableStream, 'write'>
 }
 
-type EnvContext = {
-  explicitConfig: ConfluexConfig
-  userConfig: ConfluexConfig
-  defaultValues: Record<string, string>
-  diagnostic: Diagnostic | null
-}
-
 type CommandParseResult = Extract<ParseResult, { kind: 'command' }>
 
 export async function run (argv: string[], streams: Streams = process): Promise<number> {
-  const preliminary = parseInvocation(argv, {})
+  const preliminary = parseInvocation(argv, {}, { deferResumeOutputRootRequirement: true })
   const staticResult = renderStaticResult(preliminary, streams)
   if (staticResult !== null) {
     return staticResult
@@ -40,7 +32,7 @@ export async function run (argv: string[], streams: Streams = process): Promise<
     }
   }
 
-  const envContext = loadConfigContext(preliminaryCommand, process.cwd(), process.env)
+  const envContext = loadConfigurationSelection(preliminaryCommand, process.cwd(), process.env)
   if (envContext.diagnostic !== null) {
     streams.stderr.write(`${formatDiagnostic(envContext.diagnostic)}\n`)
     return 1
@@ -65,7 +57,9 @@ export async function run (argv: string[], streams: Streams = process): Promise<
   }
 
   if (parsedCommand.command === 'export') {
-    const result = await runExportRelatedCommand(options)
+    const result = await runExportRelatedCommand(options, {
+      lifecycleSink: streams.stdout as NodeJS.WritableStream
+    })
     streams.stdout.write(result.stdout)
     streams.stderr.write(result.stderr)
     return result.exitCode
@@ -76,62 +70,6 @@ export async function run (argv: string[], streams: Streams = process): Promise<
     command: parsedCommand.command
   })}\n`)
   return 4
-}
-
-function loadConfigContext (parsed: CommandParseResult, cwd: string, env: NodeJS.ProcessEnv): EnvContext {
-  const empty: EnvContext = {
-    explicitConfig: {},
-    userConfig: {},
-    defaultValues: {},
-    diagnostic: null
-  }
-
-  if (parsed.command !== 'export') {
-    return empty
-  }
-
-  const explicitConfigPath = parsed.options.values['--config']
-  let explicitConfig: ConfluexConfig = {}
-  if (explicitConfigPath !== undefined) {
-    const loadedExplicitConfig = loadExplicitJsonConfig(cwd, explicitConfigPath)
-    if (loadedExplicitConfig.state !== 'ok') {
-      return {
-        explicitConfig: {},
-        userConfig: {},
-        defaultValues: {},
-        diagnostic: {
-          type: 'validation-failed',
-          requirementId: loadedExplicitConfig.state === 'absent' ? 'FR-0219' : 'FR-0246'
-        }
-      }
-    }
-    explicitConfig = loadedExplicitConfig.config
-  }
-
-  const loadedUserConfig = loadUserConfig(env)
-  if (loadedUserConfig.state === 'invalid') {
-    return {
-      explicitConfig,
-      userConfig: {},
-      defaultValues: {},
-      diagnostic: {
-        type: 'validation-failed',
-        requirementId: 'FR-0246'
-      }
-    }
-  }
-
-  const defaults = buildEffectiveOptions(parsed.command, {
-    flags: [],
-    values: {}
-  }, env, explicitConfig, loadedUserConfig.config)
-
-  return {
-    explicitConfig,
-    userConfig: loadedUserConfig.config,
-    defaultValues: defaults.values,
-    diagnostic: null
-  }
 }
 
 function renderStaticResult (parsed: ParseResult, streams: Streams): number | null {

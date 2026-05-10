@@ -29,6 +29,7 @@ export function buildEffectiveOptions (
   const values: Record<string, string> = { ...parsedOptions.values }
   const supportedOptions = supportedValueOptions(commandName)
   let configuredOutputRoot: string | undefined
+  const selectedOutputRoot = selectedConfigValue('outputRoot', explicitConfig, userConfig)
   for (const [optionToken, configName] of configOptionNames) {
     if (!supportedOptions.has(optionToken)) {
       continue
@@ -74,11 +75,18 @@ export function buildEffectiveOptions (
   }
   if (configuredOutputRoot !== undefined) {
     config.outputRoot = configuredOutputRoot
+  } else if (
+    typeof selectedOutputRoot === 'string' &&
+    values['--out'] === selectedOutputRoot &&
+    parsedOptions.valueSources?.['--out'] !== 'argv'
+  ) {
+    config.outputRoot = selectedOutputRoot
   }
 
   return {
     flags: parsedOptions.flags.slice(),
     values,
+    ...(parsedOptions.valueSources === undefined ? {} : { valueSources: { ...parsedOptions.valueSources } }),
     config
   }
 }

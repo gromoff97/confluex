@@ -387,16 +387,28 @@ supplied for a processed page as `page.md`.
    path of the exact form `attachments/<filename>` optionally followed by a
    `#fragment`, where `<filename>` is a valid retained attachment filename under
    `FR-0075`, the persisted `page.md` preserves that destination unchanged.
-8. If one Markdown link or image destination does not satisfy criteria 5
-    through 7, the persisted `page.md`
-    preserves that destination unchanged. This includes external URLs,
-    unsupported schemes, and supported internal targets that were not
+8. If one Markdown link or image destination has a scheme prefix whose
+   lowercase scheme is `javascript`, `data`, `vbscript`, or `file`, the
+   persisted `page.md` replaces that link or image with one inline neutralized
+   marker that uses exactly the text
+   `[neutralized: markdown_destination; reason=dangerous_scheme]`.
+9. If one Markdown link or image destination is not an external URL with scheme
+   `http`, `https`, or `mailto`, is not a governed attachment destination under
+   criterion 7, and does not denote a supported internal page target under
+   criteria 5 or 6, the persisted `page.md` replaces that link or image with
+   one inline unsupported marker that uses exactly the text
+   `[unsupported: markdown_destination; value="<value>"]`, where `<value>` is
+   the destination value with backslash and double-quote characters escaped by
+   one preceding backslash.
+10. If one Markdown link or image destination does not satisfy criteria 5
+    through 9, the persisted `page.md` preserves that destination unchanged.
+    This includes external URLs and supported internal targets that were not
     materialized and do not have a source-page unresolved-link result.
-9. Markdown normalization for `page.md` uses LF line endings, removes leading
+11. Markdown normalization for `page.md` uses LF line endings, removes leading
     blank lines, removes trailing spaces and tabs, removes whitespace-only
     lines, collapses runs of more than two blank lines to two blank lines, and
     ensures exactly one final LF byte.
-10. If normalized Markdown contains a storage-format or HTML remnant marker, the
+12. If normalized Markdown contains a storage-format or HTML remnant marker, the
     product persists the normalized Markdown payload and records exactly one
     `scope-findings.tsv` row for each unique remnant diagnostic under
     `FR-0089`. The row uses
@@ -453,7 +465,8 @@ when attachments are present using the remote-access context defined by
    is the `attachment data needed to determine attachment_count` referenced by
    `FR-0034` and `FR-0120`: it is the finite sequence of attachment items for
    that page whose source metadata is sufficient to determine the page's
-   `attachment_count`, each item's source filename, and whether that item's
+   `attachment_count`, each item's source filename, media type when source
+   metadata exposes one, governed download target, and whether that item's
    payload download can be attempted.
 3. If the criterion-1 attachment-data acquisition succeeds for a processed page,
    `attachment_count` for that page is the exact number of attachment items in
@@ -487,39 +500,47 @@ when attachments are present using the remote-access context defined by
 9. If an attachment metadata item exposes an invalid download target under
    criterion 8, attachment-download work for that page fails before downloading
    any payload bytes for that invalid item.
-10. Attachment payload requests are constructed by applying the configured
+10. Active attachment content is any attachment item whose media type is one of
+    `text/html`, `image/svg+xml`, `application/xhtml+xml`, `text/javascript`,
+    `application/javascript`, `text/ecmascript`, or `application/ecmascript`,
+    or whose filename extension under ASCII case-insensitive comparison is one
+    of `.html`, `.htm`, `.svg`, `.js`, `.mjs`, or `.xhtml`.
+11. If an attachment item is active attachment content under criterion 10,
+    attachment-download work for that page fails before downloading any payload
+    bytes for that active item.
+12. Attachment payload requests are constructed by applying the configured
     Confluence base URL path-prefix rules from `FR-0216` to the governed
     download target; a leading slash in source metadata does not strip the
     configured context path.
-11. The product sends the Confluence Authorization field for attachment payload
+13. The product sends the Confluence Authorization field for attachment payload
     requests only to URLs satisfying the governed request target and transport
     rules in `FR-0216` and `FR-0251`.
-12. Attachment payload downloads are streamed with bounded memory, and no
+14. Attachment payload downloads are streamed with bounded memory, and no
     partial attachment file is retained when a stream fails or is stopped by the
     max-download limit.
-13. If the criterion-1 attachment-data acquisition fails before `attachment_count`
+15. If the criterion-1 attachment-data acquisition fails before `attachment_count`
    is determined for a page, attachment-download work for that page fails before
    any attachment payload download for that page begins.
-14. If a page still appears in `manifest.tsv` after attachment-download work for
+16. If a page still appears in `manifest.tsv` after attachment-download work for
    that page and the product did not determine `attachment_count`, that
    manifest row serializes `attachment_count` using the shared absence token
    governed by `FR-0125` as required by `FR-0086`.
-15. Each page-local attachment-download failure is recorded in
+17. Each page-local attachment-download failure is recorded in
    `failed-pages.tsv` with `operation=attachment_download`; that row is a
    page-local failure under `FR-0088`.
-16. Attachment-download failures are reported per processed page: one or more
+18. Attachment-download failures are reported per processed page: one or more
    failed attachment metadata or payload items for the same page produce exactly
    one `attachment_download` failed-pages row for that page.
-17. When multiple attachment failures for one page are collapsed into one row, the
+19. When multiple attachment failures for one page are collapsed into one row, the
    row's `error_summary` remains the explanatory field governed by `FR-0088` and
    is not required to enumerate every failed attachment.
-18. If `--no-fail-fast` is not in effect, an `attachment_download` page-local
+20. If `--no-fail-fast` is not in effect, an `attachment_download` page-local
    failure stops further page processing after the failure is recorded.
-19. If `--no-fail-fast` is in effect, an `attachment_download` page-local
+21. If `--no-fail-fast` is in effect, an `attachment_download` page-local
    failure does not by itself prevent processing of later pages.
-20. When an `attachments/` folder is retained for a page, it contains exactly the
+22. When an `attachments/` folder is retained for a page, it contains exactly the
    retained attachment payload files for that page and no other entries.
-21. Persisted attachment payload files reside directly inside that page's
+23. Persisted attachment payload files reside directly inside that page's
    `attachments/` folder and do not escape it.
 
 **Dependencies**:

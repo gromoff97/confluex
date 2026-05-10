@@ -4,11 +4,16 @@ import type { Diagnostic } from './diagnostics'
 export type EffectiveOptions = {
   flags: string[]
   values: Record<string, string>
+  valueSources?: Record<string, 'argv' | 'default'>
 }
 
 export type ValidationResult =
   | { kind: 'valid', options: EffectiveOptions }
   | { kind: 'rejected', diagnostic: Diagnostic }
+
+export type ValidationOptions = {
+  deferResumeOutputRootRequirement?: boolean
+}
 
 type IndexedFailure<T extends object> = T & {
   index: number
@@ -29,7 +34,8 @@ const positiveIntegerOptions = new Set(['--max-pages', '--max-download-mib', '--
 export function validateCommandInvocation (
   commandName: string,
   argv: string[],
-  defaultValues: Record<string, string> = {}
+  defaultValues: Record<string, string> = {},
+  options: ValidationOptions = {}
 ): ValidationResult {
   const command = findCommand(commandName)
   if (command === null) {
@@ -52,7 +58,7 @@ export function validateCommandInvocation (
   const commandLineValues = new Set(values.keys())
   applyDefaultValues(optionDefinitions, values, defaultValues)
   validateEffectiveValues(command, values, failures)
-  validateCombinations(commandName, flags, commandLineValues, failures)
+  validateCombinations(commandName, flags, values, failures, options)
   validateRequiredOptions(command, values, failures)
 
   const diagnostic = selectDiagnostic(command, failures)
@@ -65,7 +71,7 @@ export function validateCommandInvocation (
 
   return {
     kind: 'valid',
-    options: effectiveOptions(command, flags, values)
+    options: effectiveOptions(command, flags, values, commandLineValues)
   }
 }
 
@@ -170,10 +176,11 @@ function isCanonicalPositiveInteger (value: string): boolean {
 function validateCombinations (
   commandName: string,
   flags: Set<string>,
-  commandLineValues: Set<string>,
-  failures: ValidationFailures
+  values: Map<string, string>,
+  failures: ValidationFailures,
+  options: ValidationOptions
 ): void {
-  if (commandName === 'export' && flags.has('--resume') && !commandLineValues.has('--out')) {
+  if (commandName === 'export' && flags.has('--resume') && !values.has('--out') && options.deferResumeOutputRootRequirement !== true) {
     failures.invalidOptionCombinations.push(['--out', '--resume'])
   }
   if (commandName === 'export' && flags.has('--plan-only') && flags.has('--zip')) {
@@ -286,9 +293,11 @@ function bytewiseCompare (left: string, right: string): number {
 function effectiveOptions (
   command: CommandDefinition,
   flags: Set<string>,
-  values: Map<string, string>
+  values: Map<string, string>,
+  commandLineValues: Set<string>
 ): EffectiveOptions {
   const effectiveValues: Record<string, string> = {}
+  const valueSources: Record<string, 'argv' | 'default'> = {}
   const effectiveFlags: string[] = []
 
   for (const option of command.options) {
@@ -296,6 +305,7 @@ function effectiveOptions (
       const value = values.get(option.token)
       if (value !== undefined) {
         effectiveValues[option.token] = value
+        valueSources[option.token] = commandLineValues.has(option.token) ? 'argv' : 'default'
       }
     } else if (option.value === undefined && flags.has(option.token)) {
       effectiveFlags.push(option.token)
@@ -304,6 +314,7 @@ function effectiveOptions (
 
   return {
     flags: effectiveFlags,
-    values: effectiveValues
+    values: effectiveValues,
+    valueSources
   }
 }

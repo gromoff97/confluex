@@ -23,6 +23,14 @@ export function pagePayloadFolder ({ pageId, spaceKey }: PagePayloadFolderInput 
   return `pages/${spaceSegment}/${pageSegment}`
 }
 
+export function tryPagePayloadFolder (pageId: string, spaceKey: string | undefined): string | null {
+  try {
+    return pagePayloadFolder(spaceKey === undefined ? { pageId } : { pageId, spaceKey })
+  } catch {
+    return null
+  }
+}
+
 function requireString (value: unknown, name: string): string {
   if (typeof value !== 'string') {
     throw new TypeError(`${name} must be a string`)

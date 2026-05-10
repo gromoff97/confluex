@@ -1,7 +1,7 @@
 import { stdin } from 'node:process'
 
 import { readHiddenLine, readVisibleLine } from '../terminal/hidden-input'
-import { checkNodeVersion, executableDependencyProbe } from '../prereq/checks'
+import { checkNodeVersion, executableDependencyProbe, type DependencyState } from '../prereq/checks'
 import { checkCurrentUserAccess, type RemoteOperationFailureReason } from '../remote/access'
 import { writeUserConfig } from '../config/user-config'
 
@@ -33,6 +33,9 @@ type SetupDependencies = {
   env?: NodeJS.ProcessEnv
   stdin?: NodeJS.ReadableStream
   nodeVersion?: string
+  executableDependencyProbe?: ((label: string, executable: string, env: NodeJS.ProcessEnv) => DependencyState)
+  checkCurrentUserAccess?: typeof checkCurrentUserAccess
+  writeUserConfig?: typeof writeUserConfig
 }
 
 export async function runSetupCommand (
@@ -44,7 +47,7 @@ export async function runSetupCommand (
     const baseUrl = await readVisibleLine('Confluence base URL: ', input, streams.stdout)
     const token = await readHiddenLine('Confluence token: ', input, streams.stdout)
     const env = dependencies.env ?? process.env
-    const dependencyFailure = validateSetupDependencies(env, dependencies.nodeVersion)
+    const dependencyFailure = validateSetupDependencies(env, dependencies.nodeVersion, dependencies.executableDependencyProbe)
     if (dependencyFailure !== null) {
       return setupFailure(dependencyFailure)
     }
@@ -54,12 +57,14 @@ export async function runSetupCommand (
       CONFLUEX_CONFLUENCE_BASE_URL: baseUrl,
       CONFLUEX_CONFLUENCE_TOKEN: token
     }
-    const connection = await checkCurrentUserAccess(connectionEnv, { insecure: false })
+    const currentUserAccess = dependencies.checkCurrentUserAccess ?? checkCurrentUserAccess
+    const connection = await currentUserAccess(connectionEnv, { insecure: false })
     if (connection.state === 'failed') {
       return setupFailure(setupReason(connection.reason))
     }
 
-    const configPath = await writeUserConfig({
+    const persistUserConfig = dependencies.writeUserConfig ?? writeUserConfig
+    const configPath = await persistUserConfig({
       confluenceBaseUrl: connection.baseUrl,
       confluenceToken: token
     }, env)
@@ -90,13 +95,14 @@ export async function runSetupCommand (
 
 function validateSetupDependencies (
   env: NodeJS.ProcessEnv,
-  nodeVersion: string = process.versions.node
+  nodeVersion: string = process.versions.node,
+  probe: (label: string, executable: string, env: NodeJS.ProcessEnv) => DependencyState = executableDependencyProbe
 ): SetupFailureReason | null {
   if (checkNodeVersion(nodeVersion).state !== 'passed') {
     return 'unsupported_node_runtime'
   }
 
-  if (executableDependencyProbe('markdown_converter', 'uvx', env).state === 'absent') {
+  if (probe('markdown_converter', 'uvx', env).state === 'absent') {
     return 'missing_markdown_converter'
   }
 

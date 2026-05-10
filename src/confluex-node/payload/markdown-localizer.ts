@@ -9,6 +9,7 @@ import {
 import {
   normalizeMarkdownPayload
 } from './markdown'
+import { classifyMarkdownDestination } from './markdown-destination'
 import { structuredRawLinkValue } from '../reports/rows'
 
 type LocalizeMarkdownInput = {
@@ -87,6 +88,25 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
       }
     }
 
+    const disposition = classifyMarkdownDestination({ destination })
+    if (disposition.kind === 'neutralized_dangerous') {
+      parent.children.splice(index, 1, {
+        type: 'text',
+        value: `[neutralized: markdown_destination; reason=${disposition.reason}]`
+      })
+      return index
+    }
+    if (disposition.kind === 'unsupported') {
+      parent.children.splice(index, 1, {
+        type: 'text',
+        value: disposition.marker
+      })
+      return index
+    }
+    if (disposition.kind === 'preserved_external') {
+      return
+    }
+
     const normalized = normalizedTargetKeyFromMarkdownDestination(
       destination,
       typeof input.baseUrl === 'string' ? { baseUrl: input.baseUrl } : {}
@@ -129,7 +149,7 @@ export async function localizeMarkdownPayload (input: LocalizeMarkdownInput): Pr
 
   return {
     payload: normalizeMarkdownPayload(
-      unescapeGeneratedUnresolvedMarkers(
+      unescapeGeneratedMarkers(
         toMarkdown(tree, { extensions: [gfmToMarkdown()] })
       )
     )
@@ -306,9 +326,9 @@ function appendFragment (pathValue: string, fragment: string): string {
   return fragment === '' ? pathValue : `${pathValue}#${fragment}`
 }
 
-function unescapeGeneratedUnresolvedMarkers (value: string): string {
-  return value.replace(/\\\[unresolved: ([^\n]*?)\]/g, (_match: string, body: string) => {
-    return `[unresolved: ${body.replace(/\\_/g, '_')}]`
+function unescapeGeneratedMarkers (value: string): string {
+  return value.replace(/\\\[(unresolved|neutralized|unsupported): ([^\n]*?)\]/g, (_match: string, markerKind: string, body: string) => {
+    return `[${markerKind}: ${body.replace(/\\_/g, '_')}]`
   })
 }
 

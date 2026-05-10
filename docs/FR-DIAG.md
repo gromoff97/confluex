@@ -23,13 +23,15 @@ persisting user configuration.
 5. `uvx` is resolved on `PATH`.
 6. Dependency probes receive only the subprocess environment keys allowed by
    `FR-0253`.
-7. On Windows, `uvx` resolution honors executable candidates compatible with
+7. The `uvx` dependency probe timeout is exactly `5000` milliseconds and its
+   stdout/stderr buffer cap is exactly `65536` bytes.
+8. On Windows, `uvx` resolution honors executable candidates compatible with
    `PATHEXT`, including command shims such as `uvx.cmd`.
-8. If the Node.js runtime is unsupported, setup fails before writing user config
+9. If the Node.js runtime is unsupported, setup fails before writing user config
    with stderr exactly `ERROR: setup_failed unsupported_node_runtime`.
-9. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
+10. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
    config with stderr exactly `ERROR: setup_failed missing_markdown_converter`.
-10. Local dependency failure output never emits token values, Authorization
+11. Local dependency failure output never emits token values, Authorization
    header values, cookies, full response bodies, or full process environments.
 
 **Dependencies**:
@@ -77,7 +79,7 @@ output root.
 - Area: diagnostics
 - Observable evidence: pre-output-root page-access failure
 
-### FR-0234
+### FR-0255
 **Requirement**: Setup shall verify Confluence connection configuration before
 persisting user configuration.
 
@@ -172,7 +174,7 @@ validation passes.
   tokens to disk.
 
 **Acceptance Criteria**:
-1. Setup writes user config only after `FR-0038`, `FR-0234`, and `FR-0041`
+1. Setup writes user config only after `FR-0038`, `FR-0255`, and `FR-0041`
    criteria pass.
 2. Setup writes user config using the path and JSON shape governed by `FR-0246`.
 3. Setup creates missing parent directories for the user config path.
@@ -183,7 +185,7 @@ validation passes.
 
 **Dependencies**:
 - `FR-0038`
-- `FR-0234`
+- `FR-0255`
 - `FR-0041`
 - `FR-0246`
 
@@ -219,10 +221,13 @@ contract.
    `transport_timeout`, `transport_connection_reset`, `transport_proxy`, or
    `hidden_input_unavailable`.
 7. On setup failure, exit code is `1`.
+8. If user-config persistence fails after setup validation passes, setup
+   classifies the failure as a runtime failure and does not emit
+   `setup_result=passed` or `config_path=`.
 
 **Dependencies**:
 - `FR-0038`
-- `FR-0234`
+- `FR-0255`
 - `FR-0042`
 - `FR-0246`
 

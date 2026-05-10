@@ -1,6 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
-import { TextDecoder } from 'node:util'
+
+import { decodeJsonRecord } from './json-record'
 
 export type RemoteAccessFailureReason =
   | 'missing_base_url'
@@ -43,6 +44,7 @@ export type PageMetadata = {
 export type AttachmentDataItem = {
   filename: string
   downloadUrl: string
+  contentType?: string
 }
 
 export type GovernedRequestTarget = {
@@ -58,6 +60,10 @@ export type HttpResponse = {
 export type RequestLimits = {
   timeoutMs: number
   maxBufferedBytes: number
+}
+
+export type AttachmentDownloadLimits = {
+  maxBytes: number
 }
 
 export type HttpRequest = (
@@ -143,8 +149,8 @@ export async function checkRootPageAccess (
       return { state: 'failed', reason: classifyHttpFailure(response) }
     }
 
-    const bodyText = decodeBodyText(response.chunks)
-    const body = parseJson(bodyText)
+    const bodyBytes = Buffer.concat(response.chunks)
+    const body = decodeBodyRecord(bodyBytes)
     if (!isRecord(body) || typeof body.id !== 'string' || !isCanonicalPageId(body.id)) {
       return { state: 'failed', reason: 'page_inaccessible' }
     }
@@ -154,13 +160,13 @@ export async function checkRootPageAccess (
       ? {
           state: 'ok',
           identity: body.id,
-          metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+          metadataBytes: bodyBytes.length
         }
       : {
           state: 'ok',
           identity: body.id,
           metadata,
-          metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+          metadataBytes: bodyBytes.length
         }
   } catch (error) {
     return { state: 'failed', reason: classifyTransportFailure(error) }
@@ -205,7 +211,7 @@ async function checkTokenIdentity (
       return { state: 'failed', reason: classifyHttpFailure(response) }
     }
 
-    const body = parseJson(decodeBodyText(response.chunks))
+    const body = decodeBodyRecord(Buffer.concat(response.chunks))
     if (!isRecord(body) || body.type !== 'known') {
       return { state: 'failed', reason: 'auth_rejected' }
     }
@@ -236,8 +242,8 @@ export async function listChildPages (
       return { state: 'failed' }
     }
 
-    const bodyText = decodeBodyText(response.chunks)
-    const body = parseJson(bodyText)
+    const bodyBytes = Buffer.concat(response.chunks)
+    const body = decodeBodyRecord(bodyBytes)
     if (!isRecord(body) || !Array.isArray(body.results)) {
       return { state: 'failed' }
     }
@@ -255,7 +261,7 @@ export async function listChildPages (
       state: 'ok',
       complete: !hasNextLink(body),
       children,
-      metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+      metadataBytes: bodyBytes.length
     }
   } catch {
     return { state: 'failed' }
@@ -282,8 +288,8 @@ export async function getPageStorageContent (
       return { state: 'failed' }
     }
 
-    const bodyText = decodeBodyText(response.chunks)
-    const body = parseJson(bodyText)
+    const bodyBytes = Buffer.concat(response.chunks)
+    const body = decodeBodyRecord(bodyBytes)
     if (!isRecord(body) || body.id !== page.page_id) {
       return { state: 'failed' }
     }
@@ -296,7 +302,7 @@ export async function getPageStorageContent (
     return {
       state: 'ok',
       storage: pageBody.storage.value,
-      metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+      metadataBytes: bodyBytes.length
     }
   } catch {
     return { state: 'failed' }
@@ -323,8 +329,8 @@ export async function getAttachmentPreview (
       return { state: 'failed' }
     }
 
-    const bodyText = decodeBodyText(response.chunks)
-    const body = parseJson(bodyText)
+    const bodyBytes = Buffer.concat(response.chunks)
+    const body = decodeBodyRecord(bodyBytes)
     if (!isRecord(body) || !Array.isArray(body.results) || hasNextLink(body)) {
       return { state: 'failed' }
     }
@@ -333,7 +339,7 @@ export async function getAttachmentPreview (
       state: 'ok',
       count: body.results.length,
       preview: attachmentPreviewText(body.results),
-      metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+      metadataBytes: bodyBytes.length
     }
   } catch {
     return { state: 'failed' }
@@ -360,8 +366,8 @@ export async function getAttachmentData (
       return { state: 'failed' }
     }
 
-    const bodyText = decodeBodyText(response.chunks)
-    const body = parseJson(bodyText)
+    const bodyBytes = Buffer.concat(response.chunks)
+    const body = decodeBodyRecord(bodyBytes)
     if (!isRecord(body) || !Array.isArray(body.results) || hasNextLink(body)) {
       return { state: 'failed' }
     }
@@ -378,7 +384,7 @@ export async function getAttachmentData (
     return {
       state: 'ok',
       items,
-      metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+      metadataBytes: bodyBytes.length
     }
   } catch {
     return { state: 'failed' }
@@ -388,9 +394,11 @@ export async function getAttachmentData (
 export async function downloadAttachmentPayload (
   attachment: unknown,
   env: NodeJS.ProcessEnv = process.env,
-  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY
+  policy: TransportPolicy = DEFAULT_TRANSPORT_POLICY,
+  limits?: AttachmentDownloadLimits
 ): Promise<
   | { state: 'ok', bytes: Buffer }
+  | { state: 'download_limit_reached' }
   | { state: 'failed' }
 > {
   const context = resolveRemoteAccessContext(env, policy)
@@ -403,7 +411,7 @@ export async function downloadAttachmentPayload (
     if (url === null) {
       return { state: 'failed' }
     }
-    const response = await get(url, context.authorization, context.transportPolicy)
+    const response = await get(url, context.authorization, context.transportPolicy, attachmentRequestLimits(limits))
     if (response.statusCode !== 200) {
       return { state: 'failed' }
     }
@@ -411,7 +419,10 @@ export async function downloadAttachmentPayload (
       state: 'ok',
       bytes: Buffer.concat(response.chunks)
     }
-  } catch {
+  } catch (error) {
+    if (limits !== undefined && isRemoteResponseTooLarge(error)) {
+      return { state: 'download_limit_reached' }
+    }
     return { state: 'failed' }
   }
 }
@@ -436,8 +447,8 @@ export async function findTitleCandidates (
       return { state: 'failed' }
     }
 
-    const bodyText = decodeBodyText(response.chunks)
-    const body = parseJson(bodyText)
+    const bodyBytes = Buffer.concat(response.chunks)
+    const body = decodeBodyRecord(bodyBytes)
     if (!isRecord(body) || !Array.isArray(body.results)) {
       return { state: 'failed' }
     }
@@ -455,7 +466,7 @@ export async function findTitleCandidates (
       state: 'ok',
       complete: !hasNextLink(body),
       candidates,
-      metadataBytes: Buffer.byteLength(bodyText, 'utf8')
+      metadataBytes: bodyBytes.length
     }
   } catch {
     return { state: 'failed' }
@@ -592,7 +603,7 @@ function get (
         return
       }
       settled = true
-      request.destroy(error)
+      request.destroy()
       reject(error)
     }
     const request = client.request(url, {
@@ -634,12 +645,12 @@ function get (
   })
 }
 
-function decodeBodyText (chunks: Buffer[]): string {
-  return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))
-}
-
-function parseJson (text: string): unknown {
-  return JSON.parse(text) as unknown
+function decodeBodyRecord (body: Buffer): Record<string, unknown> {
+  const decoded = decodeJsonRecord(body)
+  if (decoded.state !== 'ok') {
+    throw new Error(decoded.reason)
+  }
+  return decoded.value
 }
 
 function isCanonicalPageId (value: string): boolean {
@@ -702,8 +713,22 @@ function attachmentDataItem (result: unknown): AttachmentDataItem | null {
 
   return {
     filename: singleLine(result.title),
-    downloadUrl
+    downloadUrl,
+    ...attachmentContentType(result)
   }
+}
+
+function attachmentContentType (result: Record<string, unknown>): { contentType: string } | Record<string, never> {
+  const candidates = [
+    isRecord(result.metadata) ? result.metadata.mediaType : undefined,
+    isRecord(result.extensions) ? result.extensions.mediaType : undefined
+  ]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') {
+      return { contentType: singleLine(candidate.trim()) }
+    }
+  }
+  return {}
 }
 
 function attachmentDownloadPathAndQuery (download: string): string | null {
@@ -719,6 +744,24 @@ function attachmentDownloadPathAndQuery (download: string): string | null {
   }
 
   return download
+}
+
+function attachmentRequestLimits (limits: AttachmentDownloadLimits | undefined): RequestLimits {
+  if (limits === undefined) {
+    return DEFAULT_REQUEST_LIMITS
+  }
+  return {
+    timeoutMs: DEFAULT_REMOTE_TIMEOUT_MS,
+    maxBufferedBytes: normalizedAttachmentMaxBytes(limits.maxBytes)
+  }
+}
+
+function normalizedAttachmentMaxBytes (value: number): number {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0
+}
+
+function isRemoteResponseTooLarge (error: unknown): boolean {
+  return isErrorWithCode(error) && error.code === 'EREMOTE_RESPONSE_TOO_LARGE'
 }
 
 function governedAttachmentDownloadUrl (baseUrl: string, downloadUrl: string): URL | null {

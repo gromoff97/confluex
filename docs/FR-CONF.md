@@ -223,7 +223,6 @@ values.
 - stdout
 - stderr
 - debug artifacts
-- retained report artifacts
 - setup diagnostics
 
 **Rationale**:
@@ -236,20 +235,26 @@ values.
 2. Secret values are never emitted verbatim to stdout.
 3. Secret values are never emitted verbatim to stderr.
 4. Secret values are never emitted verbatim to debug artifacts.
-5. Secret values are never emitted verbatim to retained report artifacts.
-6. Secret values are never emitted verbatim to setup diagnostics.
-7. Authorization header values are classified as secret values.
-8. Common token-bearing diagnostic keys, including `token`, `secret`,
+5. Secret values are never emitted verbatim to setup diagnostics.
+6. Authorization header values are classified as secret values.
+7. Common token-bearing diagnostic keys, including `token`, `secret`,
    `password`, `authorization`, `apiToken`, `accessToken`, `refreshToken`,
    `bearerToken`, `confluenceToken`, and `pat`, are redacted when emitted in
    debug artifacts.
-9. When a diagnostic must identify a token-related failure, it uses a stable
+8. Retained report artifacts are governed by `FR-0085` through `FR-0091` and
+   this card does not redact source-derived report fields.
+9. If a source-derived report value equals a secret value selected under
+   criterion 1, the owning report card governs the retained report
+   serialization.
+10. When a diagnostic must identify a token-related failure, it uses a stable
    reason token governed by the diagnostic or preflight card that owns that
    failure branch.
 
 **Dependencies**:
 - `FR-0039`
 - `FR-0043`
+- `FR-0085`
+- `FR-0091`
 - `FR-0216`
 - `FR-0250`
 

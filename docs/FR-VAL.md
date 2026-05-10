@@ -266,24 +266,26 @@ output-root reuse begins.
    explicit-output-root filesystem and non-resume reuse rejection under
    `FR-0016` and `FR-0076` for checks that do not require the resolved root page
    identifier; root-page preflight under `FR-0017`; resume-root compatibility
-   evaluation under `FR-0103` when `export --resume --out <path>` applies;
+   evaluation under `FR-0103` when `export --resume` has an explicit or configured output-root selector;
    automatic generated output-root naming and candidate selection under
    `FR-0055` when no output-root selector supplies a path; generated
    output-root filesystem rejection under `FR-0076` when no output-root selector
    supplies a path.
-4. For `setup`, pre-acceptance work is command-surface validation.
-5. Top-level help, command help, unknown-command rejection, and command-surface
+4. Generated output-root selection is not used to satisfy a `--resume`
+   output-root prerequisite.
+5. For `setup`, pre-acceptance work is command-surface validation.
+6. Top-level help, command help, unknown-command rejection, and command-surface
    rejection do not load user config, explicit config, or process-environment
    run options.
-6. Creating or reusing an output root, traversing Confluence data, generating
+7. Creating or reusing an output root, traversing Confluence data, generating
    reports, materializing page payloads, downloading attachments, creating a ZIP
    archive, prompting for setup input, setup dependency probing, setup remote
    validation, or user configuration writing occurs only after criterion 1.
-7. For `export`, the accepted-work threshold from criterion 1 is the
+8. For `export`, the accepted-work threshold from criterion 1 is the
    shared accepted-run execution threshold governed by `FR-0180`.
-8. For `setup`, the accepted-work threshold from criterion 1 is the first
+9. For `setup`, the accepted-work threshold from criterion 1 is the first
    setup prompt governed by `FR-0041`.
-9. A setup validation failure observed after criterion 8 is classified by
+10. A setup validation failure observed after criterion 9 is classified by
    `FR-0043`.
 
 **Dependencies**:
@@ -544,7 +546,7 @@ token-only Confluence access context.
 - `FR-0017`
 - `FR-0043`
 - `FR-0216`
-- `FR-0234`
+- `FR-0255`
 
 **Traceability**:
 - Area: invocation validation

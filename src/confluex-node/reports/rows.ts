@@ -1,3 +1,5 @@
+import { bytewiseCompare, tsvDataField } from '../base/serialization'
+
 export type SerializedRows = readonly string[]
 
 type RowRecord = Record<string, unknown>
@@ -8,7 +10,7 @@ export function mergeResolvedRows (rows: readonly unknown[]): readonly unknown[]
     stringField(row, 'link_kind'),
     stringField(row, 'raw_link_value'),
     stringField(row, 'target_page_id')
-  ].join('\t'))
+  ].join('\t'), mergeAvailableFields(['source_title', 'target_space_key', 'target_title']))
 }
 
 export function mergeUnresolvedRows (rows: readonly unknown[]): readonly unknown[] {
@@ -17,7 +19,7 @@ export function mergeUnresolvedRows (rows: readonly unknown[]): readonly unknown
     stringField(row, 'link_kind'),
     stringField(row, 'raw_link_value'),
     stringField(row, 'resolution_reason')
-  ].join('\t'))
+  ].join('\t'), mergeAvailableFields(['source_title']))
 }
 
 export function mergeFailedPageRows (rows: readonly unknown[]): readonly unknown[] {
@@ -28,18 +30,11 @@ export function mergeFailedPageRows (rows: readonly unknown[]): readonly unknown
       return `none\t${index}\t${JSON.stringify(row)}`
     }
     return `${pageId}\t${operation}`
-  })
+  }, mergeSmallestAvailableTitle)
 }
 
 export function normalizeTsvField (value: string): string {
-  let normalized = ''
-  for (const character of value) {
-    const code = character.codePointAt(0)
-    normalized += code !== undefined && (code <= 0x1f || code === 0x7f) ? ' ' : character
-  }
-
-  const escapedBackslash = normalized.startsWith('\\') ? `\\${normalized}` : normalized
-  return escapedBackslash === 'none' ? '\\none' : escapedBackslash
+  return tsvDataField(value, 'tsv field')
 }
 
 export function structuredRawLinkValue (kind: 'page_id' | 'title', parts: readonly string[]): string {
@@ -71,20 +66,53 @@ export function structuredRawLinkValue (kind: 'page_id' | 'title', parts: readon
 
 function mergeRowsByIdentity (
   rows: readonly unknown[],
-  identity: (row: RowRecord, index: number) => string
+  identity: (row: RowRecord, index: number) => string,
+  merge: (current: RowRecord, next: RowRecord) => RowRecord = current => current
 ): readonly unknown[] {
-  const seen = new Set<string>()
-  const merged: unknown[] = []
+  const mergedByKey = new Map<string, RowRecord>()
+  const order: string[] = []
   rows.forEach((value, index) => {
     const row = requireRowRecord(value)
     const key = identity(row, index)
-    if (seen.has(key)) {
+    const current = mergedByKey.get(key)
+    if (current !== undefined) {
+      mergedByKey.set(key, merge(current, row))
       return
     }
-    seen.add(key)
-    merged.push(value)
+    order.push(key)
+    mergedByKey.set(key, row)
   })
-  return merged
+  return order.map(key => {
+    const row = mergedByKey.get(key)
+    if (row === undefined) {
+      throw new Error('missing merged row')
+    }
+    return row
+  })
+}
+
+function mergeAvailableFields (fieldNames: readonly string[]): (current: RowRecord, next: RowRecord) => RowRecord {
+  return (current, next) => {
+    const merged = { ...current }
+    for (const fieldName of fieldNames) {
+      if (stringField(merged, fieldName) === 'none' && stringField(next, fieldName) !== 'none') {
+        merged[fieldName] = next[fieldName]
+      }
+    }
+    return merged
+  }
+}
+
+function mergeSmallestAvailableTitle (current: RowRecord, next: RowRecord): RowRecord {
+  const currentTitle = stringField(current, 'page_title')
+  const nextTitle = stringField(next, 'page_title')
+  if (currentTitle === 'none' && nextTitle !== 'none') {
+    return { ...current, page_title: nextTitle }
+  }
+  if (currentTitle !== 'none' && nextTitle !== 'none' && bytewiseCompare(tsvDataField(nextTitle), tsvDataField(currentTitle)) < 0) {
+    return { ...current, page_title: nextTitle }
+  }
+  return current
 }
 
 function stringField (row: RowRecord, key: string): string {

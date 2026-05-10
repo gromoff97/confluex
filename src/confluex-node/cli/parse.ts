@@ -1,5 +1,5 @@
 import { isCommand } from './registry'
-import { validateCommandInvocation, type EffectiveOptions } from './validate'
+import { validateCommandInvocation, type EffectiveOptions, type ValidationOptions } from './validate'
 import type { Diagnostic } from './diagnostics'
 
 export type ParseResult =
@@ -10,7 +10,8 @@ export type ParseResult =
 
 export function parseInvocation (
   argv: string[],
-  defaultValues: Record<string, string> = {}
+  defaultValues: Record<string, string> = {},
+  options: ValidationOptions = {}
 ): ParseResult {
   if (argv.length === 0) {
     return { kind: 'top-help' }
@@ -43,7 +44,7 @@ export function parseInvocation (
   }
 
   const commandArgv = argv.slice(1)
-  const validation = validateCommandInvocation(commandToken, commandArgv, defaultValues)
+  const validation = validateCommandInvocation(commandToken, commandArgv, defaultValues, options)
   if (validation.kind === 'rejected') {
     return validation
   }

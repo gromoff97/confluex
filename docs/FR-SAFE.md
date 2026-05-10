@@ -253,7 +253,7 @@ needed for dependency execution.
 
 **Acceptance Criteria**:
 1. Dependency probes are executed with an environment allowlist containing only
-   `PATH`, `Path`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`,
+   `PATH`, `Path`, `PATHEXT`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`,
    `SystemRoot`, and `WINDIR` when those variables are present in the parent
    environment.
 2. Markdown exporter subprocesses start from the allowlist in criterion 1 and add
@@ -289,15 +289,18 @@ shall be bounded by explicit IO limits.
   unbounded memory, disk, or time.
 
 **Acceptance Criteria**:
-1. Every product-owned Confluence HTTP request has a finite request timeout.
-2. Every buffered product-owned Confluence HTTP response has a finite byte cap.
+1. Every product-owned Confluence HTTP request timeout is exactly `60000`
+   milliseconds.
+2. Every buffered product-owned Confluence HTTP response byte cap is exactly
+   `67108864` bytes.
 3. If a response exceeds its cap or timeout, the affected operation fails through
    the same rejected-invocation, setup-failure, page-local failure, configured
    stop, or runtime-failure branch that owns that operation.
 4. Attachment payload downloads are streamed or otherwise bounded so bytes beyond
    the active download budget are not retained as authoritative artifacts.
-5. Markdown exporter subprocess invocations have finite timeout, stdout cap,
-   stderr cap, and produced-payload cap.
+5. Markdown exporter subprocess invocation timeout is exactly `120000`
+   milliseconds, stdout cap is exactly `8388608` bytes, stderr cap is exactly
+   `8388608` bytes, and produced-payload cap is exactly `67108864` bytes.
 6. If the Markdown exporter exceeds a timeout or cap, the affected page payload
    materialization fails through the page-local failure behavior governed by
    `FR-0074`, unless another requirement classifies the same condition as a

@@ -1,6 +1,8 @@
 import { commitReportSet } from '../output/report-commit'
 import { quotePathString } from '../path/format'
-import { mergeFailedPageRows, mergeResolvedRows, mergeUnresolvedRows, normalizeTsvField } from './rows'
+import { bytewiseCompare, governedRelativePath, tsvFormulaSafeDataField } from '../base/serialization'
+import { mergeFailedPageRows, mergeResolvedRows, mergeUnresolvedRows } from './rows'
+import { isValidScopeFindingPair } from './vocabulary'
 
 export const REPORT_FILE_ORDER = [
   'manifest.tsv',
@@ -270,6 +272,9 @@ function serializeScopeFindingRow (value: unknown): string {
   const row = requireRecord(value, 'scope.row')
   const findingArea = requireOneOf(row.finding_area, ['child_listing', 'storage_content', 'title_resolution', 'unsupported_pattern', 'page_payload'], 'scope.finding_area')
   const findingType = requireOneOf(row.finding_type, ['incomplete_tree', 'partial_listing', 'storage_unavailable', 'storage_uninterpretable', 'candidate_visibility_incomplete', 'unsupported_internal_pattern', 'markdown_remnant'], 'scope.finding_type')
+  if (!isValidScopeFindingPair(findingArea, findingType)) {
+    throw new TypeError('invalid scope finding pair')
+  }
   return `${[
     canonicalIdOrAbsence(row.page_id, 'scope.page_id'),
     findingArea,
@@ -307,24 +312,7 @@ function absenceOrDataField (value: unknown, name: string): string {
 }
 
 function dataField (value: unknown, name: string): string {
-  return normalizeTsvField(requireString(value, name))
-}
-
-function governedRelativePath (value: unknown, name: string): string {
-  const stringValue = requireString(value, name)
-  if (
-    stringValue.startsWith('/') ||
-    stringValue.endsWith('/') ||
-    stringValue.includes('\\') ||
-    stringValue.includes(':') ||
-    stringValue.includes('\t') ||
-    stringValue.includes('\n') ||
-    stringValue.includes('\r') ||
-    stringValue.split('/').some(segment => segment === '' || segment === '.' || segment === '..')
-  ) {
-    throw new TypeError(`${name} must be a governed relative path`)
-  }
-  return stringValue
+  return tsvFormulaSafeDataField(requireString(value, name), name)
 }
 
 function discoveryRank (value: unknown): number {
@@ -459,10 +447,6 @@ function nonNegativeIntegerValue (value: unknown, name: string, defaultValue: nu
     throw new TypeError(`${name} must be a non-negative safe integer`)
   }
   return String(candidate)
-}
-
-function bytewiseCompare (left: string, right: string): number {
-  return Buffer.compare(Buffer.from(left, 'utf8'), Buffer.from(right, 'utf8'))
 }
 
 function requireRecord (value: unknown, name: string): Record<string, unknown> {

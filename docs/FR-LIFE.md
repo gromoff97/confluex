@@ -139,6 +139,10 @@ and manual resolution.
    path fails installed-package validation.
 6. Installed-package smoke checks are executed by the external verification
    project in Docker, not by product-internal test code.
+7. The installed-package Docker verification command is
+   `npm --prefix /home/gromoff97/IdeaProjects/confluex-test run verify:install`.
+8. The expected installed-smoke artifacts are stdout, stderr, exit code for each
+   smoke command and the `man -w confluex` resolved manual path.
 
 **Dependencies**:
 - `FR-0007`
@@ -174,6 +178,12 @@ publication.
 5. Package content review is executed by the external verification project in
    Docker and must reject product-internal tests, stand files, Superpowers
    artifacts, scan output, and private workspace paths.
+6. The canonical external verification project path is
+   `/home/gromoff97/IdeaProjects/confluex-test`.
+7. The package-content verification command is
+   `npm --prefix /home/gromoff97/IdeaProjects/confluex-test run verify:remediation-tarball`.
+8. Successful package-content verification emits `tarball_verification_ok files=<count>`,
+   where `<count>` is a canonical non-negative integer.
 
 **Dependencies**:
 - `FR-0215`
@@ -351,7 +361,7 @@ next steps.
 **Dependencies**:
 - `FR-0038`
 - `FR-0039`
-- `FR-0234`
+- `FR-0255`
 - `FR-0118`
 - `FR-0166`
 

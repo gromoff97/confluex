@@ -8,6 +8,11 @@ export type OutputRootSelection =
   | { state: 'ok', outputRoot: string }
   | { state: 'rejected', requirementId: string }
 
+export type OutputRootClaim =
+  | { state: 'ok' }
+  | { state: 'exists' }
+  | { state: 'invalid' }
+
 export type ExecutionMode = 'materialized' | 'plan_only'
 
 type OutputRootDependencies = {
@@ -37,6 +42,29 @@ export function selectOutputRoot (
   }
 
   return selectGeneratedOutputRoot(executionMode, pageId, cwd, dependencies.now ?? new Date())
+}
+
+export async function claimFreshOutputRoot (outputRoot: string): Promise<OutputRootClaim> {
+  const absoluteRoot = path.resolve(outputRoot)
+  const ancestorCheck = checkExistingSegments(absoluteRoot)
+  if ('error' in ancestorCheck) {
+    return { state: 'invalid' }
+  }
+
+  try {
+    await fs.promises.mkdir(absoluteRoot, { mode: 0o700 })
+  } catch (error) {
+    if (isNodeErrorCode(error, 'EEXIST')) {
+      return { state: 'exists' }
+    }
+    return { state: 'invalid' }
+  }
+
+  const finalCheck = checkExistingSegments(absoluteRoot)
+  if ('error' in finalCheck) {
+    return { state: 'invalid' }
+  }
+  return { state: 'ok' }
 }
 
 function selectExplicitOutputRoot (

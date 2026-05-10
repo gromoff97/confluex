@@ -24,12 +24,13 @@ export type DebugCollector = {
 }
 
 const MAX_DEBUG_TEXT_BYTES = 2 * 1024 * 1024
+const DEBUG_REDACTION_MARKER = '[REDACTED]'
 
 export function createDebugCollector (outputRoot: string, secrets: readonly string[]): DebugCollector {
   const root = path.join(outputRoot, '_debug')
   const writeText = async (relativePath: string, text: string): Promise<void> => {
     const target = path.join(root, ...relativePath.split('/'))
-    await writeFileNoFollowAtomic(target, redactTextForDebug(cappedText(text), secrets), 0o600)
+    await writeFileNoFollowAtomic(target, cappedText(redactTextForDebug(text, secrets)), 0o600)
   }
   const writeJson = async (relativePath: string, value: unknown): Promise<void> => {
     await writeText(relativePath, `${JSON.stringify(redactForDebug(value, secrets), null, 2)}\n`)
@@ -88,7 +89,18 @@ function cappedText (value: string): string {
   if (bytes.length <= MAX_DEBUG_TEXT_BYTES) {
     return value
   }
-  return `${bytes.subarray(0, MAX_DEBUG_TEXT_BYTES).toString('utf8')}\n[truncated]\n`
+  const capped = preserveTrailingRedactionMarker(bytes.subarray(0, MAX_DEBUG_TEXT_BYTES).toString('utf8'))
+  return `${capped}\n[truncated]\n`
+}
+
+function preserveTrailingRedactionMarker (value: string): string {
+  for (let length = DEBUG_REDACTION_MARKER.length - 1; length > 0; length -= 1) {
+    const prefix = DEBUG_REDACTION_MARKER.slice(0, length)
+    if (value.endsWith(prefix)) {
+      return `${value.slice(0, -length)}${DEBUG_REDACTION_MARKER}`
+    }
+  }
+  return value
 }
 
 export function disabledDebugCollector (): DebugCollector {

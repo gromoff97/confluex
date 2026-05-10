@@ -12,12 +12,15 @@ import {
   titleLinkFromQuery,
   titleLinkFromRelativeUrl
 } from '../links/internal-target'
-import { pagePayloadFolder } from '../output/page-folder'
+import { pagePayloadFolder, tryPagePayloadFolder } from '../output/page-folder'
+import { publishFinalArtifacts } from '../output/final-publication'
+import { sanitizeRetainedLayout } from '../output/retained-layout'
 import { ensureDirectoryNoFollow, joinGovernedRelativePath, readFileNoFollow, writeFileAtomic } from '../output/filesystem-safety'
-import { selectOutputRoot, type ExecutionMode } from '../output/root'
+import { claimFreshOutputRoot, selectOutputRoot, type ExecutionMode, type OutputRootClaim } from '../output/root'
 import { assertZipPathAvailable, createZipFromRoot, zipPathForOutputRoot } from '../output/zip'
 import { localizeMarkdownPayload } from '../payload/markdown-localizer'
 import { acquireMarkdownPagePayload, type MarkdownExporterDebugArtifacts } from '../payload/markdown-exporter'
+import { planAttachmentArtifact } from '../payload/attachment-artifacts'
 import { quotePathString } from '../path/format'
 import {
   checkRootPageAccess,
@@ -28,12 +31,15 @@ import {
   getPageStorageContent,
   listChildPages,
   resolveRemoteAccessContext,
+  type AttachmentDownloadLimits,
   type AttachmentDataItem,
   type PageMetadata,
   type TransportPolicy
 } from '../remote/access'
 import { REPORT_FILE_ORDER, REPORT_HEADER_TEXT, SUMMARY_KEYS, runReportTexts, writeRunReportSet } from '../reports/run-report'
 import { structuredRawLinkValue } from '../reports/rows'
+import { lifecycleLine } from '../runtime/lifecycle'
+import { beginAcceptedRun, endAcceptedRun, runtimeFailureOutcome, type AcceptedRunFailureKind } from '../runtime/outcome'
 import type { MarkdownRemnantDiagnostic } from '../payload/markdown'
 import type { EffectiveConfluenceConfig } from '../config/effective-options'
 
@@ -96,6 +102,7 @@ type AttachmentDataResult =
 
 type AttachmentPayloadResult =
   | { state: 'ok', bytes: Buffer }
+  | { state: 'download_limit_reached' }
   | { state: 'failed' }
 
 type TitleDiscovery = {
@@ -199,6 +206,7 @@ type AttachmentMaterializeResult = {
   count: number | null
   failed: boolean
   downloadLimitReached: boolean
+  retainedAttachmentFilenames: string[]
 }
 
 type SafeAttachmentDataResult =
@@ -236,7 +244,10 @@ type ZipPackageResult =
 type SuccessfulRunOptions = {
   artifactPath?: string
   artifactValue?: string
+  lifecycleSink?: LifecycleSink
 }
+
+type LifecycleSink = Pick<NodeJS.WritableStream, 'write'>
 
 type ExportDependencies = {
   env?: NodeJS.ProcessEnv | undefined
@@ -268,7 +279,11 @@ type ExportDependencies = {
   >) | undefined
   getAttachmentPreview?: ((page: PageMetadata) => Promise<AttachmentPreviewResult>) | undefined
   getAttachmentData?: ((page: PageMetadata) => Promise<AttachmentDataResult>) | undefined
-  downloadAttachmentPayload?: ((item: AttachmentDataItem) => Promise<AttachmentPayloadResult>) | undefined
+  downloadAttachmentPayload?: ((item: AttachmentDataItem, limits?: AttachmentDownloadLimits) => Promise<AttachmentPayloadResult>) | undefined
+  lifecycleSink?: LifecycleSink | undefined
+  writePagePayloadArtifact?: ((outputRoot: string, folder: string, payload: string, pagePayloadFormat: PagePayloadFormat) => Promise<void>) | undefined
+  writeRunReportSet?: ((outputRoot: string, reportTexts: unknown) => Promise<void>) | undefined
+  debugCollectorFactory?: ((outputRoot: string, secrets: readonly string[]) => DebugCollector) | undefined
 }
 
 const UNBOUNDED_RUN_WARNING = 'WARNING: unbounded_run use --max-pages or --max-download-mib\n'
@@ -301,7 +316,7 @@ async function runExportRelatedCommand (
     ? (page: PageMetadata) => getAttachmentData(page, env, transportPolicy)
     : undefined
   const defaultAttachmentPayloadDownload = remoteAccessContext.usable
-    ? (attachment: AttachmentDataItem) => downloadAttachmentPayload(attachment, env, transportPolicy)
+    ? (attachment: AttachmentDataItem, limits?: AttachmentDownloadLimits) => downloadAttachmentPayload(attachment, env, transportPolicy, limits)
     : undefined
   const defaultPagePayload = executionMode === 'materialized' &&
     effectiveExportPagePayloadFormat(options) === 'md' &&
@@ -366,71 +381,90 @@ async function runExportRelatedCommand (
     }
   }
 
-  if (isResumeExport(options)) {
-    const resumeState = await evaluateResumeCompatibility(outputRoot.outputRoot, access.identity, options)
-    if (resumeState.state === 'rejected') {
-      return {
-        exitCode: 1,
-        stdout: '',
-        stderr: `${formatDiagnostic({
-          type: 'validation-failed',
-          requirementId: 'FR-0103'
-        })}\n`
+  beginAcceptedRun()
+  try {
+    if (isResumeExport(options)) {
+      const resumeState = await evaluateResumeCompatibility(outputRoot.outputRoot, access.identity, options)
+      if (resumeState.state === 'rejected') {
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `${formatDiagnostic({
+            type: 'validation-failed',
+            requirementId: 'FR-0103'
+          })}\n`
+        }
+      }
+      commandDependencies.resumeState = resumeState
+    } else {
+      const claim = await claimFreshOutputRoot(outputRoot.outputRoot)
+      if (claim.state !== 'ok') {
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `${formatDiagnostic({
+            type: 'validation-failed',
+            requirementId: outputRootClaimRequirement(options, claim)
+          })}\n`
+        }
       }
     }
-    commandDependencies.resumeState = resumeState
-  }
 
-  const debugCollector = options.flags.includes('--debug')
-    ? createDebugCollector(outputRoot.outputRoot, debugSecrets(env, options))
-    : disabledDebugCollector()
-  commandDependencies.debugCollector = debugCollector
-  if (debugCollector.enabled) {
-    try {
-      await debugCollector.writeRun({
-        command: 'export',
-        execution_mode: executionMode,
-        page_id: pageId,
-        output_root: outputRoot.outputRoot
-      })
-      await debugCollector.writeOptions({
-        execution_mode: executionMode,
-        flags: options.flags,
-        values: options.values,
-        config: options.config ?? {}
-      })
-      await debugCollector.recordEvent('run_accepted', {
-        page_id: pageId,
-        execution_mode: executionMode
-      })
-    } catch {
-      return {
-        exitCode: 4,
-        stdout: '',
-        stderr: `${transportWarning}ERROR: runtime_failure debug_artifact\n`
+    emitRunStartIfLive(commandDependencies.lifecycleSink, executionMode, pageId, outputRoot.outputRoot)
+
+    const debugCollector = options.flags.includes('--debug')
+      ? (commandDependencies.debugCollectorFactory ?? createDebugCollector)(outputRoot.outputRoot, debugSecrets(env, options))
+      : disabledDebugCollector()
+    commandDependencies.debugCollector = debugCollector
+    if (debugCollector.enabled) {
+      try {
+        await debugCollector.writeRun({
+          command: 'export',
+          execution_mode: executionMode,
+          page_id: pageId,
+          output_root: outputRoot.outputRoot
+        })
+        await debugCollector.writeOptions({
+          execution_mode: executionMode,
+          flags: options.flags,
+          values: options.values,
+          config: options.config ?? {}
+        })
+        await debugCollector.recordEvent('run_accepted', {
+          page_id: pageId,
+          execution_mode: executionMode
+        })
+      } catch {
+        const outcome = runtimeFailureOutcome('debug_artifact', { command: 'export' })
+        return {
+          ...outcome,
+          stderr: `${transportWarning}${outcome.stderr}`
+        }
       }
     }
-  }
 
-  if (access.metadata === undefined && isBasicPlanOrExportOptions(executionMode, options)) {
-    return runRootMetadataFailure(executionMode, access.identity, outputRoot.outputRoot, options, commandDependencies, rootDownloadedBytes(access))
-  }
+    if (access.metadata === undefined && isBasicPlanOrExportOptions(executionMode, options)) {
+      return runRootMetadataFailure(executionMode, access.identity, outputRoot.outputRoot, options, commandDependencies, rootDownloadedBytes(access))
+    }
 
-  if (isPlanOnlyExport(executionMode, options, access)) {
-    return runPlanOnlyExport(access.metadata, outputRoot.outputRoot, options, commandDependencies, rootDownloadedBytes(access))
-  }
+    if (isPlanOnlyExport(executionMode, options, access)) {
+      return runPlanOnlyExport(access.metadata, outputRoot.outputRoot, options, commandDependencies, rootDownloadedBytes(access))
+    }
 
-  if (isBasicExport(executionMode, options, access)) {
-    return runBasicExport(access.metadata, outputRoot.outputRoot, options, commandDependencies, rootDownloadedBytes(access))
-  }
+    if (isBasicExport(executionMode, options, access)) {
+      return runBasicExport(access.metadata, outputRoot.outputRoot, options, commandDependencies, rootDownloadedBytes(access))
+    }
 
-  return {
-    exitCode: 4,
-    stdout: '',
-    stderr: `${transportWarning}${formatDiagnostic({
-      type: 'development-pending',
-      command: 'export'
-    })}\n`
+    return {
+      exitCode: 4,
+      stdout: '',
+      stderr: `${transportWarning}${formatDiagnostic({
+        type: 'development-pending',
+        command: 'export'
+      })}\n`
+    }
+  } finally {
+    endAcceptedRun()
   }
 }
 
@@ -439,10 +473,11 @@ async function runRootMetadataFailure (
   pageId: string,
   outputRoot: string,
   options: ExportOptions,
-  _dependencies: ExportDependencies,
+  dependencies: ExportDependencies,
   initialDownloadedBytes: DownloadedBytes
 ): Promise<CommandResult> {
   try {
+    emitLifecycleIfLive(dependencies.lifecycleSink, 'REPORT_START')
     const finalStatus = completedFinalStatus(options, true)
     const reportTexts = runReportTexts({
       command: 'export',
@@ -462,14 +497,10 @@ async function runRootMetadataFailure (
     if (executionMode === 'materialized') {
       await ensureDirectoryNoFollow(path.join(outputRoot, 'pages'))
     }
-    await writeRunReportSet(outputRoot, reportTexts)
-    return await finalizeRunResult(executionMode, pageId, outputRoot, options, finalStatus)
+    await writeRunReportSetWithDependencies(dependencies, outputRoot, reportTexts)
+    return await finalizeRunResult(executionMode, pageId, outputRoot, options, finalStatus, dependencies)
   } catch {
-    return {
-      exitCode: 4,
-      stdout: '',
-      stderr: `ERROR: runtime_failure ${executionMode === 'materialized' ? 'export' : 'plan_only'}_report\n`
-    }
+    return runtimeFailureOutcome('report', { command: 'export' })
   }
 }
 
@@ -483,12 +514,14 @@ async function runBasicExport (
   try {
     const pagePayloadFormat = effectiveExportPagePayloadFormat(options)
     return await tryRunCleanPayloadExport(metadata, outputRoot, options, dependencies, pagePayloadFormat, initialDownloadedBytes)
-  } catch {
-    return {
-      exitCode: 4,
-      stdout: '',
-      stderr: 'ERROR: runtime_failure export_report\n'
+  } catch (error) {
+    if (isAcceptedRunFailure(error)) {
+      if (error.kind === 'artifact') {
+        await writeIncompleteMarker(outputRoot).catch(() => undefined)
+      }
+      return runtimeFailureOutcome(error.kind, { command: 'export' })
     }
+    return runtimeFailureOutcome('report', { command: 'export' })
   }
 }
 
@@ -501,6 +534,7 @@ async function tryRunCleanPayloadExport (
   initialDownloadedBytes: DownloadedBytes
 ): Promise<CommandResult> {
   const pageId = metadata.page_id
+  emitLifecycleIfLive(dependencies.lifecycleSink, 'SCOPE_START')
   const scope = await basicPlanScope(metadata, options, dependencies, 'materialized', initialDownloadedBytes)
   const maxDownloadBytes = maxDownloadBytesLimit(options)
   let configuredStopReason = scope.configuredStopReason
@@ -512,6 +546,7 @@ async function tryRunCleanPayloadExport (
   const exportedPageFoldersByTargetKey = manifestFoldersByTargetKey(scope.manifestRows)
   const pageSpaceKeysByPageId = manifestSpaceKeysByPageId(scope.manifestRows)
   const attachmentCounts = new Map<string, number>()
+  const retainedAttachmentFilesByFolder = new Map<string, string[]>()
   const attachmentFailures: FailedPageRow[] = []
   const payloadArtifactPageIds = new Set(scope.payloadArtifacts.map(artifact => artifact.metadata.page_id))
   const failedPayloadPageIds = new Set(scope.manifestRows
@@ -519,6 +554,7 @@ async function tryRunCleanPayloadExport (
     .map(row => row.page_id))
   let reusedPages = 0
   if (configuredStopReason !== 'max_download_limit_reached') {
+    emitLifecycleIfLive(dependencies.lifecycleSink, 'PAYLOAD_START')
     for (const artifact of scope.payloadArtifacts) {
       const payloadResult = await materializePagePayload(artifact, pagePayloadFormat, dependencies)
       if (payloadResult.state !== 'ok') {
@@ -553,7 +589,22 @@ async function tryRunCleanPayloadExport (
       if (reused) {
         reusedPages += 1
       } else {
-        await writePagePayloadArtifact(outputRoot, artifact.folder, localizedPayload.payload, pagePayloadFormat)
+        try {
+          await writePagePayloadArtifactWithDependencies(dependencies, outputRoot, artifact.folder, localizedPayload.payload, pagePayloadFormat)
+        } catch {
+          return await materializedRuntimeFailureResult({
+            kind: 'artifact',
+            pageId,
+            outputRoot,
+            options,
+            dependencies,
+            pagePayloadFormat,
+            scope,
+            failedPayloadPageIds: new Set([...failedPayloadPageIds, artifact.metadata.page_id]),
+            attachmentCounts,
+            retainedAttachmentFilesByFolder
+          })
+        }
         addContentDownloadBytes(scope.downloadedBytes, localizedPayload.payload)
       }
       if (hasReachedDownloadLimit(scope.downloadedBytes, maxDownloadBytes)) {
@@ -565,6 +616,9 @@ async function tryRunCleanPayloadExport (
       const attachmentWork = await materializeExportAttachments(outputRoot, artifact, dependencies, scope.downloadedBytes, maxDownloadBytes)
       if (attachmentWork.count !== null) {
         attachmentCounts.set(artifact.metadata.page_id, attachmentWork.count)
+      }
+      if (attachmentWork.retainedAttachmentFilenames.length > 0) {
+        retainedAttachmentFilesByFolder.set(artifact.folder, attachmentWork.retainedAttachmentFilenames)
       }
       if (attachmentWork.failed) {
         attachmentFailures.push(attachmentDownloadFailedRow(artifact.metadata))
@@ -595,6 +649,7 @@ async function tryRunCleanPayloadExport (
     attachmentCounts
   )
   const requestedZipPath = isZipRequested(options) ? zipPathForOutputRoot(outputRoot) : undefined
+  emitLifecycleIfLive(dependencies.lifecycleSink, 'REPORT_START')
   const reportTexts = runReportTexts({
     command: 'export',
     executionMode: 'materialized',
@@ -616,13 +671,80 @@ async function tryRunCleanPayloadExport (
     scopeFindingRows: scope.scopeFindingRows,
     failedPageRows
   })
+  await finalizeMaterializedRetainedLayout(outputRoot, manifestRows, retainedAttachmentFilesByFolder, options)
   if (finalStatus === 'incomplete') {
     await writeIncompleteMarker(outputRoot)
   } else {
     await removeIncompleteMarker(outputRoot)
   }
-  await writeRunReportSet(outputRoot, reportTexts)
-  return finalizeRunResult('materialized', pageId, outputRoot, options, finalStatus)
+  await writeRunReportSetWithDependencies(dependencies, outputRoot, reportTexts)
+  return finalizeRunResult('materialized', pageId, outputRoot, options, finalStatus, dependencies)
+}
+
+async function finalizeMaterializedRetainedLayout (
+  outputRoot: string,
+  manifestRows: ManifestRow[],
+  retainedAttachmentFilesByFolder: ReadonlyMap<string, readonly string[]>,
+  options: ExportOptions
+): Promise<void> {
+  await ensureDirectoryNoFollow(path.join(outputRoot, 'pages'))
+  await sanitizeRetainedLayout(outputRoot, {
+    expectedPageFolders: manifestRows
+      .map(row => row.folder)
+      .filter(folder => folder !== 'none'),
+    expectedAttachmentFilesByFolder: retainedAttachmentFilesByFolder,
+    allowDebug: options.flags.includes('--debug')
+  })
+}
+
+type MaterializedRuntimeFailureInput = {
+  kind: AcceptedRunFailureKind
+  pageId: string
+  outputRoot: string
+  options: ExportOptions
+  dependencies: ExportDependencies
+  pagePayloadFormat: PagePayloadFormat
+  scope: BasicPlanScope
+  failedPayloadPageIds: Set<string>
+  attachmentCounts: ReadonlyMap<string, number>
+  retainedAttachmentFilesByFolder: ReadonlyMap<string, readonly string[]>
+}
+
+async function materializedRuntimeFailureResult (input: MaterializedRuntimeFailureInput): Promise<CommandResult> {
+  try {
+    emitLifecycleIfLive(input.dependencies.lifecycleSink, 'REPORT_START')
+    const failedPageRows = [
+      ...input.scope.failedPageRows,
+      ...failedPayloadRows(input.scope.manifestRows, input.failedPayloadPageIds)
+    ]
+    const manifestRows = manifestRowsWithAttachmentCounts(
+      manifestRowsWithNotRetainedPayloads(input.scope.manifestRows, input.failedPayloadPageIds),
+      new Map(input.attachmentCounts)
+    )
+    const reportTexts = runReportTexts({
+      command: 'export',
+      executionMode: 'materialized',
+      pageId: input.pageId,
+      outputRoot: input.outputRoot,
+      outputPathProvenance: outputPathProvenance(input.options),
+      pagePayloadFormat: input.pagePayloadFormat,
+      finalStatus: 'incomplete',
+      scopeTrust: 'degraded',
+      interruptReason: 'runtime_error',
+      downloadedMib: downloadedMibFields(input.scope.downloadedBytes),
+      manifestRows,
+      resolvedLinkRows: input.scope.resolvedLinkRows,
+      unresolvedLinkRows: input.scope.unresolvedLinkRows,
+      scopeFindingRows: input.scope.scopeFindingRows,
+      failedPageRows
+    })
+    await finalizeMaterializedRetainedLayout(input.outputRoot, manifestRows, input.retainedAttachmentFilesByFolder, input.options)
+    await writeIncompleteMarker(input.outputRoot)
+    await writeRunReportSetWithDependencies(input.dependencies, input.outputRoot, reportTexts)
+    return runtimeFailureOutcome(input.kind, { command: 'export' })
+  } catch {
+    return runtimeFailureOutcome('report', { command: 'export' })
+  }
 }
 
 async function runPlanOnlyExport (
@@ -634,10 +756,12 @@ async function runPlanOnlyExport (
 ): Promise<CommandResult> {
   try {
     const pageId = metadata.page_id
+    emitLifecycleIfLive(dependencies.lifecycleSink, 'SCOPE_START')
     const scope = await basicPlanScope(metadata, options, dependencies, 'plan_only', initialDownloadedBytes)
     const hasBlockingReasons = scope.scopeFindingRows.length > 0 || scope.unresolvedLinkRows.length > 0 || scope.failedPageRows.length > 0
     const finalStatus = scope.configuredStopReason === 'none' ? completedFinalStatus(options, hasBlockingReasons) : 'incomplete'
     const requestedZipPath = isZipRequested(options) ? zipPathForOutputRoot(outputRoot) : undefined
+    emitLifecycleIfLive(dependencies.lifecycleSink, 'REPORT_START')
     const reportTexts = runReportTexts({
       command: 'export',
       executionMode: 'plan_only',
@@ -659,14 +783,10 @@ async function runPlanOnlyExport (
     if (finalStatus === 'incomplete') {
       await writeIncompleteMarker(outputRoot)
     }
-    await writeRunReportSet(outputRoot, reportTexts)
-    return await finalizeRunResult('plan_only', pageId, outputRoot, options, finalStatus)
+    await writeRunReportSetWithDependencies(dependencies, outputRoot, reportTexts)
+    return await finalizeRunResult('plan_only', pageId, outputRoot, options, finalStatus, dependencies)
   } catch {
-    return {
-      exitCode: 4,
-      stdout: '',
-      stderr: 'ERROR: runtime_failure plan_only_report\n'
-    }
+    return runtimeFailureOutcome('report', { command: 'export' })
   }
 }
 
@@ -675,9 +795,10 @@ async function finalizeRunResult (
   pageId: string,
   outputRoot: string,
   options: ExportOptions,
-  finalStatus: FinalStatus
+  finalStatus: FinalStatus,
+  dependencies: ExportDependencies = {}
 ): Promise<CommandResult> {
-  return successfulPlainRootRunResult(executionMode, pageId, outputRoot, options, finalStatus)
+  return successfulPlainRootRunResult(executionMode, pageId, outputRoot, options, finalStatus, dependencies)
 }
 
 async function successfulPlainRootRunResult (
@@ -685,16 +806,21 @@ async function successfulPlainRootRunResult (
   pageId: string,
   outputRoot: string,
   options: ExportOptions,
-  finalStatus: FinalStatus
+  finalStatus: FinalStatus,
+  dependencies: ExportDependencies = {}
 ): Promise<CommandResult> {
+  if (isZipRequested(options)) {
+    emitLifecycleIfLive(dependencies.lifecycleSink, 'PUBLICATION_START')
+  }
   const zipResult = await packageZipIfRequested(outputRoot, options)
   if (zipResult.state !== 'ok') {
     await markZipArchiveFailure(outputRoot)
     return zipArchiveFailure()
   }
-  return successfulRunResult(executionMode, pageId, outputRoot, options, finalStatus, zipResult.zipPath === undefined
-    ? {}
-    : { artifactPath: zipResult.zipPath })
+  return successfulRunResult(executionMode, pageId, outputRoot, options, finalStatus, {
+    ...(zipResult.zipPath === undefined ? {} : { artifactPath: zipResult.zipPath }),
+    ...(dependencies.lifecycleSink === undefined ? {} : { lifecycleSink: dependencies.lifecycleSink })
+  })
 }
 
 async function packageZipIfRequested (outputRoot: string, options: ExportOptions): Promise<ZipPackageResult> {
@@ -716,16 +842,36 @@ async function packageZipIfRequested (outputRoot: string, options: ExportOptions
 }
 
 function zipArchiveFailure (): CommandResult {
-  return {
-    exitCode: 4,
-    stdout: '',
-    stderr: 'ERROR: runtime_failure zip_archive\n'
-  }
+  return runtimeFailureOutcome('zip', { command: 'export' })
 }
 
 async function markZipArchiveFailure (outputRoot: string): Promise<void> {
+  await rewriteSummaryForRuntimeFailure(outputRoot)
   await writeIncompleteMarker(outputRoot)
-  await writeNonAuthoritativeMarker(outputRoot)
+}
+
+async function rewriteSummaryForRuntimeFailure (outputRoot: string): Promise<void> {
+  const summaryPath = path.join(outputRoot, 'summary.txt')
+  const summaryText = (await readFileNoFollow(summaryPath)).toString('utf8')
+  const rewritten = summaryText
+    .split('\n')
+    .map(line => {
+      if (line.startsWith('final_status=')) {
+        return 'final_status=incomplete'
+      }
+      if (line.startsWith('scope_trust=')) {
+        return 'scope_trust=degraded'
+      }
+      if (line.startsWith('interrupt_reason=')) {
+        return 'interrupt_reason=runtime_error'
+      }
+      if (line.startsWith('zip_path=')) {
+        return 'zip_path=none'
+      }
+      return line
+    })
+    .join('\n')
+  await writeFileAtomic(summaryPath, rewritten)
 }
 
 function successfulRunResult (
@@ -750,9 +896,12 @@ function successfulRunResult (
     lines.push('RUN_PHASE phase=zip_packaging')
   }
   lines.push(`RUN_COMPLETE final_status=${finalStatus} artifact=${artifactValue}`)
+  if (resultOptions.lifecycleSink !== undefined) {
+    resultOptions.lifecycleSink.write(`${lifecycleLine('RUN_COMPLETE')} final_status=${finalStatus} artifact=${artifactValue}\n`)
+  }
   return {
     exitCode: successfulRunExitCode(finalStatus),
-    stdout: `${lines.join('\n')}\n`,
+    stdout: resultOptions.lifecycleSink === undefined ? `${lines.join('\n')}\n` : '',
     stderr: warningText(options)
   }
 }
@@ -762,6 +911,47 @@ function successfulRunExitCode (finalStatus: FinalStatus): number {
     return 3
   }
   return 0
+}
+
+function emitRunStartIfLive (sink: LifecycleSink | undefined, executionMode: ExecutionMode, pageId: string, outputRoot: string): void {
+  sink?.write(`RUN_START command=export execution_mode=${executionMode} page_id=${pageId} output_root=${quotePathString(outputRoot)}\n`)
+}
+
+function emitLifecycleIfLive (sink: LifecycleSink | undefined, event: Parameters<typeof lifecycleLine>[0]): void {
+  sink?.write(`${lifecycleLine(event)}\n`)
+}
+
+async function writePagePayloadArtifactWithDependencies (
+  dependencies: ExportDependencies,
+  outputRoot: string,
+  folder: string,
+  payload: string,
+  pagePayloadFormat: PagePayloadFormat
+): Promise<void> {
+  const writer = dependencies.writePagePayloadArtifact ?? writePagePayloadArtifact
+  await writer(outputRoot, folder, payload, pagePayloadFormat)
+}
+
+async function writeRunReportSetWithDependencies (
+  dependencies: ExportDependencies,
+  outputRoot: string,
+  reportTexts: unknown
+): Promise<void> {
+  const writer = dependencies.writeRunReportSet ?? writeRunReportSet
+  await writer(outputRoot, reportTexts)
+}
+
+class AcceptedRunFailure extends Error {
+  readonly kind: AcceptedRunFailureKind
+
+  constructor (kind: AcceptedRunFailureKind) {
+    super(`accepted run failure: ${kind}`)
+    this.kind = kind
+  }
+}
+
+function isAcceptedRunFailure (error: unknown): error is AcceptedRunFailure {
+  return error instanceof AcceptedRunFailure
 }
 
 function isBasicExport (executionMode: ExecutionMode, options: ExportOptions, access: RootAccessResult): access is RootAccessResult & { metadata: PageMetadata } {
@@ -969,7 +1159,7 @@ function parseResumeManifest (text: string): Map<string, string> | null {
     if (folder === 'none') {
       continue
     }
-    const expectedFolder = pagePayloadFolderForPage(pageId, spaceKey)
+    const expectedFolder = pagePayloadFolder(spaceKey === undefined ? { pageId } : { pageId, spaceKey })
     if (folder !== expectedFolder) {
       return null
     }
@@ -1167,6 +1357,13 @@ function outputPathProvenance (options: ExportOptions): 'explicit' | 'configured
     return 'generated'
   }
   return options.config?.outputRoot === options.values['--out'] ? 'configured' : 'explicit'
+}
+
+function outputRootClaimRequirement (options: ExportOptions, claim: OutputRootClaim): string {
+  if (claim.state === 'exists') {
+    return outputPathProvenance(options) === 'generated' ? 'FR-0055' : 'FR-0016'
+  }
+  return outputPathProvenance(options) === 'generated' ? 'FR-0055' : 'FR-0076'
 }
 
 function effectiveExportPagePayloadFormat (options: ExportOptions): PagePayloadFormat {
@@ -1475,7 +1672,7 @@ function metadataArtifactForPage (
 ): PageArtifact | null {
   const storage = storageByPageId.get(page.metadata.page_id)
   const attachmentPreview = attachmentPreviews.previewByPageId.get(page.metadata.page_id)
-  const folder = tryPagePayloadFolderForPage(page.metadata.page_id, page.metadata.space_key)
+  const folder = tryPagePayloadFolder(page.metadata.page_id, page.metadata.space_key)
   if (folder === null) {
     return null
   }
@@ -1826,18 +2023,6 @@ function titleTargetKeyWithSpaceKey (spaceKey: string, title: string): string {
   ].join(';')
 }
 
-function pagePayloadFolderForPage (pageId: string, spaceKey: string | undefined): string {
-  return pagePayloadFolder(spaceKey === undefined ? { pageId } : { pageId, spaceKey })
-}
-
-function tryPagePayloadFolderForPage (pageId: string, spaceKey: string | undefined): string | null {
-  try {
-    return pagePayloadFolderForPage(pageId, spaceKey)
-  } catch {
-    return null
-  }
-}
-
 async function payloadFolderEntriesAreReusable (folderPath: string, pagePayloadFormat: PagePayloadFormat): Promise<boolean> {
   const payloadName = pagePayloadFilename(pagePayloadFormat)
   const allowedNames = new Set([payloadName, 'attachments'])
@@ -1926,21 +2111,21 @@ async function materializeExportAttachments (
 ): Promise<AttachmentMaterializeResult> {
   const attachmentData = await safeGetAttachmentData(dependencies.getAttachmentData, artifact.metadata)
   if (attachmentData.state === 'skipped') {
-    return { count: null, failed: false, downloadLimitReached: false }
+    return { count: null, failed: false, downloadLimitReached: false, retainedAttachmentFilenames: [] }
   }
   if (attachmentData.state !== 'ok') {
-    return { count: null, failed: true, downloadLimitReached: false }
+    return { count: null, failed: true, downloadLimitReached: false, retainedAttachmentFilenames: [] }
   }
 
   addMetadataDownloadBytes(downloadedBytes, attachmentData.metadataBytes, '')
   if (hasReachedDownloadLimit(downloadedBytes, maxDownloadBytes)) {
-    return { count: attachmentData.items.length, failed: false, downloadLimitReached: true }
+    return { count: attachmentData.items.length, failed: false, downloadLimitReached: true, retainedAttachmentFilenames: [] }
   }
   if (attachmentData.items.length === 0) {
-    return { count: 0, failed: false, downloadLimitReached: false }
+    return { count: 0, failed: false, downloadLimitReached: false, retainedAttachmentFilenames: [] }
   }
-  if (!hasValidAttachmentFilenames(attachmentData.items) || typeof dependencies.downloadAttachmentPayload !== 'function') {
-    return { count: attachmentData.items.length, failed: true, downloadLimitReached: false }
+  if (!hasRetainableAttachmentArtifacts(attachmentData.items) || typeof dependencies.downloadAttachmentPayload !== 'function') {
+    return { count: attachmentData.items.length, failed: true, downloadLimitReached: false, retainedAttachmentFilenames: [] }
   }
 
   const payloads: AttachmentPayloadArtifact[] = []
@@ -1951,15 +2136,23 @@ async function materializeExportAttachments (
       downloadLimitReached = true
       break
     }
-    const payload = await safeDownloadAttachmentPayload(dependencies.downloadAttachmentPayload, item)
-    if (payload.state !== 'ok') {
-      return { count: attachmentData.items.length, failed: true, downloadLimitReached: false }
+    const payload = await safeDownloadAttachmentPayload(
+      dependencies.downloadAttachmentPayload,
+      item,
+      remainingBudget === null ? undefined : { maxBytes: remainingBudget }
+    )
+    if (payload.state === 'download_limit_reached') {
+      downloadLimitReached = true
+      break
     }
-    addBufferContentDownloadBytes(downloadedBytes, payload.bytes)
+    if (payload.state !== 'ok') {
+      return { count: attachmentData.items.length, failed: true, downloadLimitReached: false, retainedAttachmentFilenames: [] }
+    }
     if (remainingBudget !== null && payload.bytes.length > remainingBudget) {
       downloadLimitReached = true
       break
     }
+    addBufferContentDownloadBytes(downloadedBytes, payload.bytes)
     payloads.push({
       filename: item.filename,
       bytes: payload.bytes
@@ -1974,7 +2167,8 @@ async function materializeExportAttachments (
   return {
     count: attachmentData.items.length,
     failed: false,
-    downloadLimitReached
+    downloadLimitReached,
+    retainedAttachmentFilenames: payloads.map(payload => payload.filename)
   }
 }
 
@@ -2023,10 +2217,15 @@ function attachmentItemFilename (item: unknown): string | null {
   return null
 }
 
-function hasValidAttachmentFilenames (items: AttachmentDataItem[]): boolean {
+function hasRetainableAttachmentArtifacts (items: AttachmentDataItem[]): boolean {
   const seen = new Set<string>()
   for (const item of items) {
-    if (!isValidAttachmentFilename(item.filename)) {
+    const plan = planAttachmentArtifact({
+      filename: item.filename,
+      downloadUrl: item.downloadUrl,
+      ...(item.contentType === undefined ? {} : { contentType: item.contentType })
+    })
+    if (plan.quarantine !== 'none' || plan.retainedPath !== item.filename) {
       return false
     }
     const key = item.filename.toLowerCase()
@@ -2038,34 +2237,20 @@ function hasValidAttachmentFilenames (items: AttachmentDataItem[]): boolean {
   return true
 }
 
-function isValidAttachmentFilename (filename: unknown): filename is string {
-  if (typeof filename !== 'string' || filename === '.' || filename === '..' || filename.endsWith('.')) {
-    return false
-  }
-  const bytes = Buffer.byteLength(filename, 'utf8')
-  if (bytes < 1 || bytes > 255 || !/^[A-Za-z0-9._-]+$/.test(filename)) {
-    return false
-  }
-  const basename = filename.split('.')[0]
-  return basename !== undefined && !WINDOWS_RESERVED_BASENAMES.has(basename.toUpperCase())
-}
-
-const WINDOWS_RESERVED_BASENAMES = new Set([
-  'CON', 'PRN', 'AUX', 'NUL',
-  'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
-  'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
-])
-
 function orderedAttachmentItems (items: AttachmentDataItem[]): AttachmentDataItem[] {
   return items.slice().sort((left, right) => Buffer.compare(Buffer.from(left.filename, 'utf8'), Buffer.from(right.filename, 'utf8')))
 }
 
 async function safeDownloadAttachmentPayload (
-  downloadAttachmentPayload: (item: AttachmentDataItem) => Promise<AttachmentPayloadResult>,
-  item: AttachmentDataItem
+  downloadAttachmentPayload: (item: AttachmentDataItem, limits?: AttachmentDownloadLimits) => Promise<AttachmentPayloadResult>,
+  item: AttachmentDataItem,
+  limits?: AttachmentDownloadLimits
 ): Promise<AttachmentPayloadResult> {
   try {
-    const result = await downloadAttachmentPayload(item)
+    const result = await downloadAttachmentPayload(item, limits)
+    if (result.state === 'download_limit_reached') {
+      return { state: 'download_limit_reached' }
+    }
     if (result.state !== 'ok') {
       return { state: 'failed' }
     }
@@ -2150,7 +2335,7 @@ function planManifestRow (
   attachmentCount = 'none'
 ): ManifestRow {
   const materializedFolder = executionMode === 'materialized'
-    ? tryPagePayloadFolderForPage(metadata.page_id, metadata.space_key) ?? 'none'
+    ? tryPagePayloadFolder(metadata.page_id, metadata.space_key) ?? 'none'
     : 'none'
   return {
     page_id: metadata.page_id,
@@ -2740,17 +2925,11 @@ function rootMetadataFailedRow (pageId: string): FailedPageRow {
 }
 
 async function writeIncompleteMarker (outputRoot: string): Promise<void> {
-  await ensureDirectoryNoFollow(outputRoot)
-  await writeFileAtomic(path.join(outputRoot, 'INCOMPLETE'), 'incomplete=1\n')
-}
-
-async function writeNonAuthoritativeMarker (outputRoot: string): Promise<void> {
-  await ensureDirectoryNoFollow(outputRoot)
-  await writeFileAtomic(path.join(outputRoot, 'NON_AUTHORITATIVE'), 'non_authoritative=1\n')
+  await publishFinalArtifacts({ outputRoot, status: 'incomplete', artifactKind: 'plain_root', zipPath: null })
 }
 
 async function removeIncompleteMarker (outputRoot: string): Promise<void> {
-  await fs.rm(path.join(outputRoot, 'INCOMPLETE'), { force: true })
+  await publishFinalArtifacts({ outputRoot, status: 'authoritative', artifactKind: 'plain_root', zipPath: null })
 }
 
 async function writePagePayloadArtifact (

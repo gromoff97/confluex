@@ -19,6 +19,13 @@ const EXPORTER_MAX_BUFFER_BYTES = 8 * 1024 * 1024
 const MARKDOWN_PAYLOAD_MAX_BYTES = 64 * 1024 * 1024
 const DEBUG_TEXT_MAX_BYTES = 1024 * 1024
 
+type MarkdownExporterTrustPolicy = {
+  mode: 'trusted_live_package'
+  executable: 'uvx'
+  package: typeof EXPORTER_PACKAGE
+  tokenTransport: 'temp_config_only'
+}
+
 type PageRef = {
   page_id: string
 }
@@ -33,6 +40,7 @@ type MarkdownPayloadResult =
   | {
     state: 'failed'
     error: 'page_payload_failed'
+    cleanupError?: 'temp_cleanup_failed'
     debug?: MarkdownExporterDebugArtifacts
   }
 
@@ -57,6 +65,11 @@ type MarkdownExporterDependencies = {
   makeTempDir?: (prefix: string) => Promise<string>
   execFile?: ExecFileDependency
   removeTempDir?: (dir: string) => Promise<unknown>
+}
+
+export type MarkdownPayloadReadDependencies = {
+  stat?: (payloadPath: string) => Promise<{ size: number }>
+  readFile?: (payloadPath: string) => Promise<Uint8Array>
 }
 
 type MarkdownExporterConfigInput = {
@@ -105,6 +118,7 @@ export async function acquireMarkdownPagePayload (
   }
 
   let tempDir: string | null = null
+  let result: MarkdownPayloadResult = failedPayload()
 
   try {
     const makeTempDir = dependencies.makeTempDir ?? defaultMakeTempDir
@@ -123,34 +137,41 @@ export async function acquireMarkdownPagePayload (
     const args = markdownExporterArgs(context.baseUrl, page.page_id)
     const execResult = await runExporter(execFile, args, env, configPath)
     if (execResult.state === 'failed') {
-      return failedPayload(execResult.debug)
-    }
-
-    const debugBase = execResult.debug
-    let rawPayload: string
-    try {
-      rawPayload = await readMarkdownPayload(path.join(outputDir, `${page.page_id}.md`))
-    } catch {
-      return failedPayload(debugBase)
-    }
-    const payload = normalizeMarkdownPayload(rawPayload)
-    return {
-      state: 'ok',
-      payload,
-      diagnostics: markdownRemnantDiagnostics(payload),
-      debug: {
-        ...debugBase,
-        rawPayload,
-        normalizedPayload: payload
+      result = failedPayload(execResult.debug)
+    } else {
+      const debugBase = execResult.debug
+      let rawPayload: string | null = null
+      try {
+        rawPayload = await readMarkdownPayload(path.join(outputDir, `${page.page_id}.md`))
+      } catch {
+        result = failedPayload(debugBase)
+      }
+      if (rawPayload !== null) {
+        const payload = normalizeMarkdownPayload(rawPayload)
+        result = {
+          state: 'ok',
+          payload,
+          diagnostics: markdownRemnantDiagnostics(payload),
+          debug: {
+            ...debugBase,
+            rawPayload,
+            normalizedPayload: payload
+          }
+        }
       }
     }
   } catch {
-    return failedPayload()
-  } finally {
-    if (tempDir !== null) {
-      await removeTempDir(tempDir, dependencies)
+    result = failedPayload()
+  }
+
+  if (tempDir !== null) {
+    const cleanup = await removeTempDir(tempDir, dependencies)
+    if (cleanup.state === 'failed') {
+      return payloadWithCleanupFailure(result, cleanup.error)
     }
   }
+
+  return result
 }
 
 async function runExporter (
@@ -225,13 +246,22 @@ export function markdownExporterConfig (input: MarkdownExporterConfigInput): Mar
   }
 }
 
-function confluenceChildProcessEnv (
+export function confluenceChildProcessEnv (
   env: NodeJS.ProcessEnv,
   overrides: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv {
   return {
     ...allowedChildProcessEnv(env),
     ...overrides
+  }
+}
+
+export function markdownExporterTrustPolicy (): MarkdownExporterTrustPolicy {
+  return {
+    mode: 'trusted_live_package',
+    executable: 'uvx',
+    package: EXPORTER_PACKAGE,
+    tokenTransport: 'temp_config_only'
   }
 }
 
@@ -281,19 +311,67 @@ async function defaultExecFile (file: string, args: string[], options: ExecFileO
   return await execFilePromise(file, args, options)
 }
 
-async function readMarkdownPayload (payloadPath: string): Promise<string> {
-  const bytes = await fs.readFile(payloadPath)
-  if (bytes.length > MARKDOWN_PAYLOAD_MAX_BYTES) {
+export async function readMarkdownPayloadWithinCap (
+  payloadPath: string,
+  maxBytes = MARKDOWN_PAYLOAD_MAX_BYTES,
+  dependencies: MarkdownPayloadReadDependencies = {}
+): Promise<string> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) {
+    throw new Error('markdown payload byte cap must be a non-negative safe integer')
+  }
+  const stat = dependencies.stat ?? defaultPayloadStat
+  const metadata = await stat(payloadPath)
+  if (!Number.isSafeInteger(metadata.size) || metadata.size > maxBytes) {
+    throw new Error('markdown payload exceeded byte cap')
+  }
+  const readFile = dependencies.readFile ?? defaultPayloadReadFile
+  const bytes = await readFile(payloadPath)
+  if (bytes.byteLength > maxBytes) {
     throw new Error('markdown payload exceeded byte cap')
   }
   return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
 }
 
-async function removeTempDir (tempDir: string, dependencies: MarkdownExporterDependencies): Promise<void> {
+async function readMarkdownPayload (payloadPath: string): Promise<string> {
+  return await readMarkdownPayloadWithinCap(payloadPath)
+}
+
+async function defaultPayloadStat (payloadPath: string): Promise<{ size: number }> {
+  return await fs.stat(payloadPath)
+}
+
+async function defaultPayloadReadFile (payloadPath: string): Promise<Uint8Array> {
+  return await fs.readFile(payloadPath)
+}
+
+async function removeTempDir (
+  tempDir: string,
+  dependencies: MarkdownExporterDependencies
+): Promise<{ state: 'ok' } | { state: 'failed', error: 'temp_cleanup_failed' }> {
   const remove = dependencies.removeTempDir ?? ((dir: string): Promise<void> => fs.rm(dir, { recursive: true, force: true }))
   try {
     await remove(tempDir)
+    return { state: 'ok' }
   } catch {
+    return { state: 'failed', error: 'temp_cleanup_failed' }
+  }
+}
+
+function payloadWithCleanupFailure (
+  result: MarkdownPayloadResult,
+  cleanupError: 'temp_cleanup_failed'
+): MarkdownPayloadResult {
+  if (result.state === 'ok') {
+    return {
+      state: 'failed',
+      error: 'page_payload_failed',
+      cleanupError,
+      debug: result.debug
+    }
+  }
+  return {
+    ...result,
+    cleanupError
   }
 }
 

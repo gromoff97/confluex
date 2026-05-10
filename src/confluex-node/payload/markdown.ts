@@ -63,7 +63,7 @@ function addDiagnostic (
   token: string,
   text: string
 ): void {
-  if (!hasUnescapedToken(text, token)) {
+  if (!text.includes(token)) {
     return
   }
   const key = `${kind}\t${token}`
@@ -76,15 +76,4 @@ function addDiagnostic (
     token,
     detail: `markdown_remnant_kind=${kind};token=${token}`
   })
-}
-
-function hasUnescapedToken (text: string, token: string): boolean {
-  let index = text.indexOf(token)
-  while (index !== -1) {
-    if (index === 0 || text[index - 1] !== '\\') {
-      return true
-    }
-    index = text.indexOf(token, index + token.length)
-  }
-  return false
 }

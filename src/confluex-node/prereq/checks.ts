@@ -14,6 +14,8 @@ export type DependencyState = {
 
 const MIN_NODE_VERSION: [number, number, number] = [20, 11, 0]
 const MIN_NODE_VERSION_TEXT = '>=20.11.0'
+const DEPENDENCY_PROBE_TIMEOUT_MS = 5000
+const DEPENDENCY_PROBE_MAX_BUFFER_BYTES = 64 * 1024
 const CHILD_ENV_ALLOWLIST = ['PATH', 'Path', 'PATHEXT', 'HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR'] as const
 
 export function checkNodeVersion (version: string = process.versions.node): NodeVersionCheck {
@@ -34,8 +36,7 @@ export function checkNodeVersion (version: string = process.versions.node): Node
 }
 
 export function nodeRuntimeDependency (version: string = process.version): DependencyState {
-  const normalized = version.startsWith('v') ? version.slice(1) : version
-  const check = checkNodeVersion(normalized)
+  const check = checkNodeVersion(version)
   return {
     label: 'node_runtime',
     state: check.state === 'passed' ? `present:${version}` : `unsupported:${version}`
@@ -58,13 +59,22 @@ export function executableDependencyProbe (
 
   const result = spawnSync(resolved, ['--version'], {
     encoding: 'buffer',
-    env: childEnv
+    env: childEnv,
+    timeout: DEPENDENCY_PROBE_TIMEOUT_MS,
+    maxBuffer: DEPENDENCY_PROBE_MAX_BUFFER_BYTES
   })
 
   const version = parseVersionProbe(result)
   return {
     label,
     state: version === null ? 'present:unknown_version' : `present:${version}`
+  }
+}
+
+export function dependencyProbePolicy (): { timeoutMs: number, maxBufferBytes: number } {
+  return {
+    timeoutMs: DEPENDENCY_PROBE_TIMEOUT_MS,
+    maxBufferBytes: DEPENDENCY_PROBE_MAX_BUFFER_BYTES
   }
 }
 
@@ -85,7 +95,7 @@ export function runtimePrerequisiteFailure (name: string, details?: string): str
 }
 
 function parseNodeVersion (version: string): [number, number, number] | null {
-  const match = /^v?([0-9]+)\.([0-9]+)\.([0-9]+)/.exec(version)
+  const match = /^([0-9]+)\.([0-9]+)\.([0-9]+)$/.exec(version)
   if (match === null) {
     return null
   }
