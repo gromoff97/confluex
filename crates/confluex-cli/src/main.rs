@@ -6,6 +6,7 @@ use confluex_core::{
     cli::CommandRequest,
     export::run_export,
     runtime::{CliOutcome, ExitCode},
+    setup::run_setup,
 };
 
 #[tokio::main]
@@ -18,11 +19,7 @@ async fn main() {
             stdout: String::new(),
             stderr: "ERROR: rust help rendering is not wired yet\n".to_owned(),
         },
-        CommandRequest::Setup(_) => CliOutcome {
-            exit: ExitCode::Usage,
-            stdout: String::new(),
-            stderr: "ERROR: rust setup workflow is not wired yet\n".to_owned(),
-        },
+        CommandRequest::Setup(_) => run_setup().await,
         CommandRequest::Export(request) => run_export(request).await,
     };
 

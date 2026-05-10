@@ -9,3 +9,4 @@ pub mod reports;
 pub mod runtime;
 pub mod scope;
 pub mod security;
+pub mod setup;
