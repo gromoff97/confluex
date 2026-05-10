@@ -226,8 +226,8 @@ shared self-location acquisition rule.
    ancestor to farthest ancestor.
 4. A candidate runtime-root directory qualifies only when non-following
    filesystem metadata under `FR-0154` reports that the candidate is a
-   directory, its exact child path `package.json` is a regular file, and its
-   exact descendant path `bin/confluex` is a regular file.
+   directory, its exact child path `Cargo.toml` is a regular file, and its exact
+   child path `crates` is a directory.
 5. The currently executing Confluex runtime root is the first qualifying
    candidate runtime-root directory from criterion 4.
 6. If criteria 1 through 5 cannot identify one absolute runtime root path for

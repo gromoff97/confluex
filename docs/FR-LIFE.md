@@ -2,55 +2,55 @@
 
 
 ### FR-0215
-**Requirement**: The npm package manifest shall define one publishable Confluex
-CLI package.
+**Requirement**: The Cargo workspace manifest shall define the Confluex CLI
+build surface.
 
 **Applicability**:
-- package metadata used for local install, package dry-run, or publish
+- product source build metadata
+- release verification
+- local development verification
 
 **Rationale**:
-- Operators need Confluex to install through the standard npm package model.
+- Confluex is Cargo-only for this project phase, so build ownership must come
+  from Cargo manifests instead of a secondary package adapter.
 
 **Acceptance Criteria**:
-1. `package.json` contains a lowercase package `name`, a semver `version`, a
-   non-empty `description`, a `bin.confluex` mapping exactly equal to
-   `./bin/confluex`, and a `files` allowlist.
-2. The `files` allowlist is exactly this ordered JSON string array:
-   `["bin/", "docs/man/", "README.md", "LICENSE", "package.json"]`.
-3. The publishable package path inventory is closed to these path classes:
-   `package.json`, `README.md`, `LICENSE`, `bin/confluex`, and regular files
-   whose package-relative path begins with `docs/man/`.
-4. The package-public docs inventory is exactly `README.md`, `LICENSE`, and
-   `docs/man/man1/confluex.1`.
-5. Package metadata does not mark the package `private` when publication is the
-   active lifecycle target.
+1. The product root contains `Cargo.toml` and `Cargo.lock`.
+2. The root `Cargo.toml` defines one workspace member path
+   `crates/confluex-cli`.
+3. The `crates/confluex-cli` crate defines one binary named exactly `confluex`.
+4. The canonical release build command is exactly
+   `cargo build --release -p confluex`.
+5. The canonical check command is exactly `cargo check --workspace`.
+6. The canonical lint command is exactly
+   `cargo clippy --workspace --all-targets -- -D warnings`.
 
 **Dependencies**:
 - None
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: package metadata and package dry-run contents
+- Observable evidence: Cargo manifests and Cargo build commands
 
 ### FR-0048
-**Requirement**: Fresh installation shall use npm package installation.
+**Requirement**: Fresh local build shall use Cargo release build.
 
 **Applicability**:
-- operator installation documentation
-- package installation smoke checks
+- operator build documentation
+- external verification
+- local development setup
 
 **Rationale**:
-- Operators need one canonical installation workflow that matches how npm CLI
-  packages are normally distributed.
+- Operators and maintainers need one build path that matches the Rust runtime
+  architecture.
 
 **Acceptance Criteria**:
-1. The documented fresh install command is `npm install -g <package-name>`.
-2. A successful fresh install exposes `confluex` on `PATH` through the npm
-   `bin` mapping governed by `FR-0215`.
-3. A fresh install is valid only when the installed-package smoke checks
-   governed by `FR-0051` pass.
-4. Fresh install validation uses the installed `confluex` command exposed by
-   the npm `bin` mapping governed by `FR-0215`.
+1. The documented fresh local build command is exactly
+   `cargo build --release -p confluex`.
+2. A successful fresh local build creates the command binary at
+   `target/release/confluex` on Unix-like platforms.
+3. Fresh local build validation runs the smoke checks governed by `FR-0051`.
+4. Fresh local build documentation does not require a secondary package manager.
 
 **Dependencies**:
 - `FR-0215`
@@ -58,23 +58,24 @@ CLI package.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: install docs, installed `confluex` command, smoke output
+- Observable evidence: Cargo release build and built binary execution
 
 ### FR-0049
-**Requirement**: Package update shall use npm package update semantics.
+**Requirement**: Update shall use source update plus Cargo rebuild.
 
 **Applicability**:
 - operator update documentation
-- package update smoke checks
+- local development update verification
 
 **Rationale**:
-- Operators need updates to use the same package manager that installed the CLI.
+- Cargo-only updates should replace source and rebuild the same native CLI
+  binary rather than using a separate installer state.
 
 **Acceptance Criteria**:
-1. The documented update command is `npm install -g <package-name>@latest`.
-2. Update validation uses the installed-package smoke checks governed by
-   `FR-0051`.
-3. Update documentation identifies npm as the update mechanism.
+1. Update documentation describes updating the source checkout before rebuilding.
+2. The documented rebuild command after source update is exactly
+   `cargo build --release -p confluex`.
+3. Update validation runs the smoke checks governed by `FR-0051` after rebuild.
 
 **Dependencies**:
 - `FR-0048`
@@ -82,65 +83,64 @@ CLI package.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: update docs and installed-command smoke output
+- Observable evidence: source update docs and Cargo rebuild output
 
 ### FR-0050
-**Requirement**: Package removal shall use npm package uninstall semantics.
+**Requirement**: Removal shall remove the Cargo-built binary or build artifacts
+selected by the operator.
 
 **Applicability**:
-- operator uninstall documentation
-- package uninstall smoke checks
+- operator removal documentation
+- local cleanup verification
 
 **Rationale**:
-- Operators need removal to be owned by the package manager rather than a
-  manifest-driven Confluex subcommand.
+- Cargo-only local builds leave build artifacts under the workspace target
+  directory; removal is cleanup of those artifacts or copied binaries chosen by
+  the operator.
 
 **Acceptance Criteria**:
-1. The documented uninstall command is `npm uninstall -g <package-name>`.
-2. Uninstall validation confirms the npm global package is removed or no longer
-   resolves to the removed package.
-3. Uninstall documentation identifies npm as the removal mechanism.
+1. Removal documentation identifies `target/release/confluex` as the canonical
+   local release binary path on Unix-like platforms.
+2. Removal documentation may recommend `cargo clean` when the operator wants to
+   remove workspace build artifacts.
+3. Removal documentation does not describe global package-manager uninstall
+   state.
 
 **Dependencies**:
 - `FR-0048`
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: uninstall docs and package-manager result
+- Observable evidence: cleanup docs and absence of selected local artifact
 
 ### FR-0051
-**Requirement**: Installed-package smoke checks shall validate installed command
-and manual resolution.
+**Requirement**: Cargo-built binary smoke checks shall validate command help.
 
 **Applicability**:
-- local package install checks
-- package update checks
+- local build checks
 - release verification
-- external Docker verification
+- external verification
 
 **Rationale**:
-- A package that only renders top-level help can still be missing lazy-loaded
-  runtime paths.
+- A successful Rust build must still prove the public command surface is
+  executable.
 
 **Acceptance Criteria**:
-1. Installed-package smoke checks run these commands in order:
-   `confluex --help`, `confluex setup --help`,
-   `confluex export --help`, and `man -w confluex`.
-2. The `confluex --help` command follows the top-level help contract governed
-   by `FR-0007`.
+1. Cargo-built binary smoke checks run these commands in order:
+   `target/release/confluex --help`,
+   `target/release/confluex setup --help`, and
+   `target/release/confluex export --help`.
+2. The `target/release/confluex --help` command follows the top-level help
+   contract governed by `FR-0007`.
 3. Each command-help invocation follows the command-help contract governed by
    `FR-0008`.
-4. The `man -w confluex` command resolves the installed manual page whose
-   package source path is governed by `FR-0215`.
-5. Any smoke command output containing a JavaScript module-resolution stack
-   trace, an unhandled exception stack trace, or a missing packaged-runtime
-   path fails installed-package validation.
-6. Installed-package smoke checks are executed by the external verification
-   project in Docker, not by product-internal test code.
-7. The installed-package Docker verification command is
-   `npm --prefix /home/gromoff97/IdeaProjects/confluex-test run verify:install`.
-8. The expected installed-smoke artifacts are stdout, stderr, exit code for each
-   smoke command and the `man -w confluex` resolved manual path.
+4. Any smoke command output containing a JavaScript module-resolution stack
+   trace, an unhandled exception stack trace, or a missing Rust runtime path
+   fails Cargo-built binary validation.
+5. Cargo-built binary smoke checks are executed by the external verification
+   project, not by product-internal test code.
+6. The expected smoke artifacts are stdout, stderr, and exit code for each
+   smoke command.
 
 **Dependencies**:
 - `FR-0007`
@@ -149,93 +149,86 @@ and manual resolution.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: installed command stdout, stderr, and exit codes
+- Observable evidence: built command stdout, stderr, and exit codes
 
 ### FR-0166
-**Requirement**: Package dry-run shall review publishable contents before
-publication.
+**Requirement**: Release verification shall review tracked Cargo product source.
 
 **Applicability**:
 - release verification
-- package-content review
-- external Docker verification
+- source-content review
+- external verification
 
 **Rationale**:
-- Package publication needs reviewable contents that include runtime files and
-  exclude secrets or irrelevant bulk.
+- Cargo-only release readiness needs reviewable source contents that exclude
+  test harnesses, private workspace paths, and obsolete adapter files.
 
 **Acceptance Criteria**:
-1. Release verification runs `npm pack --dry-run` or an equivalent package
-   content listing.
-2. The package content review normalizes each listed path by removing exactly
-   one leading `package/` prefix when that prefix is present.
-3. The normalized package content listing contains `package.json`, `README.md`,
-   `LICENSE`, and `bin/confluex`.
-4. Every normalized package content path belongs to exactly one package path
-   class from the closed inventory governed by `FR-0215`.
-5. Package content review is executed by the external verification project in
-   Docker and must reject product-internal tests, stand files, Superpowers
+1. Release verification reviews tracked Cargo product source rather than a
+   package archive.
+2. The product source review requires `Cargo.toml`, `Cargo.lock`,
+   `crates/confluex-cli/Cargo.toml`, `crates/confluex-core/Cargo.toml`,
+   `README.md`, `LICENSE`, and `docs/man/man1/confluex.1`.
+3. The product source review rejects removed package manifest files, removed
+   package-adapter files, product-internal tests, stand files, Superpowers
    artifacts, scan output, and private workspace paths.
-6. The canonical external verification project path is
+4. The canonical external verification project path is
    `/home/gromoff97/IdeaProjects/confluex-test`.
-7. The package-content verification command is
-   `npm --prefix /home/gromoff97/IdeaProjects/confluex-test run verify:remediation-tarball`.
-8. Successful package-content verification emits `tarball_verification_ok files=<count>`,
-   where `<count>` is a canonical non-negative integer.
 
 **Dependencies**:
 - `FR-0215`
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: package dry-run file list
+- Observable evidence: tracked-source inventory review
 
 ### FR-0167
-**Requirement**: The installed command shall execute the packaged native
-runtime directly.
+**Requirement**: Command execution shall use the Cargo-built native runtime
+directly.
 
 **Applicability**:
-- installed `confluex` command invocations
+- built `confluex` command invocations
+- external regression verification
 
 **Rationale**:
-- npm should expose the Rust binary directly so command behavior is not mediated
-  by a legacy JavaScript shim.
+- Cargo should execute the Rust binary directly so command behavior is not
+  mediated by a legacy runtime shim.
 
 **Acceptance Criteria**:
-1. The package contains one executable public native binary at `bin/confluex`
-   for the command name `confluex`.
-2. The `bin.confluex` mapping governed by `FR-0215` points directly to that
-   native binary.
-3. The package contains no public JavaScript command shim and no public `dist/`
-   runtime directory.
+1. The release binary path for external verification is exactly
+   `target/release/confluex` on Unix-like platforms.
+2. External verification invokes the release binary directly unless
+   `CONFLUEX_BIN` explicitly selects another binary.
+3. The product source contains no public JavaScript command shim and no public
+   JavaScript runtime directory.
 
 **Dependencies**:
 - `FR-0215`
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: package `bin`, installed command dispatch
+- Observable evidence: direct Cargo-built binary dispatch
 
 ### FR-0168
-**Requirement**: Installation documentation shall provide a quick start and
-delegate full usage details to the installed manual.
+**Requirement**: Installation documentation shall provide a Cargo quick start and
+delegate full usage details to the manual source.
 
 **Applicability**:
-- README and operator installation docs
+- README and operator lifecycle docs
 
 **Rationale**:
-- Operators need concise package lifecycle instructions and a way to validate
-  the installed tool.
+- Operators need concise Cargo build instructions and a stable reference for CLI
+  usage.
 
 **Acceptance Criteria**:
-1. README quick-start documentation includes fresh install, update, uninstall,
-   `confluex setup`, one `confluex export --page-id <id> --plan-only`
-   example, one `confluex export --page-id <id> --zip` example, and
-   `man confluex`.
-2. README quick-start documentation identifies npm as the package manager for
-   install, update, and uninstall.
-3. README quick-start documentation identifies the installed manual as the full
-   operator reference.
+1. README quick-start documentation includes `cargo build --release -p confluex`,
+   `./target/release/confluex --help`, `./target/release/confluex setup`, one
+   `./target/release/confluex export --page-id <id> --plan-only` example, one
+   `./target/release/confluex export --page-id <id> --zip` example, and a
+   reference to `docs/man/man1/confluex.1`.
+2. README quick-start documentation identifies Cargo as the build tool.
+3. README quick-start documentation identifies the manual source file as the
+   full operator reference for the Cargo-only phase.
 
 **Dependencies**:
 - `FR-0048`
@@ -248,49 +241,49 @@ delegate full usage details to the installed manual.
 - Observable evidence: README lifecycle sections
 
 ### FR-0169
-**Requirement**: Publication shall be gated by package and history hygiene.
+**Requirement**: Publication shall not be active while Confluex is Cargo-only.
 
 **Applicability**:
 - publication preparation
+- release checklist
 
 **Rationale**:
-- Public package publication should not leak internal paths, secrets, or
-  irrelevant history.
+- The current project phase has no external distribution channel beyond local
+  Cargo builds.
 
 **Acceptance Criteria**:
-1. Publication preparation runs forbidden-reference and secret scans before
-   publish.
-2. If forbidden history references are present, history cleanup is a separate
-   explicitly approved phase before push or publish.
-3. Publication uses `npm publish --access public` for scoped public packages and
-   `npm publish` for unscoped public packages.
-4. Publication requires npm authentication compatible with the account's 2FA or
-   token policy.
+1. Publication preparation has no active publish command.
+2. Any future publication channel requires a separate approved design before
+   release.
+3. Forbidden-reference and secret scans remain release hygiene requirements
+   before any future publication channel is introduced.
 
 **Dependencies**:
 - `FR-0166`
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: release checklist, scan output, publish command choice
+- Observable evidence: release checklist without active publish command
 
 ### FR-0170
-**Requirement**: Local development installation shall use npm's local package
-mechanisms.
+**Requirement**: Local development setup shall use Cargo.
 
 **Applicability**:
 - developer setup documentation
-- local package smoke checks
+- local smoke checks
 
 **Rationale**:
-- Maintainers need to test the same package shape operators install.
+- Maintainers need development commands that match the product's only build
+  system.
 
 **Acceptance Criteria**:
-1. Local development install documentation uses `npm install` for dependencies.
-2. Local package install testing uses either `npm install -g <package-path>` or
-   a tarball created by `npm pack`.
-3. Local package smoke testing uses the installed-package smoke checks governed
-   by `FR-0051`.
+1. Local development setup documentation uses `cargo check --workspace` for
+   compile validation.
+2. Local development setup documentation uses
+   `cargo clippy --workspace --all-targets -- -D warnings` for lint validation.
+3. Local release build testing uses `cargo build --release -p confluex`.
+4. Local smoke testing uses the Cargo-built binary smoke checks governed by
+   `FR-0051`.
 
 **Dependencies**:
 - `FR-0048`
@@ -300,28 +293,26 @@ mechanisms.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: local install docs and smoke commands
+- Observable evidence: local Cargo commands and smoke output
 
 ### FR-0245
-**Requirement**: Package lifecycle documentation shall use npm commands for
-package install, update, and removal workflows.
+**Requirement**: Lifecycle documentation shall use Cargo commands for build,
+update, validation, and removal workflows.
 
 **Applicability**:
 - operator lifecycle documentation
-- package smoke documentation
+- smoke documentation
 
 **Rationale**:
-- Operators need package lifecycle instructions to match the package manager
-  that owns installation state.
+- Lifecycle instructions must match the tool that owns the product build state.
 
 **Acceptance Criteria**:
-1. Fresh package installation documentation uses the npm command governed by
-   `FR-0048`.
-2. Package update documentation uses the npm command governed by `FR-0049`.
-3. Package removal documentation uses the npm command governed by `FR-0050`.
-4. Package smoke documentation validates the public command inventory governed
-   by `FR-0222` through the installed-package smoke checks governed by
-   `FR-0051`.
+1. Fresh local build documentation uses the Cargo command governed by `FR-0048`.
+2. Update documentation uses the source-update and Cargo rebuild behavior
+   governed by `FR-0049`.
+3. Removal documentation uses the local cleanup behavior governed by `FR-0050`.
+4. Smoke documentation validates the public command inventory governed by
+   `FR-0222` through the Cargo-built binary smoke checks governed by `FR-0051`.
 
 **Dependencies**:
 - `FR-0222`
@@ -333,27 +324,28 @@ package install, update, and removal workflows.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: lifecycle docs and installed-command smoke output
+- Observable evidence: lifecycle docs and built-command smoke output
 
 ### FR-0172
-**Requirement**: Lifecycle failures shall produce actionable package-manager
-next steps.
+**Requirement**: Lifecycle failures shall produce actionable Cargo, build,
+configuration, or Confluence next steps.
 
 **Applicability**:
-- installation, update, uninstall, and package smoke documentation
+- build, update, cleanup, and smoke documentation
 
 **Rationale**:
-- Operators need failures to identify whether npm, package contents, native
-  binary execution, configuration, or Confluence access is the next problem.
+- Operators need failures to identify whether Cargo, source checkout state,
+  native binary execution, configuration, or Confluence access is the next
+  problem.
 
 **Acceptance Criteria**:
-1. Lifecycle docs distinguish npm installation failure, missing packaged native
-   binary execution, missing token configuration, native Markdown
-   materialization failure, and Confluence access failure.
-2. Lifecycle validation failures do not print token values, Authorization header
-   values, cookies, or full process environments.
-3. When package smoke fails because the installed runtime cannot load, the next
-   action names package reinstall or package-content verification rather than
+1. Lifecycle docs distinguish Cargo build failure, missing built native binary,
+   missing token configuration, native Markdown materialization failure, and
+   Confluence access failure.
+2. Lifecycle validation failures do not print token values, Authorization
+   header values, cookies, or full process environments.
+3. When smoke validation fails because the built runtime cannot execute, the
+   next action names Cargo rebuild or source-content verification rather than
    Confluence troubleshooting.
 
 **Dependencies**:
