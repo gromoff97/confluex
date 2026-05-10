@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/confluex-core",
+  "crates/confluex-cli",
+]
+
+[workspace.package]
+edition = "2021"
+license = "UNLICENSED"
+repository = "https://github.com/gromoff97/confluex"
+rust-version = "1.88"
+
+[workspace.dependencies]
+camino = { version = "1.2.2", features = ["serde1"] }
+cap-std = { version = "4.0.2", features = ["fs_utf8"] }
+clap = { version = "4.6.1", features = ["derive", "std", "help", "usage", "error-context"] }
+comrak = "0.52.0"
+fs-err = "3.3.0"
+h2m = "0.7.1"
+quick-xml = { version = "0.39.3", features = ["serialize"] }
+reqwest = { version = "0.13.3", default-features = false, features = ["rustls", "json", "stream", "gzip", "deflate", "system-proxy"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.27.0"
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "fs", "process", "signal", "time", "sync", "io-util"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+url = { version = "2.5.8", features = ["serde"] }
+walkdir = "2.5.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate", "time"] }

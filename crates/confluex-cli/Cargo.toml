@@ -1,0 +1,19 @@
+[package]
+name = "confluex"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "confluex"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+confluex-core = { path = "../confluex-core" }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

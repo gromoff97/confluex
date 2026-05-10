@@ -26,6 +26,9 @@
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json",
+    "build:rust": "cargo build --workspace",
+    "check:rust": "cargo check --workspace",
+    "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
     "prepack": "npm run build"
   },
   "devDependencies": {
