@@ -25,3 +25,9 @@ pub struct CliOutcome {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvocationDecision<T> {
+    Accepted(T),
+    Rejected(CliOutcome),
+}
