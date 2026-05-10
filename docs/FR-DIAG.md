@@ -2,35 +2,28 @@
 
 
 ### FR-0038
-**Requirement**: Setup shall verify required local dependency readiness before
-persisting user configuration.
+**Requirement**: Setup shall not require local executable dependency readiness
+checks before persisting user configuration.
 
 **Applicability**:
 - accepted non-help `setup` invocations
 
 **Rationale**:
-- Operators need setup to save configuration only when the local runtime can run
-  Confluex and invoke the Markdown converter.
+- Confluex uses its packaged native runtime and built-in Markdown conversion, so
+  setup should validate only reusable Confluence connection configuration.
 
 **Acceptance Criteria**:
-1. Setup checks exactly this local dependency before writing user config:
-   the `uvx` executable.
-2. The exact dependency executable name is `uvx` for the Markdown converter.
-3. `uvx` is resolved on `PATH`.
-4. Dependency probes receive only the subprocess environment keys allowed by
-   `FR-0253`.
-5. The `uvx` dependency probe timeout is exactly `5000` milliseconds and its
-   stdout/stderr buffer cap is exactly `65536` bytes.
-6. On Windows, `uvx` resolution honors executable candidates compatible with
-   `PATHEXT`, including command shims such as `uvx.cmd`.
-7. If `uvx` cannot be resolved on `PATH`, setup fails before writing user
-   config with stderr exactly `ERROR: setup_failed missing_markdown_converter`.
-8. Local dependency failure output never emits token values, Authorization
-   header values, cookies, full response bodies, or full process environments.
+1. Setup performs no local executable dependency probe before writing user
+   config.
+2. Setup does not resolve `uvx`, `node`, a Markdown exporter executable, or any
+   other local helper executable on `PATH`.
+3. Setup never fails with stderr
+   `ERROR: setup_failed missing_markdown_converter`.
+4. Setup still performs Confluence connection validation governed by `FR-0255`
+   before writing user config.
 
 **Dependencies**:
-- `FR-0237`
-- `FR-0253`
+- `FR-0255`
 
 **Traceability**:
 - Area: diagnostics
@@ -209,9 +202,9 @@ contract.
 5. On setup failure, stderr contains exactly one LF-terminated result line:
    `ERROR: setup_failed <reason>`.
 6. On setup failure, `<reason>` is exactly one of
-   `missing_markdown_converter`, `invalid_base_url`, `missing_token`,
-   `auth_rejected`, `page_inaccessible`, `transport_dns`, `transport_tls`,
-   `transport_timeout`, `transport_connection_reset`, `transport_proxy`, or
+   `invalid_base_url`, `missing_token`, `auth_rejected`, `page_inaccessible`,
+   `transport_dns`, `transport_tls`, `transport_timeout`,
+   `transport_connection_reset`, `transport_proxy`, or
    `hidden_input_unavailable`.
 7. On setup failure, exit code is `1`.
 8. If user-config persistence fails after setup validation passes, setup
@@ -219,7 +212,6 @@ contract.
    `setup_result=passed` or `config_path=`.
 
 **Dependencies**:
-- `FR-0038`
 - `FR-0255`
 - `FR-0042`
 - `FR-0246`

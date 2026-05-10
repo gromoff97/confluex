@@ -236,14 +236,10 @@ If
 is unavailable after install, verify that npm's global man directory is on the
 system man path.
 .TP
-.B uvx or the Markdown exporter is missing
-Install or repair
-.BR uvx .
-Confluex uses
-.B uvx
-to run the supported
-.B confluence-markdown-exporter
-package for Markdown payload acquisition.
+.B Markdown output cannot be materialized
+Inspect the retained reports for the failed page id and Confluence storage
+finding. Confluex converts Confluence storage to Markdown with its packaged
+native runtime; no external Markdown exporter is required.
 .TP
 .B token or config is rejected
 Run

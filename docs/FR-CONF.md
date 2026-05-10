@@ -339,8 +339,7 @@ HTTPS and require explicit insecure selection for weaker transport.
 3. Setup never selects insecure mode.
 4. Setup rejects `http://` `base_url` values before writing user config.
 5. For `https://` `base_url` values, insecure mode disabled means TLS
-   certificate verification is enabled for Confluex remote requests and the
-   Markdown exporter dependency.
+   certificate verification is enabled for Confluex remote requests.
 6. For `https://` `base_url` values, insecure mode enabled means TLS
    certificate verification is disabled only for the current export invocation.
 7. When insecure mode is active, stderr emits the insecure warning governed by

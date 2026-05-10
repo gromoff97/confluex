@@ -16,7 +16,7 @@ use crate::confluence::{
     TitleDiscovery, TransportPolicy,
 };
 use crate::links::target_reference_from_relative_url;
-use crate::markdown::{ExternalMarkdownExporter, MarkdownExportInput, MarkdownExporter};
+use crate::markdown::{MarkdownExportInput, MarkdownExporter, NativeMarkdownExporter};
 use crate::output::{
     claim_fresh_output_root, ensure_directory_no_follow, page_payload_folder, quote_path_string,
     select_output_root, write_file_no_follow_atomic, ExecutionMode as OutputExecutionMode,
@@ -59,8 +59,6 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
     let explicit_config = load_optional_explicit_config(&request, &cwd)?;
     let user_config = load_optional_user_config(&env)?;
     let effective = apply_effective_configuration(request, &explicit_config, &user_config, &env);
-    let selected_base_url = effective.confluence_base_url.clone();
-    let selected_token = effective.confluence_token.clone();
     let request = effective.request;
     let output_path_provenance = if request_had_output_root {
         "explicit"
@@ -177,21 +175,9 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
         });
     }
 
-    let final_status = write_materialized_export(
-        &scope,
-        &output_root,
-        request.resume,
-        output_path_provenance,
-        selected_base_url
-            .as_deref()
-            .or_else(|| env.get("CONFLUEX_CONFLUENCE_BASE_URL"))
-            .ok_or_else(|| validation_failure("FR-0017"))?,
-        selected_token
-            .as_deref()
-            .or_else(|| env.get("CONFLUEX_CONFLUENCE_TOKEN"))
-            .ok_or_else(|| validation_failure("FR-0017"))?,
-    )
-    .await?;
+    let final_status =
+        write_materialized_export(&scope, &output_root, request.resume, output_path_provenance)
+            .await?;
     Ok(CliOutcome {
         exit: successful_run_exit_code(final_status),
         stdout: run_stdout(
@@ -342,10 +328,8 @@ async fn write_materialized_export(
     output_root: &camino::Utf8Path,
     resume_mode: bool,
     output_path_provenance: &str,
-    base_url: &str,
-    token: &str,
 ) -> Result<FinalStatus, ExportFailure> {
-    let exporter = ExternalMarkdownExporter;
+    let exporter = NativeMarkdownExporter;
     let mut failed_payload_ids = std::collections::BTreeSet::new();
     let mut content_bytes = 0u64;
 
@@ -354,22 +338,13 @@ async fn write_materialized_export(
             failed_payload_ids.insert(row.page_id.clone());
             break;
         };
-        let temp_dir = tempfile::tempdir().map_err(|_| ExportFailure {
-            exit: ExitCode::RuntimeFailure,
-            stderr: "ERROR: runtime_failure artifact\n".to_owned(),
-        })?;
-        let work_dir = Utf8PathBuf::from_path_buf(temp_dir.path().to_path_buf()).map_err(|_| {
-            ExportFailure {
-                exit: ExitCode::RuntimeFailure,
-                stderr: "ERROR: runtime_failure artifact\n".to_owned(),
-            }
-        })?;
+        let Some(storage) = scope.page_storage.get(&row.page_id) else {
+            failed_payload_ids.insert(row.page_id.clone());
+            break;
+        };
         let payload = match exporter
             .export(MarkdownExportInput {
-                base_url: base_url.to_owned(),
-                page_id: row.page_id.clone(),
-                token: token.to_owned(),
-                work_dir,
+                storage: storage.clone(),
             })
             .await
         {
@@ -595,6 +570,7 @@ fn run_stdout(
 struct BasicPlanScope {
     root_page_id: String,
     manifest_rows: Vec<ManifestRow>,
+    page_storage: std::collections::BTreeMap<String, String>,
     resolved_link_rows: Vec<ResolvedLinkRow>,
     unresolved_link_rows: Vec<UnresolvedLinkRow>,
     failed_page_rows: Vec<FailedPageRow>,
@@ -648,6 +624,7 @@ async fn basic_plan_scope(
     let mut unresolved_link_rows = Vec::new();
     let mut scope_finding_rows = Vec::new();
     let mut failed_page_rows = Vec::new();
+    let mut page_storage = std::collections::BTreeMap::new();
     let mut downloaded_metadata_bytes = initial_metadata_bytes as u64;
     let max_download_bytes = request
         .max_download_mib
@@ -711,6 +688,7 @@ async fn basic_plan_scope(
                 storage,
                 metadata_bytes,
             } => {
+                page_storage.insert(page.metadata.page_id.clone(), storage.clone());
                 downloaded_metadata_bytes += metadata_bytes as u64;
                 download_limit_reached =
                     reached_download_limit(downloaded_metadata_bytes, max_download_bytes);
@@ -880,6 +858,7 @@ async fn basic_plan_scope(
     Ok(BasicPlanScope {
         root_page_id: root_metadata.page_id.clone(),
         manifest_rows,
+        page_storage,
         resolved_link_rows,
         unresolved_link_rows,
         failed_page_rows,

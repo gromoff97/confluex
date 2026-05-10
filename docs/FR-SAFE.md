@@ -240,43 +240,36 @@ results but discard misleading abnormal partial results.
 - Observable evidence: retained or removed plan-only output roots
 
 ### FR-0253
-**Requirement**: Child subprocesses shall receive only the environment variables
-needed for dependency execution.
+**Requirement**: Accepted runtime operations shall not spawn local dependency or
+Markdown converter subprocesses.
 
 **Applicability**:
-- dependency probes
-- Markdown exporter subprocess invocations
+- accepted non-help `setup` invocations
+- accepted `export` and `export --plan-only` runs
 
 **Rationale**:
-- Subprocesses should not inherit Confluence tokens, shell secrets, or unrelated
-  host configuration by default.
+- Built-in native Markdown conversion removes the token-bearing child-process
+  boundary and avoids inheriting shell secrets into local helpers.
 
 **Acceptance Criteria**:
-1. Dependency probes are executed with an environment allowlist containing only
-   `PATH`, `Path`, `PATHEXT`, `HOME`, `USERPROFILE`, `TMPDIR`, `TEMP`, `TMP`,
-   `SystemRoot`, and `WINDIR` when those variables are present in the parent
-   environment.
-2. Markdown exporter subprocesses start from the allowlist in criterion 1 and add
-   only exporter-owned variables needed for the invocation: `CME_CONFIG_PATH`,
-   `CI`, and `NO_COLOR`.
-3. Child subprocess environments do not include `CONFLUEX_CONFLUENCE_TOKEN`,
+1. Setup does not spawn dependency-probe subprocesses.
+2. Export does not spawn a Markdown exporter subprocess.
+3. Export does not pass `CONFLUEX_CONFLUENCE_TOKEN`,
    `CONFLUEX_CONFLUENCE_BASE_URL`, Authorization header values, cookies, or
-   arbitrary parent environment variables outside criteria 1 and 2.
-4. Dependency probe diagnostics and exporter diagnostics do not print the full
-   child environment.
+   arbitrary parent environment variables to any Markdown conversion helper.
+4. Setup and export diagnostics do not print full process environments.
 
 **Dependencies**:
 - `FR-0038`
-- `FR-0236`
 - `FR-0237`
 
 **Traceability**:
 - Area: safety
-- Observable evidence: dependency probe execution and exporter subprocess
-  invocation
+- Observable evidence: absence of setup dependency probes and exporter
+  subprocess invocation
 
 ### FR-0254
-**Requirement**: Remote Confluence requests and Markdown exporter subprocesses
+**Requirement**: Remote Confluence requests and native Markdown materialization
 shall be bounded by explicit IO limits.
 
 **Applicability**:
@@ -285,8 +278,8 @@ shall be bounded by explicit IO limits.
 - non-help `setup` invocations during connection validation
 
 **Rationale**:
-- Network and child-process failures should fail predictably instead of consuming
-  unbounded memory, disk, or time.
+- Network and payload materialization failures should fail predictably instead
+  of consuming unbounded memory, disk, or time.
 
 **Acceptance Criteria**:
 1. Every product-owned Confluence HTTP request timeout is exactly `60000`
@@ -298,15 +291,14 @@ shall be bounded by explicit IO limits.
    stop, or runtime-failure branch that owns that operation.
 4. Attachment payload downloads are streamed or otherwise bounded so bytes beyond
    the active download budget are not retained as authoritative artifacts.
-5. Markdown exporter subprocess invocation timeout is exactly `120000`
-   milliseconds, stdout cap is exactly `8388608` bytes, stderr cap is exactly
-   `8388608` bytes, and produced-payload cap is exactly `67108864` bytes.
-6. If the Markdown exporter exceeds a timeout or cap, the affected page payload
-   materialization fails through the page-local failure behavior governed by
-   `FR-0074`, unless another requirement classifies the same condition as a
-   configured stop or runtime failure.
-7. Debug capture of bounded request or exporter data remains capped and redacted
-   under `FR-0249` and `FR-0250`.
+5. Native Markdown materialization consumes only storage content already admitted
+   by the Confluence HTTP response byte cap from criterion 2.
+6. If native Markdown materialization rejects storage content, the affected page
+   payload materialization fails through the page-local failure behavior
+   governed by `FR-0074`, unless another requirement classifies the same
+   condition as a configured stop or runtime failure.
+7. Debug capture of bounded request data remains capped and redacted under
+   `FR-0249` and `FR-0250`.
 
 **Dependencies**:
 - `FR-0043`

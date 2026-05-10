@@ -344,12 +344,12 @@ next steps.
 
 **Rationale**:
 - Operators need failures to identify whether npm, package contents, native
-  binary execution, or runtime prerequisites are the next problem.
+  binary execution, configuration, or Confluence access is the next problem.
 
 **Acceptance Criteria**:
 1. Lifecycle docs distinguish npm installation failure, missing packaged native
-   binary execution, missing runtime dependency, missing token configuration,
-   and Confluence access failure.
+   binary execution, missing token configuration, native Markdown
+   materialization failure, and Confluence access failure.
 2. Lifecycle validation failures do not print token values, Authorization header
    values, cookies, or full process environments.
 3. When package smoke fails because the installed runtime cannot load, the next
@@ -357,7 +357,6 @@ next steps.
    Confluence troubleshooting.
 
 **Dependencies**:
-- `FR-0038`
 - `FR-0039`
 - `FR-0255`
 - `FR-0118`

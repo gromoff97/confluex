@@ -1,4 +1,4 @@
-//! Rust setup workflow: prompts, dependency readiness, connection validation, and config persistence.
+//! Rust setup workflow: prompts, connection validation, and config persistence.
 
 use std::io::{self, Write};
 
@@ -7,7 +7,7 @@ use crate::confluence::{
     check_current_user_access, CurrentUserAccessResult, RemoteOperationFailureReason,
     TransportPolicy,
 };
-use crate::runtime::{executable_dependency_probe, CliOutcome, DependencyState, ExitCode};
+use crate::runtime::{CliOutcome, ExitCode};
 
 pub async fn run_setup() -> CliOutcome {
     match run_setup_inner().await {
@@ -34,7 +34,6 @@ async fn run_setup_inner() -> Result<CliOutcome, SetupFailureReason> {
         .map_err(|_| SetupFailureReason::HiddenInputUnavailable)?;
 
     let env = EnvMap::from_current_process();
-    validate_setup_dependencies(&env).await?;
     let mut connection_env = env.clone();
     connection_env
         .0
@@ -65,15 +64,6 @@ async fn run_setup_inner() -> Result<CliOutcome, SetupFailureReason> {
         stdout: format!("setup_result=passed\nconfig_path={config_path}\n"),
         stderr: String::new(),
     })
-}
-
-async fn validate_setup_dependencies(env: &EnvMap) -> Result<(), SetupFailureReason> {
-    let DependencyState { state, .. } =
-        executable_dependency_probe("markdown_converter", "uvx", env).await;
-    if state == "absent" {
-        return Err(SetupFailureReason::MissingMarkdownConverter);
-    }
-    Ok(())
 }
 
 fn setup_reason(reason: RemoteOperationFailureReason) -> SetupFailureReason {
@@ -110,7 +100,6 @@ fn setup_failure(reason: SetupFailureReason) -> CliOutcome {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SetupFailureReason {
-    MissingMarkdownConverter,
     InvalidBaseUrl,
     MissingToken,
     AuthRejected,
@@ -127,7 +116,6 @@ enum SetupFailureReason {
 impl SetupFailureReason {
     fn as_str(self) -> &'static str {
         match self {
-            Self::MissingMarkdownConverter => "missing_markdown_converter",
             Self::InvalidBaseUrl => "invalid_base_url",
             Self::MissingToken => "missing_token",
             Self::AuthRejected => "auth_rejected",

@@ -478,16 +478,14 @@ tree inside the selected output root.
 3. Page-level debug artifacts are retained under `_debug/pages/<page_id>/`,
    where `<page_id>` is the canonical page identifier governed by `FR-0014`.
 4. Page-level debug artifact names are selected only from `metadata.json`,
-   `storage.xml`, `attachments-preview.json`,
-   `markdown-exporter.args.txt`, `markdown-exporter.stdout.txt`,
-   `markdown-exporter.stderr.txt`, `markdown-exporter.exit.json`,
-   `markdown.raw.md`, and `markdown.normalized.md`.
+   `storage.xml`, `attachments-preview.json`, `markdown.raw.md`, and
+   `markdown.normalized.md`.
 5. Debug artifacts are written only for operations the selected execution mode
    already performed.
-6. `plan_only` execution mode never writes `markdown.raw.md`,
-   `markdown.normalized.md`, or Markdown exporter artifacts.
-7. `materialized` execution mode writes Markdown exporter artifacts only for
-   pages whose page-payload materialization was attempted.
+6. `plan_only` execution mode never writes `markdown.raw.md` or
+   `markdown.normalized.md`.
+7. `materialized` execution mode writes Markdown debug artifacts only for pages
+   whose page-payload materialization was attempted.
 8. Debug artifact content is sanitized under `FR-0250` before it is written.
 9. Debug artifact path components are governed relative path segments under
    `FR-0150`; a page-level debug directory is not created if `<page_id>` is not a
