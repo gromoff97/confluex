@@ -5,6 +5,7 @@ tmp/
 .agents/
 .ralph/
 .playwright-mcp/
+docs/superpowers/
 ralph.yml
 PROMPT.md
 

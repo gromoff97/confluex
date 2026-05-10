@@ -134,9 +134,9 @@ selected by the operator.
    contract governed by `FR-0007`.
 3. Each command-help invocation follows the command-help contract governed by
    `FR-0008`.
-4. Any smoke command output containing a JavaScript module-resolution stack
-   trace, an unhandled exception stack trace, or a missing Rust runtime path
-   fails Cargo-built binary validation.
+4. Any smoke command output containing a runtime loader-resolution stack trace,
+   an unhandled exception stack trace, or a missing Rust runtime path fails
+   Cargo-built binary validation.
 5. Cargo-built binary smoke checks are executed by the external verification
    project, not by product-internal test code.
 6. The expected smoke artifacts are stdout, stderr, and exit code for each
@@ -199,8 +199,8 @@ directly.
    `target/release/confluex` on Unix-like platforms.
 2. External verification invokes the release binary directly unless
    `CONFLUEX_BIN` explicitly selects another binary.
-3. The product source contains no public JavaScript command shim and no public
-   JavaScript runtime directory.
+3. The product source contains no public command shim and no public legacy
+   runtime directory.
 
 **Dependencies**:
 - `FR-0215`
