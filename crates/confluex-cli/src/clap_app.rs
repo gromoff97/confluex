@@ -17,12 +17,7 @@ pub enum Commands {
 }
 
 #[derive(Debug, Args)]
-pub struct SetupArgs {
-    #[arg(long)]
-    pub config: Option<Utf8PathBuf>,
-    #[arg(long)]
-    pub insecure: bool,
-}
+pub struct SetupArgs {}
 
 #[derive(Debug, Args)]
 pub struct ExportArgs {
@@ -61,9 +56,9 @@ pub struct ExportArgs {
 pub fn into_request(cli: Cli) -> CommandRequest {
     match cli.command {
         None => CommandRequest::Help,
-        Some(Commands::Setup(args)) => CommandRequest::Setup(SetupRequest {
-            config_path: args.config,
-            insecure: args.insecure,
+        Some(Commands::Setup(_args)) => CommandRequest::Setup(SetupRequest {
+            config_path: None,
+            insecure: false,
         }),
         Some(Commands::Export(args)) => CommandRequest::Export(ExportRequest {
             page_id: args.page_id,
