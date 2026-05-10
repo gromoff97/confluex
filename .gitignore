@@ -1,6 +1,4 @@
 node_modules/
-bin/confluex
-bin/confluex.exe
 target/
 tmp/
 .idea/
