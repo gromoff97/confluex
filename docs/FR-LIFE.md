@@ -209,30 +209,33 @@ directly.
 - Observable evidence: direct Cargo-built binary dispatch
 
 ### FR-0168
-**Requirement**: Installation documentation shall provide a Cargo quick start and
-delegate full usage details to the manual source.
+**Requirement**: Installation documentation shall provide a crates.io install,
+setup, export, and help quick start.
 
 **Applicability**:
 - README and operator lifecycle docs
 
 **Rationale**:
-- Operators need concise Cargo build instructions and a stable reference for CLI
-  usage.
+- Operators need concise installation and first-export instructions that match
+  the published Cargo package page.
 
 **Acceptance Criteria**:
-1. README quick-start documentation includes `cargo build --release`,
-   `./target/release/confluex --help`, `./target/release/confluex setup`, one
-   `./target/release/confluex export --page-id <id> --plan-only` example, one
-   `./target/release/confluex export --page-id <id> --zip` example, and a
-   reference to `docs/man/man1/confluex.1`.
-2. README quick-start documentation identifies Cargo as the build tool.
-3. README quick-start documentation identifies the manual source file as the
-   full operator reference for the Cargo-only phase.
+1. README quick-start documentation includes `cargo install confluex`,
+   `confluex setup`, `confluex export --page-id <id> --plan-only --out <path>`,
+   `confluex export --page-id <id> --out <path> --zip`, `confluex --help`, and
+   `confluex export --help`.
+2. README setup documentation states that setup asks for the Confluence base URL
+   and token, and that token input is hidden.
+3. README export documentation states that `--plan-only` inspects export scope
+   without writing page Markdown.
+4. README export documentation states that `--zip` creates a ZIP archive.
+5. README source-build documentation includes `cargo build --release`,
+   `./target/release/confluex --help`, and
+   `man ./docs/man/man1/confluex.1`.
 
 **Dependencies**:
 - `FR-0048`
-- `FR-0049`
-- `FR-0050`
+- `FR-0169`
 - `FR-0222`
 
 **Traceability**:

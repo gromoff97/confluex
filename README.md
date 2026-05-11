@@ -3,52 +3,49 @@
 `confluex` is a token-authenticated CLI for exporting Confluence pages to
 Markdown.
 
-## Build
+## Install
 
 ```bash
-cargo build --release
-```
-
-Run the built CLI:
-
-```bash
-./target/release/confluex --help
+cargo install confluex
 ```
 
 ## Setup
 
 ```bash
-./target/release/confluex setup
+confluex setup
 ```
 
 `setup` asks for the Confluence base URL and token. Token input is hidden.
 
-## Inspect Scope
+## Export
+
+Inspect the export scope without writing page Markdown:
 
 ```bash
-./target/release/confluex export --page-id 12345 --plan-only --out ./plan
+confluex export --page-id 12345 --plan-only --out ./plan
 ```
 
-## First Export
+Export Markdown and create a ZIP archive:
 
 ```bash
-./target/release/confluex export --page-id 12345 --out ./dump --zip
+confluex export --page-id 12345 --out ./dump --zip
 ```
 
-## Manual
+Add `--include-children` when the export should traverse child pages.
 
-Read the full command reference source:
+## Help
 
 ```bash
+confluex --help
+confluex export --help
+```
+
+## Build From Source
+
+From a source checkout:
+
+```bash
+cargo build --release
+./target/release/confluex --help
 man ./docs/man/man1/confluex.1
-```
-
-## Publish
-
-Publish requires crates.io credentials. Set and commit the release version in
-`Cargo.toml` before publishing.
-
-```bash
-cargo publish --dry-run
-cargo publish
 ```
