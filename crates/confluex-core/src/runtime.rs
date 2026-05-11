@@ -4,6 +4,7 @@
 pub enum ExitCode {
     Success,
     Usage,
+    ConfiguredStop,
     RuntimeFailure,
     Interrupted,
 }
@@ -13,6 +14,7 @@ impl ExitCode {
         match self {
             Self::Success => 0,
             Self::Usage => 64,
+            Self::ConfiguredStop => 3,
             Self::RuntimeFailure => 1,
             Self::Interrupted => 130,
         }

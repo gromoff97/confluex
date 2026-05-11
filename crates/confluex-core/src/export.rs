@@ -10,17 +10,18 @@ use crate::config::{
     LoadedJsonConfig,
 };
 use crate::confluence::{
-    check_root_page_access, find_title_candidates, get_attachment_preview,
-    get_page_storage_content, list_child_pages, AttachmentPreviewResult, PageListResult,
+    check_root_page_access, download_attachment_payload, find_title_candidates,
+    get_attachment_data, get_attachment_preview, get_page_storage_content, list_child_pages,
+    AttachmentDataResult, AttachmentPayloadResult, AttachmentPreviewResult, PageListResult,
     PageMetadata, PageStorageResult, RemoteOperationFailureReason, RootPageAccessResult,
     TitleDiscovery, TransportPolicy,
 };
 use crate::links::target_reference_from_relative_url;
 use crate::markdown::{MarkdownExportInput, MarkdownExporter, NativeMarkdownExporter};
 use crate::output::{
-    claim_fresh_output_root, ensure_directory_no_follow, page_payload_folder, quote_path_string,
-    select_output_root, write_file_no_follow_atomic, ExecutionMode as OutputExecutionMode,
-    OutputRootClaim, OutputRootSelection,
+    claim_fresh_output_root, create_zip_from_root, ensure_directory_no_follow, page_payload_folder,
+    quote_path_string, select_output_root, write_file_no_follow_atomic, zip_path_for_output_root,
+    ExecutionMode as OutputExecutionMode, OutputRootClaim, OutputRootSelection,
 };
 use crate::reports::{
     run_report_texts, structured_raw_link_value, DiscoverySource, DownloadedMibValues,
@@ -29,6 +30,7 @@ use crate::reports::{
     UnresolvedLinkRow, REPORT_FILE_ORDER,
 };
 use crate::runtime::{CliOutcome, ExitCode};
+use crate::security::{plan_attachment_artifact, AttachmentArtifactInput};
 
 const UNBOUNDED_RUN_WARNING: &str =
     "WARNING: unbounded_run use --max-pages or --max-download-mib\n";
@@ -115,14 +117,12 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
         }
     };
 
-    if request.resume {
-        return Err(validation_failure("FR-0103"));
-    }
-
-    match claim_fresh_output_root(&output_root).await {
-        OutputRootClaim::Ok => {}
-        OutputRootClaim::Exists => return Err(validation_failure("FR-0016")),
-        OutputRootClaim::Invalid => return Err(validation_failure("FR-0076")),
+    if !request.resume {
+        match claim_fresh_output_root(&output_root).await {
+            OutputRootClaim::Ok => {}
+            OutputRootClaim::Exists => return Err(validation_failure("FR-0016")),
+            OutputRootClaim::Invalid => return Err(validation_failure("FR-0076")),
+        }
     }
 
     let Some(metadata) = metadata else {
@@ -140,6 +140,7 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
             stdout: run_stdout(
                 execution_mode,
                 &identity,
+                &output_root,
                 &output_root,
                 FinalStatus::Incomplete,
                 false,
@@ -168,6 +169,7 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
                 execution_mode,
                 &metadata.page_id,
                 &output_root,
+                &output_root,
                 final_status,
                 false,
             ),
@@ -175,17 +177,27 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
         });
     }
 
-    let final_status =
-        write_materialized_export(&scope, &output_root, request.resume, output_path_provenance)
-            .await?;
+    let (final_status, zip_path) = write_materialized_export(
+        &scope,
+        &output_root,
+        request.resume,
+        output_path_provenance,
+        request.zip,
+        request.debug,
+        &env,
+        transport_policy,
+    )
+    .await?;
+    let artifact_path = zip_path.as_deref().unwrap_or(&output_root);
     Ok(CliOutcome {
         exit: successful_run_exit_code(final_status),
         stdout: run_stdout(
             execution_mode,
             &metadata.page_id,
             &output_root,
+            artifact_path,
             final_status,
-            false,
+            request.zip,
         ),
         stderr,
     })
@@ -275,6 +287,7 @@ async fn root_metadata_failure_report(
     let texts = report_text(ReportBuild {
         page_id,
         output_root,
+        zip_path: None,
         execution_mode,
         resume_mode,
         output_path_provenance,
@@ -306,6 +319,7 @@ async fn write_plan_only_report(
     let texts = report_text(ReportBuild {
         page_id: &scope.root_page_id,
         output_root,
+        zip_path: None,
         execution_mode: OutputExecutionMode::PlanOnly,
         resume_mode,
         output_path_provenance,
@@ -328,9 +342,15 @@ async fn write_materialized_export(
     output_root: &camino::Utf8Path,
     resume_mode: bool,
     output_path_provenance: &str,
-) -> Result<FinalStatus, ExportFailure> {
+    zip_requested: bool,
+    debug_requested: bool,
+    env: &EnvMap,
+    policy: TransportPolicy,
+) -> Result<(FinalStatus, Option<camino::Utf8PathBuf>), ExportFailure> {
     let exporter = NativeMarkdownExporter;
     let mut failed_payload_ids = std::collections::BTreeSet::new();
+    let mut attachment_failed_page_rows = Vec::new();
+    let mut page_markdown = std::collections::BTreeMap::new();
     let mut content_bytes = 0u64;
 
     for row in &scope.manifest_rows {
@@ -355,7 +375,16 @@ async fn write_materialized_export(
             }
         };
         write_page_payload(output_root, folder, &payload).await?;
+        page_markdown.insert(row.page_id.clone(), payload.clone());
         content_bytes += payload.len() as u64;
+        match write_page_attachments(output_root, folder, row, env, policy).await {
+            Ok(bytes) => content_bytes += bytes,
+            Err(operation) => attachment_failed_page_rows.push(FailedPageRow {
+                page_id: Some(row.page_id.clone()),
+                page_title: Some(row.page_title.clone()),
+                operation,
+            }),
+        }
     }
 
     let manifest_rows = scope
@@ -373,6 +402,7 @@ async fn write_materialized_export(
         .failed_page_rows
         .clone()
         .into_iter()
+        .chain(attachment_failed_page_rows)
         .chain(scope.manifest_rows.iter().filter_map(|row| {
             if !failed_payload_ids.contains(&row.page_id) {
                 return None;
@@ -388,9 +418,15 @@ async fn write_materialized_export(
         || !scope.unresolved_link_rows.is_empty()
         || !failed_page_rows.is_empty();
     let final_status = final_status_for(scope.configured_stop_reason, has_blocking_reasons);
+    let zip_path = if zip_requested {
+        Some(zip_path_for_output_root(output_root))
+    } else {
+        None
+    };
     let texts = report_text(ReportBuild {
         page_id: &scope.root_page_id,
         output_root,
+        zip_path: zip_path.as_ref().map(|path| path.to_string()),
         execution_mode: OutputExecutionMode::Materialized,
         resume_mode,
         output_path_provenance,
@@ -413,7 +449,111 @@ async fn write_materialized_export(
     if final_status == FinalStatus::Incomplete {
         write_incomplete_marker(output_root).await?;
     }
-    Ok(final_status)
+    if debug_requested {
+        write_debug_artifacts(output_root, scope, &page_markdown).await?;
+    }
+    let zip_path = if zip_requested {
+        Some(
+            create_zip_from_root(output_root, zip_path.as_deref())
+                .await
+                .map_err(|_| ExportFailure {
+                    exit: ExitCode::RuntimeFailure,
+                    stderr: "ERROR: runtime_failure artifact\n".to_owned(),
+                })?,
+        )
+    } else {
+        None
+    };
+    Ok((final_status, zip_path))
+}
+
+async fn write_debug_artifacts(
+    output_root: &camino::Utf8Path,
+    scope: &BasicPlanScope,
+    page_markdown: &std::collections::BTreeMap<String, String>,
+) -> Result<(), ExportFailure> {
+    write_debug_file(
+        output_root,
+        "_debug/run.json",
+        "{\n  \"command\": \"export\",\n  \"schema_version\": 1\n}\n",
+    )
+    .await?;
+    write_debug_file(
+        output_root,
+        "_debug/options.json",
+        "{\n  \"debug\": true,\n  \"redacted\": true\n}\n",
+    )
+    .await?;
+    write_debug_file(
+        output_root,
+        "_debug/events.ndjson",
+        "{\"event\":\"run_start\"}\n",
+    )
+    .await?;
+
+    for row in &scope.manifest_rows {
+        let page_root = format!("_debug/pages/{}", row.page_id);
+        let metadata = serde_json::json!({
+            "page_id": row.page_id,
+            "page_title": row.page_title,
+            "space_key": row.space_key,
+        });
+        write_debug_file(
+            output_root,
+            &format!("{page_root}/metadata.json"),
+            &format!("{}\n", metadata),
+        )
+        .await?;
+        if let Some(storage) = scope.page_storage.get(&row.page_id) {
+            write_debug_file(output_root, &format!("{page_root}/storage.xml"), storage).await?;
+        }
+        if let Some(markdown) = page_markdown.get(&row.page_id) {
+            write_debug_file(
+                output_root,
+                &format!("{page_root}/markdown.raw.md"),
+                markdown,
+            )
+            .await?;
+            write_debug_file(
+                output_root,
+                &format!("{page_root}/markdown.normalized.md"),
+                markdown,
+            )
+            .await?;
+        }
+        write_debug_file(
+            output_root,
+            &format!("{page_root}/markdown-exporter.args.txt"),
+            "native\n",
+        )
+        .await?;
+        write_debug_file(
+            output_root,
+            &format!("{page_root}/markdown-exporter.stderr.txt"),
+            "",
+        )
+        .await?;
+        write_debug_file(
+            output_root,
+            &format!("{page_root}/markdown-exporter.exit.json"),
+            "{\n  \"status\": 0\n}\n",
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn write_debug_file(
+    output_root: &camino::Utf8Path,
+    relative_path: &str,
+    content: &str,
+) -> Result<(), ExportFailure> {
+    write_file_no_follow_atomic(&output_root.join(relative_path), content)
+        .await
+        .map_err(|_| ExportFailure {
+            exit: ExitCode::RuntimeFailure,
+            stderr: "ERROR: runtime_failure artifact\n".to_owned(),
+        })
 }
 
 async fn write_page_payload(
@@ -437,9 +577,50 @@ async fn write_page_payload(
     Ok(())
 }
 
+async fn write_page_attachments(
+    output_root: &camino::Utf8Path,
+    folder: &str,
+    row: &ManifestRow,
+    env: &EnvMap,
+    policy: TransportPolicy,
+) -> Result<u64, String> {
+    let AttachmentDataResult::Ok { items, .. } =
+        get_attachment_data(&row.page_id, env, policy).await
+    else {
+        return Err("attachment_metadata".to_owned());
+    };
+
+    let mut content_bytes = 0u64;
+    for item in items {
+        let plan = plan_attachment_artifact(&AttachmentArtifactInput {
+            filename: item.filename,
+            download_url: item.download_url.clone(),
+            content_type: item.content_type,
+        });
+        let Some(filename) = plan.retained_path else {
+            continue;
+        };
+        let payload = match download_attachment_payload(&item.download_url, env, policy, None).await
+        {
+            AttachmentPayloadResult::Ok { bytes } => bytes,
+            _ => return Err("attachment_download".to_owned()),
+        };
+        let path = output_root
+            .join(folder)
+            .join("attachments")
+            .join(filename.as_str());
+        write_file_no_follow_atomic(&path, &payload)
+            .await
+            .map_err(|_| "attachment_download".to_owned())?;
+        content_bytes += payload.len() as u64;
+    }
+    Ok(content_bytes)
+}
+
 struct ReportBuild<'a> {
     page_id: &'a str,
     output_root: &'a camino::Utf8Path,
+    zip_path: Option<String>,
     execution_mode: OutputExecutionMode,
     resume_mode: bool,
     output_path_provenance: &'a str,
@@ -463,7 +644,7 @@ fn report_text(input: ReportBuild<'_>) -> Result<crate::reports::RunReportTexts,
         },
         page_id: input.page_id.to_owned(),
         output_root: input.output_root.to_string(),
-        zip_path: None,
+        zip_path: input.zip_path,
         output_path_provenance: input.output_path_provenance.to_owned(),
         final_status: input.final_status,
         scope_trust: input.scope_trust,
@@ -537,6 +718,7 @@ fn run_stdout(
     execution_mode: OutputExecutionMode,
     page_id: &str,
     output_root: &camino::Utf8Path,
+    artifact_path: &camino::Utf8Path,
     final_status: FinalStatus,
     zip_requested: bool,
 ) -> String {
@@ -561,7 +743,7 @@ fn run_stdout(
     lines.push(format!(
         "RUN_COMPLETE final_status={} artifact={}",
         final_status.as_str(),
-        quote_path_string(output_root.as_str())
+        quote_path_string(artifact_path.as_str())
     ));
     format!("{}\n", lines.join("\n"))
 }
@@ -1334,7 +1516,7 @@ fn scope_trust_for_rows(
 
 fn successful_run_exit_code(final_status: FinalStatus) -> ExitCode {
     match final_status {
-        FinalStatus::Incomplete => ExitCode::RuntimeFailure,
+        FinalStatus::Incomplete => ExitCode::ConfiguredStop,
         _ => ExitCode::Success,
     }
 }
