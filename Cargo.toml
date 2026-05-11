@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "crates/confluex-core",
   "crates/confluex-cli",
+  "xtask",
 ]
 
 [workspace.package]
