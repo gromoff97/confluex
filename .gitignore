@@ -1,13 +1,5 @@
-node_modules/
 target/
 tmp/
 .idea/
 .agents/
-.ralph/
-.playwright-mcp/
 docs/superpowers/
-ralph.yml
-PROMPT.md
-
-# Ignore dotfiles and dot-directories whose names contain "ai".
-.*ai*
