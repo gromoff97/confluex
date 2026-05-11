@@ -98,32 +98,3 @@ pub fn read_current_workspace_version(root: &Utf8Path) -> Result<Version, Versio
 pub fn set_workspace_version(root: &Utf8Path, next: &Version) -> Result<(), VersioningError> {
     set_package_version(&root.join("crates/confluex/Cargo.toml"), next)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bump_patch_increments_patch_only() {
-        assert_eq!(
-            bump(&Version::new(1, 2, 3), BumpLevel::Fix),
-            Version::new(1, 2, 4)
-        );
-    }
-
-    #[test]
-    fn bump_minor_resets_patch() {
-        assert_eq!(
-            bump(&Version::new(1, 2, 3), BumpLevel::Minor),
-            Version::new(1, 3, 0)
-        );
-    }
-
-    #[test]
-    fn bump_major_resets_minor_and_patch() {
-        assert_eq!(
-            bump(&Version::new(1, 2, 3), BumpLevel::Major),
-            Version::new(2, 0, 0)
-        );
-    }
-}

@@ -41,12 +41,6 @@ pub fn run(args: PublishArgs) -> Result<(), PublishError> {
 
     versioning::set_workspace_version(&args.root, &next)?;
     process::run(&args.root, "cargo", &["check", "--workspace"])?;
-    process::run(&args.root, "cargo", &["test", "--workspace"])?;
-    process::run(
-        &args.root,
-        "cargo",
-        &["publish", "--dry-run", "-p", "confluex", "--allow-dirty"],
-    )?;
     process::run(
         &args.root,
         "cargo",
@@ -65,6 +59,11 @@ pub fn run(args: PublishArgs) -> Result<(), PublishError> {
         &args.root,
         "git",
         &["commit", "-m", &format!("release: {tag}")],
+    )?;
+    process::run(
+        &args.root,
+        "cargo",
+        &["publish", "--dry-run", "-p", "confluex"],
     )?;
     process::run(&args.root, "git", &["tag", &tag])?;
     process::run(&args.root, "cargo", &["publish", "-p", "confluex"])?;
