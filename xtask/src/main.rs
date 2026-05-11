@@ -1,10 +1,10 @@
 mod archive;
 mod process;
-mod release;
+mod publish;
 mod versioning;
 
 use camino::Utf8PathBuf;
-use release::{PublishArgs, PublishLevel};
+use publish::{PublishArgs, PublishLevel};
 
 fn main() {
     if let Err(error) = run() {
@@ -42,7 +42,7 @@ fn run_publish(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     }
     let root = Utf8PathBuf::from_path_buf(std::env::current_dir()?)
         .map_err(|path| format!("workspace path is not UTF-8: {}", path.display()))?;
-    release::run(PublishArgs {
+    publish::run(PublishArgs {
         root,
         level: level.ok_or("publish level is required: major, minor, or fix")?,
     })?;
