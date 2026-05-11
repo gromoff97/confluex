@@ -177,16 +177,16 @@ async fn run_export_inner(request: ExportRequest) -> Result<CliOutcome, ExportFa
         });
     }
 
-    let (final_status, zip_path) = write_materialized_export(
-        &scope,
-        &output_root,
-        request.resume,
+    let (final_status, zip_path) = write_materialized_export(MaterializedExportRequest {
+        scope: &scope,
+        output_root: &output_root,
+        resume_mode: request.resume,
         output_path_provenance,
-        request.zip,
-        request.debug,
-        &env,
-        transport_policy,
-    )
+        zip_requested: request.zip,
+        debug_requested: request.debug,
+        env: &env,
+        policy: transport_policy,
+    })
     .await?;
     let artifact_path = zip_path.as_deref().unwrap_or(&output_root);
     Ok(CliOutcome {
@@ -337,16 +337,31 @@ async fn write_plan_only_report(
     Ok(String::new())
 }
 
-async fn write_materialized_export(
-    scope: &BasicPlanScope,
-    output_root: &camino::Utf8Path,
+struct MaterializedExportRequest<'a> {
+    scope: &'a BasicPlanScope,
+    output_root: &'a camino::Utf8Path,
     resume_mode: bool,
-    output_path_provenance: &str,
+    output_path_provenance: &'a str,
     zip_requested: bool,
     debug_requested: bool,
-    env: &EnvMap,
+    env: &'a EnvMap,
     policy: TransportPolicy,
+}
+
+async fn write_materialized_export(
+    request: MaterializedExportRequest<'_>,
 ) -> Result<(FinalStatus, Option<camino::Utf8PathBuf>), ExportFailure> {
+    let MaterializedExportRequest {
+        scope,
+        output_root,
+        resume_mode,
+        output_path_provenance,
+        zip_requested,
+        debug_requested,
+        env,
+        policy,
+    } = request;
+
     let exporter = NativeMarkdownExporter;
     let mut failed_payload_ids = std::collections::BTreeSet::new();
     let mut attachment_failed_page_rows = Vec::new();

@@ -27,7 +27,7 @@ materializes Markdown page payloads and retained attachments.
 .SH COMMON WORKFLOW
 .TP
 Build:
-.B cargo build --release -p confluex
+.B cargo build --release
 .TP
 Run:
 .B ./target/release/confluex --help
@@ -227,9 +227,9 @@ Interrupted by signal.
 .TP
 .B build fails
 Run
-.BR "cargo check --workspace" ,
+.BR "cargo check" ,
 then
-.BR "cargo build --release -p confluex" .
+.BR "cargo build --release" .
 If the release binary is missing, inspect Cargo diagnostics before Confluence
 configuration.
 .TP

@@ -1,16 +1,17 @@
-[workspace]
-resolver = "2"
-members = [
-  "crates/confluex",
-]
-
-[workspace.package]
+[package]
+name = "confluex"
+version = "0.0.1"
+description = "Export Confluence pages to Markdown from the command line."
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/gromoff97/confluex"
 rust-version = "1.88"
 
-[workspace.dependencies]
+[[bin]]
+name = "confluex"
+path = "src/main.rs"
+
+[dependencies]
 camino = { version = "1.2.2", features = ["serde1"] }
 cap-std = { version = "4.0.2", features = ["fs_utf8"] }
 comrak = "0.52.0"

@@ -2,7 +2,7 @@
 
 
 ### FR-0215
-**Requirement**: The Cargo workspace manifest shall define the Confluex CLI
+**Requirement**: The root Cargo package manifest shall define the Confluex CLI
 build surface.
 
 **Applicability**:
@@ -12,18 +12,18 @@ build surface.
 
 **Rationale**:
 - Confluex is Cargo-only for this project phase, so build ownership must come
-  from Cargo manifests instead of a secondary package adapter.
+  from the root Cargo manifest instead of a secondary package adapter or nested
+  package layout.
 
 **Acceptance Criteria**:
 1. The product root contains `Cargo.toml` and `Cargo.lock`.
-2. The root `Cargo.toml` defines one product workspace member path
-   `crates/confluex`.
-3. The `crates/confluex` crate defines one binary named exactly `confluex`.
-4. The canonical release build command is exactly
-   `cargo build --release -p confluex`.
-5. The canonical check command is exactly `cargo check --workspace`.
+2. The root `Cargo.toml` defines one package named exactly `confluex`.
+3. The root `Cargo.toml` defines one binary named exactly `confluex` with path
+   `src/main.rs`.
+4. The canonical release build command is exactly `cargo build --release`.
+5. The canonical check command is exactly `cargo check`.
 6. The canonical lint command is exactly
-   `cargo clippy --workspace --all-targets -- -D warnings`.
+   `cargo clippy --all-targets -- -D warnings`.
 
 **Dependencies**:
 - None
@@ -46,7 +46,7 @@ build surface.
 
 **Acceptance Criteria**:
 1. The documented fresh local build command is exactly
-   `cargo build --release -p confluex`.
+   `cargo build --release`.
 2. A successful fresh local build creates the command binary at
    `target/release/confluex` on Unix-like platforms.
 3. Fresh local build validation runs the smoke checks governed by `FR-0051`.
@@ -74,7 +74,7 @@ build surface.
 **Acceptance Criteria**:
 1. Update documentation describes updating the source checkout before rebuilding.
 2. The documented rebuild command after source update is exactly
-   `cargo build --release -p confluex`.
+   `cargo build --release`.
 3. Update validation runs the smoke checks governed by `FR-0051` after rebuild.
 
 **Dependencies**:
@@ -94,7 +94,7 @@ selected by the operator.
 - local cleanup verification
 
 **Rationale**:
-- Cargo-only local builds leave build artifacts under the workspace target
+- Cargo-only local builds leave build artifacts under the Cargo target
   directory; removal is cleanup of those artifacts or copied binaries chosen by
   the operator.
 
@@ -102,7 +102,7 @@ selected by the operator.
 1. Removal documentation identifies `target/release/confluex` as the canonical
    local release binary path on Unix-like platforms.
 2. Removal documentation may recommend `cargo clean` when the operator wants to
-   remove workspace build artifacts.
+   remove Cargo target build artifacts.
 3. Removal documentation does not describe global package-manager uninstall
    state.
 
@@ -161,17 +161,16 @@ selected by the operator.
 
 **Rationale**:
 - Cargo-only release readiness needs reviewable source contents that exclude
-  test harnesses, private workspace paths, and obsolete adapter files.
+  test harnesses, private local paths, and obsolete adapter files.
 
 **Acceptance Criteria**:
 1. Release verification reviews tracked Cargo product source rather than a
    package archive.
 2. The product source review requires `Cargo.toml`, `Cargo.lock`,
-   `crates/confluex/Cargo.toml`, `README.md`, `LICENSE`, and
-   `docs/man/man1/confluex.1`.
+   `README.md`, `LICENSE`, `src/main.rs`, and `docs/man/man1/confluex.1`.
 3. The product source review rejects removed package manifest files, removed
    package-adapter files, product-internal tests, stand files, Superpowers
-   artifacts, scan output, and private workspace paths.
+   artifacts, scan output, and private local paths.
 4. The canonical external verification project path is
    `/home/gromoff97/IdeaProjects/confluex-test`.
 
@@ -221,7 +220,7 @@ delegate full usage details to the manual source.
   usage.
 
 **Acceptance Criteria**:
-1. README quick-start documentation includes `cargo build --release -p confluex`,
+1. README quick-start documentation includes `cargo build --release`,
    `./target/release/confluex --help`, `./target/release/confluex setup`, one
    `./target/release/confluex export --page-id <id> --plan-only` example, one
    `./target/release/confluex export --page-id <id> --zip` example, and a
@@ -253,15 +252,15 @@ delegate full usage details to the manual source.
   steps before publication.
 
 **Acceptance Criteria**:
-1. The release version is the `version` value in `crates/confluex/Cargo.toml`.
+1. The release version is the `version` value in `Cargo.toml`.
 2. The release version is formatted as `x.y.z`, where `x`, `y`, and `z` are
    non-negative decimal integers without signs or separators other than dots.
 3. The maintainer commits the release version change before publication.
-4. The dry-run command is exactly `cargo publish --dry-run -p confluex`.
-5. The publish command is exactly `cargo publish -p confluex`.
+4. The dry-run command is exactly `cargo publish --dry-run`.
+5. The publish command is exactly `cargo publish`.
 6. Publication publishes the `confluex` crate to crates.io.
 7. Publication has no additional required release action after
-   `cargo publish -p confluex` completes successfully.
+   `cargo publish` completes successfully.
 
 **Dependencies**:
 - `FR-0166`
@@ -283,11 +282,11 @@ delegate full usage details to the manual source.
   system.
 
 **Acceptance Criteria**:
-1. Local development setup documentation uses `cargo check --workspace` for
+1. Local development setup documentation uses `cargo check` for
    compile validation.
 2. Local development setup documentation uses
-   `cargo clippy --workspace --all-targets -- -D warnings` for lint validation.
-3. Local release build testing uses `cargo build --release -p confluex`.
+   `cargo clippy --all-targets -- -D warnings` for lint validation.
+3. Local release build testing uses `cargo build --release`.
 4. Local smoke testing uses the Cargo-built binary smoke checks governed by
    `FR-0051`.
 

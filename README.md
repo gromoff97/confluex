@@ -6,7 +6,7 @@ Markdown.
 ## Build
 
 ```bash
-cargo build --release -p confluex
+cargo build --release
 ```
 
 Run the built CLI:
@@ -46,9 +46,9 @@ man ./docs/man/man1/confluex.1
 ## Publish
 
 Publish requires crates.io credentials. Set and commit the release version in
-`crates/confluex/Cargo.toml` before publishing.
+`Cargo.toml` before publishing.
 
 ```bash
-cargo publish --dry-run -p confluex
-cargo publish -p confluex
+cargo publish --dry-run
+cargo publish
 ```
