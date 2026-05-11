@@ -45,10 +45,10 @@ man ./docs/man/man1/confluex.1
 
 ## Publish
 
-Publish requires crates.io credentials and GitHub CLI authentication.
+Publish requires crates.io credentials. Set and commit the release version in
+`crates/confluex/Cargo.toml` before publishing.
 
 ```bash
-cargo xtask publish fix
-cargo xtask publish minor
-cargo xtask publish major
+cargo publish --dry-run -p confluex
+cargo publish -p confluex
 ```

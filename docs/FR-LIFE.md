@@ -241,33 +241,27 @@ delegate full usage details to the manual source.
 - Observable evidence: README lifecycle sections
 
 ### FR-0169
-**Requirement**: Publication shall use one local explicit-level xtask command.
+**Requirement**: Publication shall use Cargo native crates.io publication.
 
 **Applicability**:
 - publication preparation
 - release checklist
 
 **Rationale**:
-- Maintainers need one deliberate local command that publishes the Cargo package
-  to crates.io and creates the matching GitHub Release without a secondary
-  release path.
+- Cargo native publication is the conventional release path for a Cargo
+  package. Release version selection and commit creation are maintainer-owned
+  steps before publication.
 
 **Acceptance Criteria**:
-1. The active publish command is exactly
-   `cargo xtask publish <level>`, where `<level>` is exactly one of `major`,
-   `minor`, or `fix`.
-2. `cargo xtask publish` without `<level>` is rejected before version mutation,
-   Git mutation, crates.io upload, or GitHub Release mutation.
-3. The `major` level increments version `x.y.z` to `(x+1).0.0`.
-4. The `minor` level increments version `x.y.z` to `x.(y+1).0`.
-5. The `fix` level increments version `x.y.z` to `x.y.(z+1)`.
-6. A successful publish creates or uses a release version formatted as `x.y.z`,
-   publishes the `confluex` crate to crates.io, creates Git tag `vX.Y.Z`, and
-   creates GitHub Release `vX.Y.Z`.
-7. The publish command runs `cargo publish --dry-run -p confluex` before the
-   irreversible crates.io upload.
-8. The publish command uploads a source artifact and its `.sha256` file to the
-   GitHub Release.
+1. The release version is the `version` value in `crates/confluex/Cargo.toml`.
+2. The release version is formatted as `x.y.z`, where `x`, `y`, and `z` are
+   non-negative decimal integers without signs or separators other than dots.
+3. The maintainer commits the release version change before publication.
+4. The dry-run command is exactly `cargo publish --dry-run -p confluex`.
+5. The publish command is exactly `cargo publish -p confluex`.
+6. Publication publishes the `confluex` crate to crates.io.
+7. Publication has no additional required release action after
+   `cargo publish -p confluex` completes successfully.
 
 **Dependencies**:
 - `FR-0166`
@@ -275,8 +269,7 @@ delegate full usage details to the manual source.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: xtask publish output, crates.io package version, Git tag,
-  and GitHub Release assets
+- Observable evidence: Cargo publish output and crates.io package version
 
 ### FR-0170
 **Requirement**: Local development setup shall use Cargo.
