@@ -1,6 +1,6 @@
 [package]
 name = "confluex"
-version = "0.0.3"
+version = "0.0.2"
 description = "Export Confluence pages to Markdown from the command line."
 edition = "2021"
 license-file = "LICENSE"
