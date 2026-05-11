@@ -4,7 +4,7 @@ mod release;
 mod versioning;
 
 use camino::Utf8PathBuf;
-use release::{ReleaseArgs, ReleaseLevel};
+use release::{PublishArgs, PublishLevel};
 
 fn main() {
     if let Err(error) = run() {
@@ -20,34 +20,36 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     match args.remove(0).as_str() {
-        "release" => run_release(args),
+        "publish" => run_publish(args),
         other => Err(format!("unknown xtask command: {other}").into()),
     }
 }
 
-fn run_release(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+fn run_publish(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     let mut level = None;
     let mut dry_run = false;
     for arg in args {
         match arg.as_str() {
-            "patch" => level = Some(ReleaseLevel::Patch),
-            "minor" => level = Some(ReleaseLevel::Minor),
-            "major" => level = Some(ReleaseLevel::Major),
+            "fix" => level = Some(PublishLevel::Fix),
+            "minor" => level = Some(PublishLevel::Minor),
+            "major" => level = Some(PublishLevel::Major),
             "--dry-run" => dry_run = true,
-            other => return Err(format!("unsupported release argument: {other}").into()),
+            other => return Err(format!("unsupported publish argument: {other}").into()),
         }
+    }
+    if dry_run {
+        return Err("publish --dry-run is not supported; use `cargo publish --dry-run -p confluex` for package checks".into());
     }
     let root = Utf8PathBuf::from_path_buf(std::env::current_dir()?)
         .map_err(|path| format!("workspace path is not UTF-8: {}", path.display()))?;
-    release::run(ReleaseArgs {
+    release::run(PublishArgs {
         root,
-        level: level.ok_or("release level is required: patch, minor, or major")?,
-        dry_run,
+        level: level.ok_or("publish level is required: major, minor, or fix")?,
     })?;
     Ok(())
 }
 
 fn print_help() {
     println!("Usage:");
-    println!("  cargo xtask release <patch|minor|major> [--dry-run]");
+    println!("  cargo xtask publish <major|minor|fix>");
 }

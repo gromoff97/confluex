@@ -1,6 +1,6 @@
 mod parser;
 
-use confluex_core::{
+use confluex::{
     cli::CommandRequest,
     export::run_export,
     runtime::{CliOutcome, ExitCode},

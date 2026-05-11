@@ -42,3 +42,13 @@ Read the full command reference source:
 ```bash
 man ./docs/man/man1/confluex.1
 ```
+
+## Publish
+
+Publish requires crates.io credentials and GitHub CLI authentication.
+
+```bash
+cargo xtask publish fix
+cargo xtask publish minor
+cargo xtask publish major
+```

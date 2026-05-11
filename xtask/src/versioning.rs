@@ -5,7 +5,7 @@ use toml_edit::{value, DocumentMut};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BumpLevel {
-    Patch,
+    Fix,
     Minor,
     Major,
 }
@@ -33,8 +33,6 @@ pub enum VersioningError {
         #[source]
         source: semver::Error,
     },
-    #[error("crate versions differ: confluex={cli}, confluex-core={core}")]
-    VersionMismatch { cli: Version, core: Version },
     #[error("failed to write {path}: {source}")]
     Write {
         path: Utf8PathBuf,
@@ -45,7 +43,7 @@ pub enum VersioningError {
 
 pub fn bump(version: &Version, level: BumpLevel) -> Version {
     match level {
-        BumpLevel::Patch => Version::new(version.major, version.minor, version.patch + 1),
+        BumpLevel::Fix => Version::new(version.major, version.minor, version.patch + 1),
         BumpLevel::Minor => Version::new(version.major, version.minor + 1, 0),
         BumpLevel::Major => Version::new(version.major + 1, 0, 0),
     }
@@ -94,18 +92,11 @@ pub fn set_package_version(path: &Utf8Path, next: &Version) -> Result<(), Versio
 }
 
 pub fn read_current_workspace_version(root: &Utf8Path) -> Result<Version, VersioningError> {
-    let cli = read_package_version(&root.join("crates/confluex-cli/Cargo.toml"))?;
-    let core = read_package_version(&root.join("crates/confluex-core/Cargo.toml"))?;
-    if cli != core {
-        return Err(VersioningError::VersionMismatch { cli, core });
-    }
-    Ok(cli)
+    read_package_version(&root.join("crates/confluex/Cargo.toml"))
 }
 
 pub fn set_workspace_version(root: &Utf8Path, next: &Version) -> Result<(), VersioningError> {
-    set_package_version(&root.join("crates/confluex-cli/Cargo.toml"), next)?;
-    set_package_version(&root.join("crates/confluex-core/Cargo.toml"), next)?;
-    Ok(())
+    set_package_version(&root.join("crates/confluex/Cargo.toml"), next)
 }
 
 #[cfg(test)]
@@ -115,7 +106,7 @@ mod tests {
     #[test]
     fn bump_patch_increments_patch_only() {
         assert_eq!(
-            bump(&Version::new(1, 2, 3), BumpLevel::Patch),
+            bump(&Version::new(1, 2, 3), BumpLevel::Fix),
             Version::new(1, 2, 4)
         );
     }

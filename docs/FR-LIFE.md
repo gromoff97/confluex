@@ -16,9 +16,9 @@ build surface.
 
 **Acceptance Criteria**:
 1. The product root contains `Cargo.toml` and `Cargo.lock`.
-2. The root `Cargo.toml` defines one workspace member path
-   `crates/confluex-cli`.
-3. The `crates/confluex-cli` crate defines one binary named exactly `confluex`.
+2. The root `Cargo.toml` defines one product workspace member path
+   `crates/confluex`.
+3. The `crates/confluex` crate defines one binary named exactly `confluex`.
 4. The canonical release build command is exactly
    `cargo build --release -p confluex`.
 5. The canonical check command is exactly `cargo check --workspace`.
@@ -167,8 +167,8 @@ selected by the operator.
 1. Release verification reviews tracked Cargo product source rather than a
    package archive.
 2. The product source review requires `Cargo.toml`, `Cargo.lock`,
-   `crates/confluex-cli/Cargo.toml`, `crates/confluex-core/Cargo.toml`,
-   `README.md`, `LICENSE`, and `docs/man/man1/confluex.1`.
+   `crates/confluex/Cargo.toml`, `README.md`, `LICENSE`, and
+   `docs/man/man1/confluex.1`.
 3. The product source review rejects removed package manifest files, removed
    package-adapter files, product-internal tests, stand files, Superpowers
    artifacts, scan output, and private workspace paths.
@@ -241,29 +241,42 @@ delegate full usage details to the manual source.
 - Observable evidence: README lifecycle sections
 
 ### FR-0169
-**Requirement**: Publication shall not be active while Confluex is Cargo-only.
+**Requirement**: Publication shall use one local explicit-level xtask command.
 
 **Applicability**:
 - publication preparation
 - release checklist
 
 **Rationale**:
-- The current project phase has no external distribution channel beyond local
-  Cargo builds.
+- Maintainers need one deliberate local command that publishes the Cargo package
+  to crates.io and creates the matching GitHub Release without a secondary
+  release path.
 
 **Acceptance Criteria**:
-1. Publication preparation has no active publish command.
-2. Any future publication channel requires a separate approved design before
-   release.
-3. Forbidden-reference and secret scans remain release hygiene requirements
-   before any future publication channel is introduced.
+1. The active publish command is exactly
+   `cargo xtask publish <level>`, where `<level>` is exactly one of `major`,
+   `minor`, or `fix`.
+2. `cargo xtask publish` without `<level>` is rejected before version mutation,
+   Git mutation, crates.io upload, or GitHub Release mutation.
+3. The `major` level increments version `x.y.z` to `(x+1).0.0`.
+4. The `minor` level increments version `x.y.z` to `x.(y+1).0`.
+5. The `fix` level increments version `x.y.z` to `x.y.(z+1)`.
+6. A successful publish creates or uses a release version formatted as `x.y.z`,
+   publishes the `confluex` crate to crates.io, creates Git tag `vX.Y.Z`, and
+   creates GitHub Release `vX.Y.Z`.
+7. The publish command runs `cargo publish --dry-run -p confluex` before the
+   irreversible crates.io upload.
+8. The publish command uploads a source artifact and its `.sha256` file to the
+   GitHub Release.
 
 **Dependencies**:
 - `FR-0166`
+- `FR-0215`
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: release checklist without active publish command
+- Observable evidence: xtask publish output, crates.io package version, Git tag,
+  and GitHub Release assets
 
 ### FR-0170
 **Requirement**: Local development setup shall use Cargo.

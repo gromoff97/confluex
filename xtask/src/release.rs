@@ -6,21 +6,20 @@ use crate::process;
 use crate::versioning::{self, BumpLevel};
 
 #[derive(Clone, Copy, Debug)]
-pub enum ReleaseLevel {
-    Patch,
+pub enum PublishLevel {
+    Fix,
     Minor,
     Major,
 }
 
 #[derive(Debug)]
-pub struct ReleaseArgs {
+pub struct PublishArgs {
     pub root: Utf8PathBuf,
-    pub level: ReleaseLevel,
-    pub dry_run: bool,
+    pub level: PublishLevel,
 }
 
 #[derive(Debug, Error)]
-pub enum ReleaseError {
+pub enum PublishError {
     #[error(transparent)]
     Versioning(#[from] versioning::VersioningError),
     #[error(transparent)]
@@ -31,44 +30,36 @@ pub enum ReleaseError {
     Dirty(String),
 }
 
-pub fn run(args: ReleaseArgs) -> Result<(), ReleaseError> {
-    if !args.dry_run {
-        assert_clean_git(&args.root)?;
-    }
+pub fn run(args: PublishArgs) -> Result<(), PublishError> {
+    assert_clean_git(&args.root)?;
+    process::run(&args.root, "gh", &["auth", "status"])?;
 
     let current = versioning::read_current_workspace_version(&args.root)?;
     let next = versioning::bump(&current, to_bump_level(args.level));
-    println!("release version: {current} -> {next}");
+    let tag = format!("v{next}");
+    println!("publish version: {current} -> {next}");
 
-    if !args.dry_run {
-        versioning::set_workspace_version(&args.root, &next)?;
-        process::run(&args.root, "cargo", &["check", "--workspace"])?;
-    }
-
+    versioning::set_workspace_version(&args.root, &next)?;
+    process::run(&args.root, "cargo", &["check", "--workspace"])?;
     process::run(&args.root, "cargo", &["test", "--workspace"])?;
+    process::run(
+        &args.root,
+        "cargo",
+        &["publish", "--dry-run", "-p", "confluex", "--allow-dirty"],
+    )?;
     process::run(
         &args.root,
         "cargo",
         &["build", "--release", "-p", "confluex"],
     )?;
+
     let artifact = archive::build_source_archive(&args.root, &next)?;
     print_artifact(&artifact);
 
-    if args.dry_run {
-        println!("dry-run: skipped commit, tag, push, and GitHub Release upload");
-        return Ok(());
-    }
-
-    let tag = format!("v{next}");
     process::run(
         &args.root,
         "git",
-        &[
-            "add",
-            "crates/confluex-cli/Cargo.toml",
-            "crates/confluex-core/Cargo.toml",
-            "Cargo.lock",
-        ],
+        &["add", "crates/confluex/Cargo.toml", "Cargo.lock"],
     )?;
     process::run(
         &args.root,
@@ -76,29 +67,30 @@ pub fn run(args: ReleaseArgs) -> Result<(), ReleaseError> {
         &["commit", "-m", &format!("release: {tag}")],
     )?;
     process::run(&args.root, "git", &["tag", &tag])?;
+    process::run(&args.root, "cargo", &["publish", "-p", "confluex"])?;
     process::run(&args.root, "git", &["push"])?;
     process::run(&args.root, "git", &["push", "origin", &tag])?;
     upload_release(&args.root, &tag, &artifact)?;
     Ok(())
 }
 
-fn to_bump_level(level: ReleaseLevel) -> BumpLevel {
+fn to_bump_level(level: PublishLevel) -> BumpLevel {
     match level {
-        ReleaseLevel::Patch => BumpLevel::Patch,
-        ReleaseLevel::Minor => BumpLevel::Minor,
-        ReleaseLevel::Major => BumpLevel::Major,
+        PublishLevel::Fix => BumpLevel::Fix,
+        PublishLevel::Minor => BumpLevel::Minor,
+        PublishLevel::Major => BumpLevel::Major,
     }
 }
 
-fn assert_clean_git(root: &Utf8Path) -> Result<(), ReleaseError> {
+fn assert_clean_git(root: &Utf8Path) -> Result<(), PublishError> {
     let status = process::run(root, "git", &["status", "--porcelain"])?;
     if !status.trim().is_empty() {
-        return Err(ReleaseError::Dirty(status));
+        return Err(PublishError::Dirty(status));
     }
     Ok(())
 }
 
-fn upload_release(root: &Utf8Path, tag: &str, artifact: &Artifact) -> Result<(), ReleaseError> {
+fn upload_release(root: &Utf8Path, tag: &str, artifact: &Artifact) -> Result<(), PublishError> {
     if !process::succeeds(root, "gh", &["release", "view", tag])? {
         process::run(
             root,

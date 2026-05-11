@@ -386,18 +386,6 @@ name = "confluex"
 version = "0.1.0"
 dependencies = [
  "camino",
- "confluex-core",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "confluex-core"
-version = "0.1.0"
-dependencies = [
- "camino",
  "cap-std",
  "comrak",
  "fs-err",
@@ -411,6 +399,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "url",
  "walkdir",
  "zip",

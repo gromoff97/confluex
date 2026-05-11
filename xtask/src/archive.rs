@@ -105,8 +105,7 @@ fn copy_release_inputs(root: &Utf8Path, stage_root: &Utf8Path) -> Result<(), Arc
         copy_file(root, stage_root, file)?;
     }
     remove_xtask_workspace_member(&stage_root.join("Cargo.toml"))?;
-    copy_tree(root, stage_root, "crates/confluex-cli")?;
-    copy_tree(root, stage_root, "crates/confluex-core")?;
+    copy_tree(root, stage_root, "crates/confluex")?;
     Ok(())
 }
 

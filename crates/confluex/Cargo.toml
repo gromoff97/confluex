@@ -1,10 +1,15 @@
 [package]
-name = "confluex-core"
+name = "confluex"
 version = "0.1.0"
+description = "Export Confluence pages to Markdown from the command line."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+
+[[bin]]
+name = "confluex"
+path = "src/main.rs"
 
 [dependencies]
 camino.workspace = true
@@ -21,6 +26,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 url.workspace = true
 walkdir.workspace = true
 zip.workspace = true

@@ -1,5 +1,5 @@
 use camino::Utf8PathBuf;
-use confluex_core::{
+use confluex::{
     cli::{CommandRequest, ExportRequest, SetupRequest},
     runtime::{CliOutcome, ExitCode},
 };
