@@ -6,7 +6,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-license = "UNLICENSED"
+license-file = "LICENSE"
 repository = "https://github.com/gromoff97/confluex"
 rust-version = "1.88"
 

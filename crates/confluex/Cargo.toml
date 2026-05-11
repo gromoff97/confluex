@@ -3,7 +3,7 @@ name = "confluex"
 version = "0.0.0"
 description = "Export Confluence pages to Markdown from the command line."
 edition.workspace = true
-license.workspace = true
+license-file.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
