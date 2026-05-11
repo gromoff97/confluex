@@ -152,25 +152,26 @@ selected by the operator.
 - Observable evidence: built command stdout, stderr, and exit codes
 
 ### FR-0166
-**Requirement**: Release verification shall review tracked Cargo product source.
+**Requirement**: Release verification shall review Cargo package contents.
 
 **Applicability**:
 - release verification
-- source-content review
+- package-content review
 - external verification
 
 **Rationale**:
-- Cargo-only release readiness needs reviewable source contents that exclude
-  test harnesses, private local paths, and obsolete adapter files.
+- crates.io releases should contain only build/install material needed by crate
+  users and should not publish repository-only requirements, agent
+  instructions, private local paths, or obsolete adapter files.
 
 **Acceptance Criteria**:
-1. Release verification reviews tracked Cargo product source rather than a
-   package archive.
-2. The product source review requires `Cargo.toml`, `Cargo.lock`,
-   `README.md`, `LICENSE`, `src/main.rs`, and `docs/man/man1/confluex.1`.
-3. The product source review rejects removed package manifest files, removed
-   package-adapter files, product-internal tests, stand files, Superpowers
-   artifacts, scan output, and private local paths.
+1. Release verification reviews `cargo package --list` output.
+2. The Cargo package contents include `Cargo.toml`, `Cargo.lock`, `README.md`,
+   `LICENSE`, `src/main.rs`, and `docs/man/man1/confluex.1`.
+3. The Cargo package contents include no `docs/FR-*.md` paths,
+   `docs/AGENTS.md`, `AGENTS.md`, `.gitignore`, removed package manifest files,
+   removed package-adapter files, product-internal tests, stand files,
+   Superpowers artifacts, scan output, or private local paths.
 4. The canonical external verification project path is
    `/home/gromoff97/IdeaProjects/confluex-test`.
 
@@ -179,7 +180,7 @@ selected by the operator.
 
 **Traceability**:
 - Area: installation lifecycle
-- Observable evidence: tracked-source inventory review
+- Observable evidence: `cargo package --list` output
 
 ### FR-0167
 **Requirement**: Command execution shall use the Cargo-built native runtime

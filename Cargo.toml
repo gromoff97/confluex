@@ -1,11 +1,19 @@
 [package]
 name = "confluex"
-version = "0.0.2"
+version = "0.0.3"
 description = "Export Confluence pages to Markdown from the command line."
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/gromoff97/confluex"
 rust-version = "1.88"
+include = [
+  "/Cargo.lock",
+  "/Cargo.toml",
+  "/LICENSE",
+  "/README.md",
+  "/docs/man/man1/confluex.1",
+  "/src/**",
+]
 
 [[bin]]
 name = "confluex"
